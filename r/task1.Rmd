@@ -1,0 +1,171 @@
+---
+title: "task1"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("mcmssa_utils.R")
+source("noise_estim.R")
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+
+freq.est <- function(u) {
+  s <- ssa(u, kind = "1d-ssa")
+  p <- parestimate(s, groups = list(1:2))
+  p$frequencies[[1]]
+}
+```
+
+Пусть извезтно, что во временном ряде присутствует некоторый сигнал, но, возможно, еще присутствует какой-то другой сигнал, например гармоника с неизвестной нам частотой. Тогда модель выглядит следующим образом:
+$$
+\mathsf{X}=\mathsf{S}+\mathsf{P}+\mathsf{R},
+$$
+где $\mathsf{S}$ --- известный сигнал, $\mathsf{P}$ --- гармоника на неизвестной частоте и $\mathsf{R}$ --- шум. Будем проверять следующую нулевую гипотезу с альтернативой:
+$$
+H_0:\mathsf{P}=0,\\
+H_1:\mathsf{P}\ne0.
+$$
+Пусть известно, что в ряде есть синус с частотой $\omega_1=0.075$. Посмотрим на ошибку первого рода и на ROC-кривую альтернативы, что в ряде еще присутствует синус с $\omega_2=0.1$.
+```{r}
+omega.known <- 0.075
+omega.unknown <- 0.1
+```
+Параметры красного шума оставим как обычно: $\varphi=0.7$, $\delta=1$.
+```{r}
+N <- 100
+varphi <- 0.7
+delta <- 1
+Ls <- c(10, 20, 50, 80, 90)
+L_idx <- 1:length(Ls)
+D <- 1
+G <- 1000
+M <- 1000
+model <- list(varphi = varphi,
+              delta = delta,
+              N = N)
+```
+
+```{r, include=FALSE}
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+```
+Будем требовать сильную разделимость, т.е. чтобы собственные числа компонент, отвечающих за синусы не пересекались. Возьмем $A_1=3$ для известного сигнала и $A_2=1$ для неизвестного
+```{r}
+signal.known <- signal.one.channel(N, omega.known, A = 3)
+signal.unknown <- signal.one.channel(N, omega.unknown, A = 1)
+```
+
+```{r, results='hide'}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+pvals.noise <- list()
+for (k in 1:5) {
+  p <- foreach (i=1:M,
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, signal.known)
+      s <- ssa(f, kind = "toeplitz-ssa")
+      freq <- numeric()
+      for (i in 1:nu(s)) {
+        ss <- ssa(s$U[,i], kind = "1d-ssa")
+        p <- parestimate(ss, groups = list(1:2))
+        freq[i] <- p$frequencies[[1]]
+      }
+      components <- order(abs(omega.known - freq))[1:2]
+      r <- reconstruct(s, groups = list(components))
+      model.signal <- est.model.arima(resid(r))
+      model.signal$signal <- r[[1]]
+      m <- MonteCarloSSA(f = f,
+                         model = model.signal,
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      m$p.value
+    }
+  pvals.noise[[k]] <- p
+}
+stopCluster(cluster)
+```
+
+```{r, results='hide'}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+pvals.signal <- list()
+for (k in 1:5)
+{
+  p <- foreach (i=1:M,
+                .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                .combine='cbind',
+                .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, signal.known + signal.unknown)
+      s <- ssa(f, kind = "toeplitz-ssa")
+      freq <- numeric()
+      for (i in 1:nu(s)) {
+        ss <- ssa(s$U[,i], kind = "1d-ssa")
+        p <- parestimate(ss, groups = list(1:2))
+        freq[i] <- p$frequencies[[1]]
+      }
+      components <- order(abs(omega.known - freq))[1:2]
+      r <- reconstruct(s, groups = list(components))
+      model.signal <- est.model.arima(resid(r))
+      model.signal$signal <- r[[1]]
+      m <- MonteCarloSSA(f = f,
+                         model = model.signal,
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      m$p.value
+    }
+  pvals.signal[[k]] <- p
+}
+stopCluster(cluster)
+```
+
+```{r}
+alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
+clrs <- c('black', 'red', 'green', 'orange', 'purple')
+lwds <- c(2, 1, 1, 1, 1)
+alphaI <- lapply(pvals.noise, function(p) sapply(alphas, function(a) sum(p < a) / M))
+beta <- lapply(pvals.signal, function(p) sapply(alphas, function(a) sum(p < a) / M))
+```
+Сравним со случаем, когда известного сигнала нет ($\mathsf{S}=0$). Будем рисовать на графиках для этого случая пунктиром
+```{r}
+load("pvals.RData")
+alphaI.arima <- lapply(pvals.noise.arima, function(p) sapply(alphas, function(a) sum(p < a) / M))
+beta.arima <- lapply(pvals.signal.arima, function(p) sapply(alphas, function(a) sum(p < a) / M))
+```
+При всех длинах окна кроме $L=90$ критерий оказался более радикальным.
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "gray", main = "Type I error", xlab = 'significance level', ylab = 'type I error')
+for (i in 1:5) {
+  lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphas, alphaI.arima[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+Если сравнивать по мощности, то для всех длин окна рассматриваемый критерий показывает меньшую мощность, особенно просела она при $L=10$ и $L=20$.
+```{r}
+plot(c(0,1),c(0,1), type="l", col="gray", main = "ROC curve", xlab = 'type I error', ylab = 'power')
+for (i in 1:5) {
+  lines(alphaI[[i]], beta[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphaI.arima[[i]], beta.arima[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```

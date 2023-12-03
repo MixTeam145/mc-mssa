@@ -1,0 +1,259 @@
+---
+title: "Сравнение мощностей"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("mcmssa_utils.R")
+source("noise_estim.R")
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+```
+
+Сравним графики ошибок первого рода и мощностей метода MC-SSA, используя, истинные параметры красного шума, оцененные методом arima и оцененные методом extract (т.е. с предварительным извлечением сигнала, если такой обнаружится). Для оценки мощности использовался синус с амплитудой $A=1.5$.
+```{r, results='hide'}
+N <- 100
+varphi <- 0.7
+delta <- 1
+omega <- 0.1
+N <- 100
+Ls <- c(10, 20, 50, 80, 90)
+L_idx <- 1:length(Ls)
+D <- 1 
+G <- 1000
+M <- 1000
+model <- list(varphi = varphi,
+              delta = delta,
+              N = N)
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+signal <- signal.one.channel(N, omega, 1)
+```
+
+```{r, results='hide'}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1)
+est.varphi <- foreach(i=1:M,
+                      .combine = cbind,
+                      .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                      .options.snow=opts) %dopar% {
+  f <- one.channel.ts(model, signal)
+  rbind(est.model.arima(f)$varphi, est.model.extract(f)$varphi)
+}
+stopCluster(cluster)
+```
+
+```{r}
+rowMeans((est.varphi - varphi)^2)
+rowVars(est.varphi)
+rowMeans(est.varphi) - varphi
+```
+
+```{r, results='hide'}
+pvals.noise.arima <- list()
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+for (k in 1:5) {
+  pvals <- foreach (i=1:M, 
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, 0)
+      r <- MonteCarloSSA(f = f,
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      r$p.value
+    }
+  pvals.noise.arima[[k]] <- pvals
+}
+stopCluster(cluster)
+```
+
+```{r results='hide'}
+pvals.noise <- list()
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+for (k in 1:5) {
+  pvals <- foreach (i=1:M,
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, 0)
+      r <- MonteCarloSSA(f = f,
+                         model = model,
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      r$p.value
+    }
+  pvals.noise[[k]] <- pvals
+}
+stopCluster(cluster)
+```
+
+```{r, results='hide'}
+pvals.noise.extract <- list()
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+for (k in 1:5) {
+  pvals <- foreach (i=1:M,
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, 0)
+      r <- MonteCarloSSA(f = f,
+                         model = est.model.extract(f),
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      r$p.value
+    }
+  pvals.noise.extract[[k]] <- pvals
+}
+stopCluster(cluster)
+```
+
+```{r, results='hide'}
+pvals.signal <- list()
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+for (k in 1:5) {
+  pvals <- foreach (i=1:M,
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, signal)
+      r <- MonteCarloSSA(f = f,
+                         model = model,
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      r$p.value
+    }
+  pvals.signal[[k]] <- pvals
+}
+stopCluster(cluster)
+```
+
+```{r, results='hide'}
+pvals.signal.arima <- list()
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+for (k in 1:5) {
+  pvals <- foreach (i=1:M,
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, signal)
+      r <- MonteCarloSSA(f = f,
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      r$p.value
+    }
+  pvals.signal.arima[[k]] <- pvals
+}
+stopCluster(cluster)
+```
+
+```{r, results='hide'}
+pvals.signal.extract <- list()
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+for (k in 1:5){
+  pvals <- foreach (i=1:M,
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, signal)
+      r <- MonteCarloSSA(f = f,
+                         model = est.model.extract(f),
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      r$p.value
+    }
+  pvals.signal.extract[[k]] <- pvals
+}
+stopCluster(cluster)
+```
+
+
+```{r}
+alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
+
+alpha1 <- lapply(pvals.noise, function(p) sapply(alphas, function(a) sum(p < a) / M))
+alpha1.arima <- lapply(pvals.noise.arima, function(p) sapply(alphas, function(a)  sum(p < a) / M))
+alpha1.extract <- lapply(pvals.noise.extract, function(p) sapply(alphas, function(a)  sum(p < a) / M))
+
+beta <- lapply(pvals.signal, function(p) sapply(alphas, function(a) sum(p < a) / M))
+beta.arima <- lapply(pvals.signal.arima, function(p) sapply(alphas, function(a) sum(p < a) / M))
+beta.extract <- lapply(pvals.signal.extract, function(p) sapply(alphas, function(a) sum(p < a) / M))
+```
+Посмотрим на графики ошибок первого рода. Для удобства сравнения, каждой длине окна соответствует отдельный график. Видим, что при $L=10,20$ критерии с оцененными параметрами до определенного момента консервативны, потом радикальные. Для остальных $L$ критерии радикальные. Заметим, что для всех $L$ графики критериев с оцененными параметрами практически идентичны, что соответствует $\pm$ одинаковой точности оценок при отсутствии сигнала. 
+```{r}
+clrs <- c("black", "red", "blue")
+legends <- c("True model", "Estimated model (arima)", "Estimated model (extract)")
+lwds <- c(2,2,2)
+for (i in 1:5) {
+  plot(c(0,1),c(0,1), type = "l", col = "gray", main = sprintf("Type I error, L = %d", Ls[i]), xlab = 'significance level', ylab = 'type I error')
+  lines(alphas, alpha1[[i]], col = clrs[1], lwd = lwds[1])
+  lines(alphas, alpha1.arima[[i]], col = clrs[2], lwd = lwds[2])
+  lines(alphas, alpha1.extract[[i]], col = clrs[3], lwd = lwds[3])
+  legend(x = "bottomright", legend = legends, col = clrs, lty = 1)
+}
+```
+
+Если посмотреть на ROC-кривые критериев, видим серьезное повышение мощности, используя метод extract, при $L=10,20$. Для остальных $L$ улучшения нет.
+```{r}
+for (i in 1:5) {
+  plot(c(0,1),c(0,1), type = "l", col = "gray", main = sprintf("ROC curve, L = %d", Ls[i]), xlab = 'type I error', ylab = 'power')
+  lines(alpha1[[i]], beta[[i]], col = clrs[1], lwd = lwds[1])
+  lines(alpha1.arima[[i]], beta.arima[[i]], col = clrs[2], lwd = lwds[2])
+  lines(alpha1.extract[[i]], beta.extract[[i]], col = clrs[3], lwd = lwds[3])
+  legend(x = "bottomright", legend = legends, col = clrs, lty = 1)
+}
+```
