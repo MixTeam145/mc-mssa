@@ -11,12 +11,6 @@ library(foreach)
 library(doSNOW)
 library(parallel)
 library(doRNG)
-
-freq.est <- function(u) {
-  s <- ssa(u, kind = "1d-ssa")
-  p <- parestimate(s, groups = list(1:2))
-  p$frequencies[[1]]
-}
 ```
 
 Пусть извезтно, что во временном ряде присутствует некоторый сигнал, но, возможно, еще присутствует какой-то другой сигнал, например гармоника с неизвестной нам частотой. Тогда модель выглядит следующим образом:
@@ -53,7 +47,7 @@ pb <- txtProgressBar(max = M, style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 ```
-Будем требовать сильную разделимость, т.е. чтобы собственные числа компонент, отвечающих за синусы не пересекались. Возьмем $A_1=3$ для известного сигнала и $A_2=1$ для неизвестного
+Будем требовать сильную разделимость, т.е. чтобы собственные числа компонент, отвечающих за синусы не пересекались. Возьмем $A_1=3$ для известного сигнала и $A_2=1$ для неизвестного.
 ```{r}
 signal.known <- signal.one.channel(N, omega.known, A = 3)
 signal.unknown <- signal.one.channel(N, omega.unknown, A = 1)
@@ -64,9 +58,9 @@ cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
 registerDoRNG(seed = 1, once = FALSE)
-pvals.noise <- list()
+pvals.h0sin <- list()
 for (k in 1:5) {
-  p <- foreach (i=1:M,
+  result <- foreach (i=1:M,
                     .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
                     .combine='cbind',
                     .options.snow=opts) %dopar%
@@ -93,7 +87,7 @@ for (k in 1:5) {
                          level.conf = NULL)
       m$p.value
     }
-  pvals.noise[[k]] <- p
+  pvals.h0sin[[k]] <- result
 }
 stopCluster(cluster)
 ```
@@ -103,10 +97,9 @@ cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
 registerDoRNG(seed = 1, once = FALSE)
-pvals.signal <- list()
-for (k in 1:5)
-{
-  p <- foreach (i=1:M,
+pvals.h1sin <- list()
+for (k in 1:5) {
+  result <- foreach (i=1:M,
                 .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
                 .combine='cbind',
                 .options.snow=opts) %dopar%
@@ -133,7 +126,7 @@ for (k in 1:5)
                          level.conf = NULL)
       m$p.value
     }
-  pvals.signal[[k]] <- p
+  pvals.h1sin[[k]] <- result
 }
 stopCluster(cluster)
 ```
@@ -142,21 +135,76 @@ stopCluster(cluster)
 alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
 clrs <- c('black', 'red', 'green', 'orange', 'purple')
 lwds <- c(2, 1, 1, 1, 1)
-alphaI <- lapply(pvals.noise, function(p) sapply(alphas, function(a) sum(p < a) / M))
-beta <- lapply(pvals.signal, function(p) sapply(alphas, function(a) sum(p < a) / M))
+alphaI.sin <- lapply(pvals.h0sin, function(p) sapply(alphas, function(a) sum(p < a) / M))
+beta.sin <- lapply(pvals.h1sin, function(p) sapply(alphas, function(a) sum(p < a) / M))
 ```
-Сравним со случаем, когда известного сигнала нет ($\mathsf{S}=0$). Будем рисовать на графиках для этого случая пунктиром
+Сравним со случаем, когда известного сигнала нет ($\mathsf{S}=0$). Будем рисовать на графиках для этого случая пунктиром.
+```{r, results='hide'}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+pvals.h0 <- list()
+for (k in 1:5) {
+  result <- foreach (i=1:M,
+                .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                .combine='cbind',
+                .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, 0)
+      m <- MonteCarloSSA(f = f,
+                         model = est.model.arima(f),
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      m$p.value
+    }
+  pvals.h0[[k]] <- result
+}
+stopCluster(cluster)
+```
+
+```{r, results='hide'}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+pvals.h1 <- list()
+for (k in 1:5) {
+  result <- foreach (i=1:M,
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, signal.unknown)
+      m <- MonteCarloSSA(f = f,
+                         model = est.model.arima(f),
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      m$p.value
+    }
+  pvals.h1[[k]] <- result
+}
+stopCluster(cluster)
+```
+
 ```{r}
-load("pvals.RData")
-alphaI.arima <- lapply(pvals.noise.arima, function(p) sapply(alphas, function(a) sum(p < a) / M))
-beta.arima <- lapply(pvals.signal.arima, function(p) sapply(alphas, function(a) sum(p < a) / M))
+alphaI <- lapply(pvals.h0, function(p) sapply(alphas, function(a) sum(p < a) / M))
+beta <- lapply(pvals.h1, function(p) sapply(alphas, function(a) sum(p < a) / M))
 ```
 При всех длинах окна кроме $L=90$ критерий оказался более радикальным.
 ```{r}
 plot(c(0,1),c(0,1), type="l", col = "gray", main = "Type I error", xlab = 'significance level', ylab = 'type I error')
 for (i in 1:5) {
-  lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
-  lines(alphas, alphaI.arima[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
+  lines(alphas, alphaI.sin[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphas, alphaI[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
@@ -164,8 +212,8 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```{r}
 plot(c(0,1),c(0,1), type="l", col="gray", main = "ROC curve", xlab = 'type I error', ylab = 'power')
 for (i in 1:5) {
-  lines(alphaI[[i]], beta[[i]], lwd = lwds[i], col = clrs[i])
-  lines(alphaI.arima[[i]], beta.arima[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
+  lines(alphaI.sin[[i]], beta.sin[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphaI[[i]], beta[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
