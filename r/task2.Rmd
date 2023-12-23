@@ -1,0 +1,142 @@
+---
+title: "task2"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("mcmssa_utils.R")
+source("noise_estim.R")
+source("auto_trend_ssa.R")
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+```
+
+```{r}
+N <- 100
+varphi <- 0.7
+delta <- 1
+Ls <- c(10, 20, 50, 80, 90)
+L_idx <- 1:length(Ls)
+D <- 1
+G <- 1000
+M <- 1000
+model <- list(varphi = varphi,
+              delta = delta,
+              N = N)
+```
+
+```{r, include=FALSE}
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+```
+
+Теперь пусть известно, что в ряде присутсвует тренд. Нужно проверить, есть ли еще сигнал.
+```{r}
+omega.unknown <- 0.1
+signal.known <- 0.2 * exp(0.05 * (1:N))
+signal.unknown <- signal.one.channel(N, omega.unknown)
+
+ts <- one.channel.ts(model, signal.known + signal.unknown)
+plot.ts(ts)
+```
+Для извлечения тренда воспользуемся функцией auto_trend_model с signal_rank = 1, поскольку экспоненциальный ряд имеет единичный ранг.
+```{r, results='hide'}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+pvals.h0trend <- list()
+for (k in 1:5) {
+  result <- foreach (i=1:M,
+                    .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct', 'grouping.auto'),
+                    .combine='cbind',
+                    .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, signal.known)
+      s <- ssa(f)
+      auto <- auto_trend_model(s, method = "basic.auto", signal_rank = 1)
+      model.signal <- est.model.arima(resid(auto))
+      model.signal$signal <- auto$trend
+      m <- MonteCarloSSA(f = f,
+                         model = model.signal,
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      m$p.value
+    }
+  pvals.h0trend[[k]] <- result
+}
+stopCluster(cluster)
+```
+
+```{r, results='hide'}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+pvals.h1trend <- list()
+for (k in 1:5) {
+  result <- foreach (i=1:M,
+                .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct', 'grouping.auto'),
+                .combine='cbind',
+                .options.snow=opts) %dopar%
+    {
+      f <- one.channel.ts(model, signal.known + signal.unknown)
+      s <- ssa(f)
+      auto <- auto_trend_model(s, method = "basic.auto", signal_rank = 1)
+      model.signal <- est.model.arima(resid(auto))
+      model.signal$signal <- auto$trend
+      m <- MonteCarloSSA(f = f,
+                         model = model.signal,
+                         L = Ls[k],
+                         D = 1,
+                         basis = "ev",
+                         kind = "ev",
+                         G = G,
+                         level.conf = NULL)
+      m$p.value
+    }
+  pvals.h1trend[[k]] <- result
+}
+stopCluster(cluster)
+```
+Также, как и в первом пункте, сравним графики ошибок первого рода и ROC-кривые данного критерия и критерия, когда известного сигнал отсутствует.
+```{r}
+alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
+clrs <- c('black', 'red', 'green', 'orange', 'purple')
+lwds <- c(2, 1, 1, 1, 1)
+alphaI.trend <- lapply(pvals.h0trend, function(p) sapply(alphas, function(a) sum(p < a) / M))
+beta.trend <- lapply(pvals.h1trend, function(p) sapply(alphas, function(a) sum(p < a) / M))
+```
+
+```{r}
+load("pvals.Rdata")
+alphaI <- lapply(pvals.h0, function(p) sapply(alphas, function(a) sum(p < a) / M))
+beta <- lapply(pvals.h1, function(p) sapply(alphas, function(a) sum(p < a) / M))
+```
+
+Данный критерий оказался радикальнее при $L=10$, почти не изменился при $L=20$. Для остальных длин окна радикальность критерия сильно уменьшилась.
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "gray", main = "Type I error", xlab = 'significance level', ylab = 'type I error')
+for (i in 1:5) {
+  lines(alphas, alphaI.trend[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphas, alphaI[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+Если посмотреть на мощность двух критериев, рассматриваемый критерий показывает большую мощность для всех длин окна кроме $L=90$.
+```{r}
+plot(c(0,1),c(0,1), type="l", col="gray", main = "ROC curve", xlab = 'type I error', ylab = 'power')
+for (i in 1:5) {
+  lines(alphaI.trend[[i]], beta.trend[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphaI[[i]], beta[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
