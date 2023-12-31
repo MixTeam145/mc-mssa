@@ -4,3 +4,11 @@
 /r/.Rhistory
 .Rproj.user
 /r/.RData
+*.aux
+*.bbl
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.gz
