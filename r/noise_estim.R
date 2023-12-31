@@ -28,7 +28,7 @@ est.model.as <- function(f) {
   est.model
 }
 
-est.model.extract <- function(f, L = (N + 1) %/% 2) {
+est.model.extract <- function(f, L = (N + 1) %/% 2, alpha) {
   N <- length(f)
   m <- MonteCarloSSA(f = f,
                      L = L,
@@ -36,7 +36,8 @@ est.model.extract <- function(f, L = (N + 1) %/% 2) {
                      basis = "ev",
                      kind = "ev",
                      G = G,
-                     level.conf = 0.975)
+                     level.conf = 1 - alphas.corrected.arima(alpha),
+                     composite = "none")
   if (m$reject) {
     suspect <- which(m$v > m$upper)
     s <- ssa(f, L = 50, D = 1, kind = "toeplitz-ssa")

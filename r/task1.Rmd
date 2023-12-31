@@ -24,8 +24,8 @@ H_1:\mathsf{P}\ne0.
 $$
 Пусть известно, что в ряде есть синус с частотой $\omega_1=0.075$. Посмотрим на ошибку первого рода и на ROC-кривую альтернативы, что в ряде еще присутствует синус с $\omega_2=0.1$.
 ```{r}
-omega.known <- 0.075
-omega.unknown <- 0.1
+omega.known <- 0.25
+omega.unknown <- 0.075
 ```
 Параметры красного шума оставим как обычно: $\varphi=0.7$, $\delta=1$.
 ```{r}
@@ -66,17 +66,8 @@ for (k in 1:5) {
                     .options.snow=opts) %dopar%
     {
       f <- one.channel.ts(model, signal.known)
-      s <- ssa(f, kind = "toeplitz-ssa")
-      freq <- numeric()
-      for (i in 1:nu(s)) {
-        ss <- ssa(s$U[,i], kind = "1d-ssa")
-        p <- parestimate(ss, groups = list(1:2))
-        freq[i] <- p$frequencies[[1]]
-      }
-      components <- order(abs(omega.known - freq))[1:2]
-      r <- reconstruct(s, groups = list(components))
-      model.signal <- est.model.arima(resid(r))
-      model.signal$signal <- r[[1]]
+      model.signal <- model
+      model.signal$signal <- signal.known
       m <- MonteCarloSSA(f = f,
                          model = model.signal,
                          L = Ls[k],
@@ -84,10 +75,11 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL)
+                         level.conf = NULL,
+                         composite = "var1")
       m$p.value
     }
-  pvals.h0sin[[k]] <- result
+  pvals.h0sin.estim[[k]] <- result
 }
 stopCluster(cluster)
 ```
@@ -105,17 +97,8 @@ for (k in 1:5) {
                 .options.snow=opts) %dopar%
     {
       f <- one.channel.ts(model, signal.known + signal.unknown)
-      s <- ssa(f, kind = "toeplitz-ssa")
-      freq <- numeric()
-      for (i in 1:nu(s)) {
-        ss <- ssa(s$U[,i], kind = "1d-ssa")
-        p <- parestimate(ss, groups = list(1:2))
-        freq[i] <- p$frequencies[[1]]
-      }
-      components <- order(abs(omega.known - freq))[1:2]
-      r <- reconstruct(s, groups = list(components))
-      model.signal <- est.model.arima(resid(r))
-      model.signal$signal <- r[[1]]
+      model.signal <- model
+      model.signal$signal <- signal.known
       m <- MonteCarloSSA(f = f,
                          model = model.signal,
                          L = Ls[k],
@@ -123,7 +106,8 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL)
+                         level.conf = NULL,
+                         composite = "var1")
       m$p.value
     }
   pvals.h1sin[[k]] <- result
@@ -135,9 +119,13 @@ stopCluster(cluster)
 alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
 clrs <- c('black', 'red', 'green', 'orange', 'purple')
 lwds <- c(2, 1, 1, 1, 1)
+```
+
+```{r}
 alphaI.sin <- lapply(pvals.h0sin, function(p) sapply(alphas, function(a) sum(p < a) / M))
 beta.sin <- lapply(pvals.h1sin, function(p) sapply(alphas, function(a) sum(p < a) / M))
 ```
+
 Сравним со случаем, когда известного сигнала нет ($\mathsf{S}=0$). Будем рисовать на графиках для этого случая пунктиром.
 ```{r, results='hide'}
 cores <- detectCores()
@@ -153,7 +141,7 @@ for (k in 1:5) {
     {
       f <- one.channel.ts(model, 0)
       m <- MonteCarloSSA(f = f,
-                         model = est.model.arima(f),
+                         model = model,
                          L = Ls[k],
                          D = 1,
                          basis = "ev",
@@ -181,7 +169,7 @@ for (k in 1:5) {
     {
       f <- one.channel.ts(model, signal.unknown)
       m <- MonteCarloSSA(f = f,
-                         model = est.model.arima(f),
+                         model = model,
                          L = Ls[k],
                          D = 1,
                          basis = "ev",
@@ -199,18 +187,28 @@ stopCluster(cluster)
 alphaI <- lapply(pvals.h0, function(p) sapply(alphas, function(a) sum(p < a) / M))
 beta <- lapply(pvals.h1, function(p) sapply(alphas, function(a) sum(p < a) / M))
 ```
-При всех длинах окна кроме $L=90$ критерий оказался более радикальным.
+
+# Графики ошибки I рода, мощности и ROC-кривые
 ```{r}
-plot(c(0,1),c(0,1), type="l", col = "gray", main = "Type I error", xlab = 'significance level', ylab = 'type I error')
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "Type I error", xlab = 'significance level', ylab = 'type I error')
 for (i in 1:5) {
   lines(alphas, alphaI.sin[[i]], lwd = lwds[i], col = clrs[i])
-  lines(alphas, alphaI[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
+  lines(alphas, alphaI[[i]], lty = 2, lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
-Если сравнивать по мощности, то для всех длин окна рассматриваемый критерий показывает меньшую мощность, особенно просела она при $L=10$ и $L=20$.
+
 ```{r}
-plot(c(0,1),c(0,1), type="l", col="gray", main = "ROC curve", xlab = 'type I error', ylab = 'power')
+plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, main = "Power", xlab = 'significance level', ylab = 'power')
+for (i in 1:5) {
+  lines(alphas, beta.sin[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphas, beta[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", lty = 2, col="blue", main = "ROC curve", xlab = 'type I error', ylab = 'power')
 for (i in 1:5) {
   lines(alphaI.sin[[i]], beta.sin[[i]], lwd = lwds[i], col = clrs[i])
   lines(alphaI[[i]], beta[[i]], lwd = lwds[i], lty = 2, col = clrs[i])

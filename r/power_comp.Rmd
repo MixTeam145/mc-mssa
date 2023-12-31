@@ -18,8 +18,7 @@ library(doRNG)
 N <- 100
 varphi <- 0.7
 delta <- 1
-omega <- 0.1
-N <- 100
+omega <- 0.075
 Ls <- c(10, 20, 50, 80, 90)
 L_idx <- 1:length(Ls)
 D <- 1 
@@ -31,7 +30,7 @@ model <- list(varphi = varphi,
 pb <- txtProgressBar(max = M, style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
-signal <- signal.one.channel(N, omega, 1)
+signal <- signal.one.channel(N, omega, 1.5)
 ```
 
 ```{r, results='hide'}
@@ -69,12 +68,14 @@ for (k in 1:5) {
     {
       f <- one.channel.ts(model, 0)
       r <- MonteCarloSSA(f = f,
+                         model = est.model.arima(f),
                          L = Ls[k],
                          D = 1,
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL)
+                         level.conf = NULL,
+                         composite = "none")
       r$p.value
     }
   pvals.noise.arima[[k]] <- pvals
@@ -102,12 +103,18 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL)
+                         level.conf = NULL,
+                         composite = "none")
       r$p.value
     }
   pvals.noise[[k]] <- pvals
 }
 stopCluster(cluster)
+```
+
+```{r}
+# Поправка при L=50
+alphas.corrected.arima <- correction(pvals.noise.arima[[3]])
 ```
 
 ```{r, results='hide'}
@@ -124,13 +131,14 @@ for (k in 1:5) {
     {
       f <- one.channel.ts(model, 0)
       r <- MonteCarloSSA(f = f,
-                         model = est.model.extract(f),
+                         model = est.model.extract(f, alpha = 0.05),
                          L = Ls[k],
                          D = 1,
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL)
+                         level.conf = NULL,
+                         composite = "none")
       r$p.value
     }
   pvals.noise.extract[[k]] <- pvals
@@ -158,7 +166,8 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL)
+                         level.conf = NULL,
+                         composite = "none")
       r$p.value
     }
   pvals.signal[[k]] <- pvals
@@ -180,12 +189,14 @@ for (k in 1:5) {
     {
       f <- one.channel.ts(model, signal)
       r <- MonteCarloSSA(f = f,
+                         model = est.model.arima(f),
                          L = Ls[k],
                          D = 1,
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL)
+                         level.conf = NULL,
+                         composite = "none")
       r$p.value
     }
   pvals.signal.arima[[k]] <- pvals
@@ -207,13 +218,14 @@ for (k in 1:5){
     {
       f <- one.channel.ts(model, signal)
       r <- MonteCarloSSA(f = f,
-                         model = est.model.extract(f),
+                         model = est.model.extract(f, alpha = 0.05),
                          L = Ls[k],
                          D = 1,
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL)
+                         level.conf = NULL,
+                         composite = "none")
       r$p.value
     }
   pvals.signal.extract[[k]] <- pvals
@@ -221,10 +233,14 @@ for (k in 1:5){
 stopCluster(cluster)
 ```
 
-
 ```{r}
 alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
+clrs <- c("black", "red", "blue")
+legends <- c("True model", "Estimated model (arima)", "Estimated model (extract)")
+lwds <- c(2,2,2)
+```
 
+```{r}
 alpha1 <- lapply(pvals.noise, function(p) sapply(alphas, function(a) sum(p < a) / M))
 alpha1.arima <- lapply(pvals.noise.arima, function(p) sapply(alphas, function(a)  sum(p < a) / M))
 alpha1.extract <- lapply(pvals.noise.extract, function(p) sapply(alphas, function(a)  sum(p < a) / M))
@@ -235,9 +251,7 @@ beta.extract <- lapply(pvals.signal.extract, function(p) sapply(alphas, function
 ```
 Посмотрим на графики ошибок первого рода. Для удобства сравнения, каждой длине окна соответствует отдельный график. Видим, что при $L=10,20$ критерии с оцененными параметрами до определенного момента консервативны, потом радикальные. Для остальных $L$ критерии радикальные. Заметим, что для всех $L$ графики критериев с оцененными параметрами практически идентичны, что соответствует $\pm$ одинаковой точности оценок при отсутствии сигнала. 
 ```{r}
-clrs <- c("black", "red", "blue")
-legends <- c("True model", "Estimated model (arima)", "Estimated model (extract)")
-lwds <- c(2,2,2)
+plot(c(0,1),c(0,1), col = "gray")
 for (i in 1:5) {
   plot(c(0,1),c(0,1), type = "l", col = "gray", main = sprintf("Type I error, L = %d", Ls[i]), xlab = 'significance level', ylab = 'type I error')
   lines(alphas, alpha1[[i]], col = clrs[1], lwd = lwds[1])

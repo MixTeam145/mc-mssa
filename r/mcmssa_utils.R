@@ -3,6 +3,7 @@ library("pracma")
 library("matrixStats")
 library("magic")
 source("toeplitz_mssa.R")
+source("auto_trend_ssa.R")
 
 type = 8
 
@@ -49,11 +50,16 @@ est.model.arima <-  function(f) {
 
 ###Functions for Monte Carlo SSA
 # Computes squared norms of projections to column vectors of U
-projec <- function(data, L, D, U, kind=c("ev", "fa")) {
+projec <- function(data, L, D, U, kind=c("ev", "fa"), composite = "none") {
   if (is.list(data)) {
     # data are given by a model
     #f <- generate(model, replicate(D, 0, simplify=F), D)
     f <- generate(data, replicate(D, 0, simplify=F), D)
+    if (composite == "var2" && D == 1) {
+      s <- ssa(f)
+      auto <- auto_trend_model(s, method = "basic.auto", signal_rank = 1)
+      f <- resid(auto)
+    }
   } else {
     # data are given by a series
     f <- data
@@ -82,11 +88,15 @@ projec <- function(data, L, D, U, kind=c("ev", "fa")) {
 }
 
 # Generate vectors for projections corresponding to eigenvectors produced by t.s.
-basis.ev <- function(ts, L, factor.v = T, toeplitz.kind = "no") {
+basis.ev <- function(ts, L, factor.v = T, toeplitz.kind = "no", model) {
   D <- dim(ts)[2]
   neig <- min(L, length(ts[,1]) - L + 1)
-  if (D==1)
-    s <- ssa(ts, L = L, neig = neig, kind = "toeplitz-ssa")
+  if (D==1) {
+    if (!is.null(model$signal))
+      s <- ssa(ts - model$signal, L = L, neig = neig, kind = "toeplitz-ssa")
+    else
+      s <- ssa(ts, L = L, neig = neig, kind = "toeplitz-ssa")
+  }
   else
     if (toeplitz.kind == "sum" || toeplitz.kind == "block")
       s <- toeplitz.mssa(ts, L = L, D = D, method = toeplitz.kind)
@@ -230,6 +240,7 @@ do.ci <-
            G,
            D,
            two.tailed = FALSE,
+           composite,
            transf = function(x) {
              return(x)
            },
@@ -237,7 +248,7 @@ do.ci <-
              return(x)
            },
            weights = 1) {
-    P <- replicate(G, projec(data = model, L = L, D = D, U = plan$U, kind=kind))
+    P <- replicate(G, projec(data = model, L = L, D = D, U = plan$U, kind=kind, composite = composite))
     v <- projec(data = f, L = L, D = D, U = plan$U, kind=kind)
     
     idx <- plan$freq >=  plan$range[1] & plan$freq <= plan$range[2]
@@ -506,8 +517,12 @@ MonteCarloSSA <-
            G = 1000,
            level.conf = 0.8,
            two.tailed = FALSE,
-           weights = 1) {
+           weights = 1,
+           composite = c("var1", "var2", "none")) {
     f <- as.matrix(f)
+    if (composite == "var2") {
+      f <- f - model$signal
+    }
     if (is.null(model))
     {
       estModel <- list()
@@ -522,9 +537,9 @@ MonteCarloSSA <-
       estModel <- model
     if (basis == "ev") {
       if (kind == 'fa')
-        basis <- basis.ev(f, L, factor.v=T, toeplitz.kind = toeplitz.kind)
+        basis <- basis.ev(f, L, factor.v=T, toeplitz.kind = toeplitz.kind, model)
       else
-        basis <- basis.ev(f, L, factor.v=F, toeplitz.kind = toeplitz.kind)
+        basis <- basis.ev(f, L, factor.v=F, toeplitz.kind = toeplitz.kind, model)
     }
     else if (basis == "sin") {
       stop(condition(c("NotImplementedError", "error"), "This function is not implemented"))
@@ -554,7 +569,8 @@ MonteCarloSSA <-
         G = G,
         D = D,
         two.tailed = two.tailed,
-        weights = weights
+        weights = weights,
+        composite = composite
       )
     #,transf = function(x){return(log(x))}, inv.transf = function(x){return(exp(x))})
     res
