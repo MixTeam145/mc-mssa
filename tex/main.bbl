@@ -1,0 +1,54 @@
+\begin{thebibliography}{1}
+\def\selectlanguageifdefined#1{
+\expandafter\ifx\csname date#1\endcsname\relax
+\else\selectlanguage{#1}\fi}
+\providecommand*{\href}[2]{{\small #2}}
+\providecommand*{\url}[1]{{\small #1}}
+\providecommand*{\BibUrl}[1]{\url{#1}}
+\providecommand{\BibAnnote}[1]{}
+\providecommand*{\BibEmph}[1]{#1}
+\ProvideTextCommandDefault{\cyrdash}{\iflanguage{russian}{\hbox
+  to.8em{--\hss--}}{\textemdash}}
+\providecommand*{\BibDash}{\ifdim\lastskip>0pt\unskip\nobreak\hskip.2em plus
+  0.1em\fi
+\cyrdash\hskip.2em plus 0.1em\ignorespaces}
+\renewcommand{\newblock}{\ignorespaces}
+
+\bibitem{Golyandina_2023}
+\selectlanguageifdefined{english}
+Golyandina~N. Detection of signals by Monte Carlo singular spectrum analysis:
+  multiple testing~// \BibEmph{Statistics and Its Interface}. \BibDash
+\newblock 2023. \BibDash
+\newblock Vol.~16, no.~1. \BibDash
+\newblock P.~147--157.
+
+\bibitem{Larin_2022}
+\selectlanguageifdefined{russian}
+Ларин~Е.~С. Метод SSA для проверки гипотезы о
+  существовании сигнала во временном ряде~:
+  {квалификационная работа магистра}~;
+  СПбГУ. \BibDash
+\newblock 2022.
+
+\bibitem{Rssa}
+\selectlanguageifdefined{english}
+Rssa: A Collection of Methods for Singular Spectrum Analysis. \BibDash
+\newblock $\mathsf{R}$ package version 1.0.5. Access mode:
+  \BibUrl{https://CRAN.R-project.org/package=Rssa}.
+
+\bibitem{ssa_an}
+\selectlanguageifdefined{russian}
+Голяндина~Н.~Э. Метод <<Гусеница>>-SSA: анализ
+  временных рядов. \BibDash
+\newblock СПбГУ, 2004. \BibDash
+\newblock Учебное пособие.
+
+\bibitem{Golyandina_2015}
+\selectlanguageifdefined{english}
+Multivariate and 2D Extensions of Singular Spectrum Analysis with the Rssa
+  Package~/ Golyandina~Nina, Korobeynikov~Anton, Shlemov~Alex, and
+  Usevich~Konstantin~// \BibEmph{Journal of Statistical Software}. \BibDash
+\newblock 2015. \BibDash
+\newblock Vol.~67, no.~2.
+
+\end{thebibliography}
