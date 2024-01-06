@@ -25,29 +25,14 @@ delta <- 1
 N <- 100
 model <- list(varphi = varphi, delta = delta, N = N)
 M <- 100
-G <- 100
+G <- 1000
 cores <- detectCores()
 pb <- txtProgressBar(max = M, style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 ```
-Существует множество варивнтов оценки параметров, остановимся на 2-х вариантах. Один из них базируется на методе arima, другой описан в работе AllenSmith1996. Далее будем оценивать только $\varphi$.
-```{r}
-est.arima.varphi <- numeric()
-est.as.varphi <- numeric()
-set.seed(5)
-for (i in 1:M) {
-  f <- one.channel.ts(model = model, 0)
-  est.arima.varphi <- append(est.arima.varphi, est.model.arima(f)$varphi)
-  est.as.varphi <- append(est.as.varphi, est.model.as(f)$varphi)
-}
-```
-По значению MSE оба метода показывают примерно равную точность, далее для определенности будем использовать первый.
-```{r}
-mean((est.arima.varphi - varphi)^2)
-mean((est.as.varphi - varphi)^2)
-```
-Пусть теперь временной ряд представляет собой смесь сумму косинуса с периодом $\omega=0.075$ и амплитудой $A=3$ и красного шума. 
+
+Пусть временной ряд представляет собой смесь сумму косинуса с периодом $\omega=0.075$ и амплитудой $A=3$ и красного шума. 
 ```{r}
 omega <- 0.075
 signal <- signal.one.channel(model$N, omega, A = 3)
@@ -96,29 +81,29 @@ t.critical <- qnorm(1-alpha/2)
 if (t > t.critical | t < -t.critical)
   print("rejected")
 ```
-Дисперсия выросла, в то время как отклонение уменьшилось в абсолютном значении и поменяло знак, что говорит о том, что в среднем, после выделения "сигнала", оценка параметра авторегрессии находится слева от настоящего значения. Проверим это утверждение для остальных частот. Будем брать частоты от $0.05$ до $0.5$ с шагом $0.05$. 
+Дисперсия выросла, в то время как отклонение уменьшилось в абсолютном значении и поменяло знак, что говорит о том, что в среднем, после выделения "сигнала", оценка параметра авторегрессии находится слева от настоящего значения. Проверим это утверждение для остальных частот. Будем брать частоты от $0.05$ до $0.5$ с шагом $0.05$.
+
+```{r}
+# Поправка при L=50
+load("p_values_for_extract.RData")
+alphas_corrected_arima <- correction(p.values_h0_arima[[3]])
+```
+
 ```{r, results='hide'}
-omega <- seq(0.05, 0.5, 0.05)
+omega <- seq(0.075, 0.475, 0.1)
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
 res1 <- list()
 for (j in 1:length(omega))
 {
   set.seed(5)
-  signal <- signal.one.channel(model$N, omega[j], A = 3)
+  signal <- signal.one.channel(model$N, omega[j], A = 1.5)
   res1[[j]] <- foreach (i=1:M, .export=c('ssa', 'nu', 'parestimate', 'Norm', 'rowQuantiles', 'reconstruct'),
              .combine='cbind', .options.snow = opts) %dopar%
     {
       f <- one.channel.ts(model = model, signal = signal)
       varphi.before <- est.model.arima(f)$varphi
-      m <- MonteCarloSSA(f, L = 50, D = 1, basis = "ev", kind = "ev", G = G, level.conf = 0.975)
-      varphi.after <- varphi.before
-      if (m$reject) {
-        suspect <- which(m$v > m$upper)
-        s <- ssa(f, L = 50, D = 1, kind = "toeplitz-ssa")
-        r <- reconstruct(s, groups = list(signal = suspect))
-        varphi.after <- est.model.arima(residuals(r))$varphi
-      }
+      varphi.after <- est.model.extract(f, alpha = 0.1)$varphi
       rbind(varphi.before,varphi.after)
     }
 }
@@ -126,24 +111,24 @@ stopCluster(cluster)
 ```
 
 ```{r}
-mse.before1 <- sapply(res1, function(r) mean((r[1,]-varphi)^2))
-mse.after1 <- sapply(res1, function(r) mean((r[2,] - varphi)^2))
-plot(omega, mse.before1, type = "b")
-lines(omega, mse.after1, type = "b", col = "red")
+mse.before <- sapply(res1, function(r) mean((r[1,]-varphi)^2))
+mse.after <- sapply(res1, function(r) mean((r[2,] - varphi)^2))
+plot(omega, mse.before, type = "b")
+lines(omega, mse.after, type = "b", col = "red")
 ```
 
 ```{r}
-var.before1 <- sapply(res1, function(r) var(r[1,]))
-var.after1 <- sapply(res1, function(r) var(r[2,]))
-plot(omega, var.before1, type = "b")
-lines(omega, var.after1, type = "b", col = "red")
+var.before <- sapply(res1, function(r) var(r[1,]))
+var.after <- sapply(res1, function(r) var(r[2,]))
+plot(omega, var.before, type = "b")
+lines(omega, var.after, type = "b", col = "red")
 ```
 
 ```{r}
-bias.before1 <- sapply(res1, function(r) mean(r[1,]) - varphi)
-bias.after1 <- sapply(res1, function(r) mean(r[2,]) - varphi)
-plot(omega, bias.before1, type = "b")
-lines(omega, bias.after1, type = "b", col = "red")
+bias.before <- sapply(res1, function(r) mean(r[1,]) - varphi)
+bias.after <- sapply(res1, function(r) mean(r[2,]) - varphi)
+plot(omega, bias.before, type = "b")
+lines(omega, bias.after, type = "b", col = "red")
 ```
 
 По графику 3 видно, что основной вклад в ошибку вносит смещение, процедура это смещение сильно уменьшает, делая слабо-отрицательной.

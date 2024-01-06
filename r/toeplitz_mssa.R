@@ -12,9 +12,8 @@ Lcov <- function(f1, f2, K) {
 }
 
 toeplitz.mssa <- function(ts, L, D, method = c("sum", "block")) {
-  #browser()
+  # assume that the signals have the same length 
   N <- dim(ts)[1]
-  #D <- dim(ts)[2]
   K <- N - L + 1
   this <- list("F" = ts, N = N, L = L, K = K, D = D)
   traj.mat <- new.hbhmat(ts, L = c(L, 1))
@@ -41,7 +40,7 @@ toeplitz.mssa <- function(ts, L, D, method = c("sum", "block")) {
   Z <- crossprod(traj.mat, U)
   sigma <- apply(Z, 2, function(x) sqrt(sum(x^2)))
   V <- sweep(Z, 2, sigma, FUN = "/")
-  o <- order(sigma[seq_len(min(50, L, K))], decreasing = TRUE)
+  o <- order(sigma[seq_len(min(50, L, D * K))], decreasing = TRUE)
   sigma <- sigma[o]
   U <- U[, o, drop = FALSE]
   V <- V[, o, drop = FALSE]

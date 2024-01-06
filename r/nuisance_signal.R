@@ -53,7 +53,7 @@ for (k in 1:5) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h0sin[[k]] <- result
@@ -83,7 +83,7 @@ for (k in 1:5) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h1sin[[k]] <- result
@@ -113,7 +113,7 @@ for (k in 1:5) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h0sin_est_noise[[k]] <- result
@@ -143,7 +143,7 @@ for (k in 1:5) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h1sin_est_noise[[k]] <- result
@@ -182,7 +182,7 @@ for (k in 1:5) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h0sin_est_noise_signal[[k]] <- result
@@ -220,7 +220,7 @@ for (k in 1:5) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h1sin_est_noise_signal[[k]] <- result
@@ -254,7 +254,7 @@ for (k in seq_along(Ls)) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h0trend[[k]] <- result
@@ -284,7 +284,7 @@ for (k in seq_along(Ls)) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h1trend[[k]] <- result
@@ -315,7 +315,7 @@ for (k in seq_along(Ls)) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h0trend_est_noise[[k]] <- result
@@ -345,7 +345,7 @@ for (k in seq_along(Ls)) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h1trend_est_noise[[k]] <- result
@@ -378,7 +378,7 @@ for (k in seq_along(Ls)) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h0trend_est_noise_signal[[k]] <- result
@@ -410,20 +410,19 @@ for (k in seq_along(Ls)) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   p.values_h1trend_est_noise_signal[[k]] <- result
 }
 stopCluster(cluster)
 
-
 alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
 alphas_idx <- seq_along(alphas)
 clrs <- c('black', 'red', 'green', 'orange', 'purple')
 lwds <- c(2, 1, 1, 1, 1)
 
-alphaI_sin <- lapply(p.values_h0sin, function(p) sapply(alphas, function(a) sum(p < a) / M))
+alphaI_sin1 <- lapply(p.values_h0sin1, function(p) sapply(alphas, function(a) sum(p < a) / M))
 beta_sin <- lapply(p.values_h1sin, function(p) sapply(alphas, function(a) sum(p < a) / M))
 
 alphaI_sin_est_noise <- lapply(p.values_h0sin_est_noise, function(p) sapply(alphas, function(a) sum(p < a) / M))
@@ -442,10 +441,11 @@ beta_trend_est_noise <- lapply(p.values_h1trend_est_noise, function(p) sapply(al
 alphaI_trend_est_noise_signal <- lapply(p.values_h0trend_est_noise_signal, function(p) sapply(alphas, function(a) sum(p < a) / M))
 beta_trend_est_noise_signal <- lapply(p.values_h1trend_est_noise_signal, function(p) sapply(alphas, function(a) sum(p < a) / M))
 
+
 pdf("../tex/img/type1error_sin.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "Type I error", xlab = 'significance level', ylab = 'type I error')
 for (i in 1:5)
-  lines(alphas, alphaI_sin[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphas, alphaI_sin1[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 dev.off()
 
@@ -577,4 +577,23 @@ for (i in seq_along(Ls)) {
   lines(alphaI_trend_est_noise_signal[[i]], beta_trend_est_noise_signal[[i]], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+dev.off()
+
+legend <- c("Exact", "Est (noise)", "Est (noise + signal)")
+pdf("../tex/img/roc_sin_copm.pdf", width = 6, height = 3.5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, main = "ROC curve", xlab = 'type I error', ylab = 'power')
+lines(alphaI_sin[[5]], beta_sin[[5]], col = "red")
+lines(alphaI_sin_est_noise[[5]], beta_sin_est_noise[[5]], col = "purple")
+lines(alphaI_sin_est_noise_signal[[5]], beta_sin_est_noise_signal[[5]], col = "green")
+legend(x = "bottomright", legend, col = c("red", "purple", "green"), lty = 1, lwd = 1, cex = 0.8)
+dev.off()
+
+
+legend <- c("Exact", "Est (noise)", "Est (noise + signal)")
+pdf("../tex/img/roc_trend_copm.pdf", width = 6, height = 3.5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, main = "ROC curve", xlab = 'type I error', ylab = 'power')
+lines(alphaI_trend[[5]], beta_trend[[5]], col = "red")
+lines(alphaI_trend_est_noise[[5]], beta_trend_est_noise[[5]], col = "purple")
+lines(alphaI_trend_est_noise_signal[[5]], beta_trend_est_noise_signal[[5]], col = "green")
+legend(x = "bottomright", legend, col = c("red", "purple", "green"), lty = 1, lwd = 1, cex = 0.8)
 dev.off()

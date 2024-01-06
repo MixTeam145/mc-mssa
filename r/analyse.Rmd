@@ -38,7 +38,7 @@ model.signal$signal <- signal.known
 
 ```{r}
 # Строим скорректированные уровни значимости:
-load("p_values.RData")
+load("p_values_nuisance.RData")
 L1 <- 90
 L2 <- 90
 ind1 <- which(Ls == L1)
@@ -64,7 +64,7 @@ m.trend <- MonteCarloSSA(f.trend,
                          kind = "ev",
                          model = model.signal,
                          G = G,
-                         composite = "var1",
+                         composite = TRUE,
                          level.conf = 1 - alphas_corrected_trend(0.2))
 
 # Вариант без тренда
@@ -76,7 +76,6 @@ m <- MonteCarloSSA(f,
                    kind = "ev",
                    model = model,
                    G = G,
-                   composite = "none",
                    level.conf = 1 - alphas_corrected(0.2))
 
 # Доверительные интервалы
@@ -115,7 +114,7 @@ for(i in 1:P) {
                            kind = "ev",
                            model = model.signal,
                            G = G,
-                           composite = "var1",
+                           composite = TRUE,
                            level.conf = 1 - alphas_corrected_trend(0.2))
 
   # Вариант без тренда
@@ -127,7 +126,6 @@ for(i in 1:P) {
                      kind = "ev",
                      model = model,
                      G = G,
-                     composite = "none",
                      level.conf = 1 - alphas_corrected(0.2))
   ind.trend <- ind.trend + is.element(TRUE, m.trend$v > m.trend$upper)
   ind <- ind + is.element(TRUE, m$v > m$upper)
