@@ -113,7 +113,7 @@ signal1 <- 30 * cos(2*pi * (1:N) / 12)
 signal2 <- 20 * cos(2*pi * (1:N) / 8)
 signal <- cbind(signal1, signal2)
 r1 <- 2
-r2 <- 2
+r2 <- 4
 
 set.seed(42)
 mres.ssa2 <- replicate(R, ssa.errors(Ls))
