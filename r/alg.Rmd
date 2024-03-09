@@ -1,0 +1,124 @@
+---
+title: "Алгоритм выбора длины окна"
+output: html_notebook
+---
+
+```{r}
+optimize.mcssa <- function(ts, signif.level, alphaI_threshold, step = 0.1, M = 100) {
+  source("mcmssa_utils.R", local = TRUE)
+  model <- est.model.arima(ts)
+  N <- length(ts)
+  L_max <- N
+  alphaI <- 1
+  cores <- detectCores()
+  cluster <- makeCluster(cores - 1)
+  registerDoSNOW(cluster)
+  registerDoRNG(seed = 1, once = FALSE)
+  while (alphaI > alphaI_threshold) {
+    L_max <- L_max - step * N
+    rejected <- foreach (
+      i = 1:M,
+      .combine = '+',
+      .export = c('Norm', 'rowQuantiles'),
+      .packages = "Rssa",
+      .options.snow = opts
+    ) %dopar% {
+      noise <- one.channel.ts(model, 0)
+      m <-
+        MonteCarloSSA(
+          noise,
+          model = model,
+          L = L_max,
+          D = 1,
+          basis = "ev",
+          kind = "ev",
+          G = 1000,
+          level.conf = 1 - signif.level
+        )
+      m$reject
+    }
+    alphaI <- rejected / M
+    print(c(sprintf("L=%d", L_max), alphaI))
+  }
+  stopCluster(cluster)
+  
+  L_max
+}
+```
+
+Параметры функции optimize.mcssa:
+
+1. **sign.level** --- уровень значимости $\alpha$
+
+2. **alphaI_threshold** --- порог ошибки I рода $\alpha_I(\alpha)$
+
+3. **step** --- шаг для длины окна
+
+4. **M** --- количество моделируемых рядов для вычисления $\alpha_I(\alpha)$
+
+```{r}
+N <- 100
+varphi <- 0.7
+delta <- 1
+M <- 100
+model <- list(varphi = varphi,
+              delta = delta,
+              N = N)
+omega <- 0.075
+
+signal <- signal.one.channel(N, omega)
+```
+
+```{r, results='hide'}
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+```
+
+1. $\varphi=0.7$
+```{r, results='hide'}
+f <- one.channel.ts(model, signal)
+L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
+```
+
+```{r}
+L
+```
+
+2. $\varphi=0.9$
+```{r, results='hide'}
+varphi <- 0.9
+model$varphi <- varphi
+f <- one.channel.ts(model, signal)
+L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
+```
+
+```{r}
+L
+```
+
+3. $\varphi=0.5$
+```{r, results='hide'}
+varphi <- 0.5
+model$varphi <- varphi
+f <- one.channel.ts(model, signal)
+L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
+```
+
+```{r}
+L
+```
+
+4. $\varphi=0.1$
+```{r, results='hide'}
+varphi <- 0.1
+model$varphi <- varphi
+f <- one.channel.ts(model, signal)
+L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
+```
+
+```{r}
+L
+```
+
+
