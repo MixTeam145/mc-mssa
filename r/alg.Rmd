@@ -1,7 +1,18 @@
 ---
 title: "Алгоритм выбора длины окна"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
+
+```{r, include=FALSE}
+source("mcmssa_utils.R")
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+```
+
 
 ```{r}
 optimize.mcssa <- function(ts, signif.level, alphaI_threshold, step = 0.1, M = 100) {
