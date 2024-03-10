@@ -67,17 +67,23 @@ optimize.mcssa <- function(ts, signif.level, alphaI_threshold, step = 0.1, M = 1
 
 4. **M** --- количество моделируемых рядов для вычисления $\alpha_I(\alpha)$
 
+
+
+
+
+При $\varphi=0.1$ была проблема, что при $L=80,90$ критерий очень радикальный и ROC-кривую на всем промежутке построить невозможно. Давайте посмотрим, какую длину окна выдаст optimize.mcssa
+
 ```{r}
 N <- 100
-varphi <- 0.7
+varphi <- 0.1
 delta <- 1
-M <- 100
+M <- 500
 model <- list(varphi = varphi,
               delta = delta,
               N = N)
 omega <- 0.075
-
-signal <- signal.one.channel(N, omega)
+A <- 0.6
+signal <- signal.one.channel(model$N, omega, A)
 ```
 
 ```{r, results='hide'}
@@ -86,7 +92,6 @@ progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 ```
 
-1. $\varphi=0.7$
 ```{r, results='hide'}
 f <- one.channel.ts(model, signal)
 L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
@@ -95,41 +100,83 @@ L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, 
 ```{r}
 L
 ```
+Посмотрим на ROC-кривые, добавив $L=70$.
 
-2. $\varphi=0.9$
-```{r, results='hide'}
-varphi <- 0.9
-model$varphi <- varphi
-f <- one.channel.ts(model, signal)
-L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
+```{r}
+load("diff_phis.RData")
+```
+
+```{r, eval=FALSE, results='hide'}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_phi.1[[6]] <- foreach (
+  i = 1:M,
+  .combine = 'c',
+  .export = c('Norm', 'rowQuantiles'),
+  .packages = "Rssa",
+  .options.snow = opts
+) %dopar% {
+  f <- one.channel.ts(model, 0)
+  res <-
+    MonteCarloSSA(
+      f = f,
+      L = 70,
+      model = model,
+      basis = "ev",
+      kind = "ev",
+      D = 1,
+      G = 1000,
+      level.conf = NULL
+    )
+  res$p.value
+}
+
+p.values_signal_phi.1[[6]] <- foreach (
+  i = 1:M,
+  .combine = 'c',
+  .export = c('Norm', 'rowQuantiles'),
+  .packages = "Rssa",
+  .options.snow = opts
+) %dopar% {
+  f <- one.channel.ts(model, signal)
+  res <-
+    MonteCarloSSA(
+      f = f,
+      L = 70,
+      model = model,
+      basis = "ev",
+      kind = "ev",
+      D = 1,
+      G = 1000,
+      level.conf = NULL
+    )
+  res$p.value
+}
+
+stopCluster(cluster)
 ```
 
 ```{r}
-L
-```
-
-3. $\varphi=0.5$
-```{r, results='hide'}
-varphi <- 0.5
-model$varphi <- varphi
-f <- one.channel.ts(model, signal)
-L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
+Ls <- c(10, 20, 50, 80, 90, 70)
+alphas <- 0:1000/1000
+clrs <- c('black', 'red', 'green', 'orange', 'purple', "blue")
+lwds <- c(2, 1, 1, 1, 1, 1)
 ```
 
 ```{r}
-L
-```
-
-4. $\varphi=0.1$
-```{r, results='hide'}
-varphi <- 0.1
-model$varphi <- varphi
-f <- one.channel.ts(model, signal)
-L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
+alphaI_phi.1 <- lapply(p.values_noise_phi.1, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta_phi.1 <- lapply(p.values_signal_phi.1, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
-L
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "ROC curve", xlab = 'type I error', ylab = 'power')
+for (i in seq_along(Ls))
+  lines(alphaI_phi.1[[i]], beta_phi.1[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
+Как видим, такой выбор $L=70$ дает наибольший по мощности критерий.
 
