@@ -5,7 +5,7 @@ output: html_notebook
 
 # Зависимость от параметров шума ($\varphi$).
 
-```{r}
+```{r, include=FALSE}
 source("mcmssa_utils.R")
 library(foreach)
 library(doParallel)
@@ -19,15 +19,21 @@ N <- 100
 D <- 1
 delta <- 1
 omega <- 0.075
-Ls <- c(10, 20, 50, 80, 90)
 G <- 1000
-M <- 500
+M <- 1000
+Ls <- c(10, 20, 50, 80, 90)
 ```
 
-```{r, results='hide'}
+```{r, include=FALSE}
 pb <- txtProgressBar(max = M, style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
+```
+
+```{r}
+alphas <- 0:1000/1000
+clrs <- c('black', 'red', 'green', 'orange', 'purple')
+lwds <- c(2, 1, 1, 1, 1)
 ```
 
 1. $\varphi=0.7$. 
@@ -45,6 +51,7 @@ cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
 registerDoRNG(seed = 1, once = FALSE)
+
 p.values_noise_phi.7 <- list()
 for (idx in seq_along(Ls)) {
   result <- foreach (
@@ -70,6 +77,15 @@ for (idx in seq_along(Ls)) {
   }
   p.values_noise_phi.7[[idx]] <- result
 }
+
+stopCluster(cluster)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
 
 p.values_signal_phi.7 <- list()
 for (idx in seq_along(Ls)) {
@@ -101,25 +117,19 @@ stopCluster(cluster)
 ```
 
 ```{r}
-alphas <- 0:1000/1000
-clrs <- c('black', 'red', 'green', 'orange', 'purple', 'violet')
-lwds <- c(2, 1, 1, 1, 1, 1)
-```
-
-```{r}
 alphaI_phi.7 <- lapply(p.values_noise_phi.7, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 beta_phi.7 <- lapply(p.values_signal_phi.7, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "Type I error", xlab = 'significance level', ylab = 'type I error')
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
 for (i in seq_along(Ls))
   lines(alphas, alphaI_phi.7[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
 ```{r}
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "ROC curve", xlab = 'type I error', ylab = 'power')
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power')
 for (i in seq_along(Ls))
   lines(alphaI_phi.7[[i]], beta_phi.7[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
@@ -139,6 +149,7 @@ cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
 registerDoRNG(seed = 1, once = FALSE)
+
 p.values_noise_phi.9 <- list()
 for (idx in seq_along(Ls)) {
   result <- foreach (
@@ -164,6 +175,15 @@ for (idx in seq_along(Ls)) {
   }
   p.values_noise_phi.9[[idx]] <- result
 }
+
+stopCluster(cluster)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
 
 p.values_signal_phi.9 <- list()
 for (idx in seq_along(Ls)) {
@@ -226,7 +246,8 @@ signal <- signal.one.channel(model$N, omega, A)
 cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
+registerDoRNG(seed = 1)
+
 p.values_noise_phi.1 <- list()
 for (idx in seq_along(Ls)) {
   result <- foreach (
@@ -234,7 +255,8 @@ for (idx in seq_along(Ls)) {
     .combine = 'c',
     .export = c('Norm', 'rowQuantiles'),
     .packages = "Rssa",
-    .options.snow = opts
+    .options.snow = opts,
+    .options.RNG=1
   ) %dopar% {
     f <- one.channel.ts(model, 0)
     res <-
@@ -253,6 +275,15 @@ for (idx in seq_along(Ls)) {
   p.values_noise_phi.1[[idx]] <- result
 }
 
+stopCluster(cluster)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1)
+
 p.values_signal_phi.1 <- list()
 for (idx in seq_along(Ls)) {
   result <- foreach (
@@ -260,7 +291,8 @@ for (idx in seq_along(Ls)) {
     .combine = 'c',
     .export = c('Norm', 'rowQuantiles'),
     .packages = "Rssa",
-    .options.snow = opts
+    .options.snow = opts,
+    .options.RNG=1
   ) %dopar% {
     f <- one.channel.ts(model, signal)
     res <-
@@ -307,7 +339,7 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 Увеличим $N$ до $200$.
 ```{r}
 N <- 200
-Ls <- c(20, 40, 100, 160, 180)
+Ls <- c(100, 160, 180)
 model$N <- N
 A <- 0.8
 signal <- signal.one.channel(model$N, omega, A)
@@ -350,8 +382,44 @@ for (idx in seq_along(Ls)) {
 stopCluster(cluster)
 ```
 
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_phi.9_1 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = D,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_phi.9_1[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
 ```{r}
 alphaI_phi.9_1 <- lapply(p.values_noise_phi.9_1, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta_phi.9_1 <- lapply(p.values_signal_phi.9_1, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
@@ -360,10 +428,16 @@ for (i in seq_along(Ls))
   lines(alphas, alphaI_phi.9_1[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "ROC curve", xlab = 'type I error', ylab = 'power')
+for (i in seq_along(Ls))
+  lines(alphaI_phi.9_1[[i]], beta_phi.9_1[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
 Как видим, с увеличением $N$ радикальность стала больше, и $L=160$ радикальнее $L=180$. Различие остается с увеличением длины ряда.
 
 Является ли $L=0.9N$ оптимальным для, например $\varphi=0.7$? Посмотрим, какой из критериев наиболее мощный при $L\in[90, 98]$.
-
 ```{r}
 N <- 100
 Ls <- c(90, 92, 94, 95, 96, 98)
@@ -405,6 +479,15 @@ for (idx in seq_along(Ls)) {
   }
   p.values_noise_phi.7_1[[idx]] <- result
 }
+
+stopCluster(cluster)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
 
 p.values_signal_phi.7_1 <- list()
 for (idx in seq_along(Ls)) {

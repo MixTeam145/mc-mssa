@@ -13,48 +13,105 @@ library(parallel)
 library(doRNG)
 ```
 
-
 ```{r}
-optimize.mcssa <- function(ts, signif.level, alphaI_threshold, step = 0.1, M = 100) {
-  source("mcmssa_utils.R", local = TRUE)
-  model <- est.model.arima(ts)
-  N <- length(ts)
-  L_max <- N
-  alphaI <- 1
-  cores <- detectCores()
-  cluster <- makeCluster(cores - 1)
-  registerDoSNOW(cluster)
-  registerDoRNG(seed = 1, once = FALSE)
-  while (alphaI > alphaI_threshold) {
-    L_max <- L_max - step * N
+optimize.mcssa <-
+  function(ts,
+           signif.level,
+           alphaI_threshold,
+           interval,
+           M = 1000,
+           G = 1000,
+           tol = 0.05) {
+    model <- est.model.arima(ts)
+    N <- length(ts)
+    L_left <- interval[1]
+    L_right <- interval[2]
+    cores <- detectCores()
+    cluster <- makeCluster(cores - 1)
+    registerDoSNOW(cluster)
+    registerDoRNG(seed = 1)
+    
     rejected <- foreach (
-      i = 1:M,
-      .combine = '+',
-      .export = c('Norm', 'rowQuantiles'),
-      .packages = "Rssa",
-      .options.snow = opts
-    ) %dopar% {
-      noise <- one.channel.ts(model, 0)
-      m <-
-        MonteCarloSSA(
-          noise,
-          model = model,
-          L = L_max,
-          D = 1,
-          basis = "ev",
-          kind = "ev",
-          G = 1000,
-          level.conf = 1 - signif.level
-        )
-      m$reject
+        i = 1:M,
+        .combine = '+',
+        .export = c('Norm', 'rowQuantiles'),
+        .options.snow = opts,
+        .options.RNG = 1
+      ) %dopar% {
+        source("mcmssa_utils.R", local = TRUE)
+        noise <- one.channel.ts(model, 0)
+        m1 <-
+          MonteCarloSSA(
+            noise,
+            model = model,
+            L = L_left,
+            D = 1,
+            basis = "ev",
+            kind = "ev",
+            G = G,
+            level.conf = 1 - signif.level
+          )
+        m2 <-
+          MonteCarloSSA(
+            noise,
+            model = model,
+            L = L_right,
+            D = 1,
+            basis = "ev",
+            kind = "ev",
+            G = G,
+            level.conf = 1 - signif.level
+          )
+        c(m1$reject, m2$reject)
+      }
+    
+    print(c(sprintf("L=%d", L_left), rejected[1] / M))
+    print(c(sprintf("L=%d", L_right), rejected[2] / M))
+    
+    if (rejected[2] / M <= alphaI_threshold)
+      return(L_right)
+    else if (abs(rejected[1] / M - alphaI_threshold) < tol)
+      return(L_left)
+    else if (rejected[1] / M > alphaI_threshold)
+      stop("There is no such L that alphaI < alphaI_threshold")
+
+    while (L_right - L_left > 5) {
+      L_mid <- floor((L_right + L_left) / 2)
+      rejected <- foreach (
+        i = 1:M,
+        .combine = '+',
+        .export = c('Norm', 'rowQuantiles'),
+        .packages = "Rssa",
+        .options.snow = opts,
+        .options.RNG = 1
+      ) %dopar% {
+        source("mcmssa_utils.R", local = TRUE)
+        noise <- one.channel.ts(model, 0)
+        m <-
+          MonteCarloSSA(
+            noise,
+            model = model,
+            L = L_mid,
+            D = 1,
+            basis = "ev",
+            kind = "ev",
+            G = G,
+            level.conf = 1 - signif.level
+          )
+        m$reject
+      }
+      alphaI <- rejected / M
+      print(c(sprintf("L=%d", L_mid), alphaI))
+      if (abs(alphaI - alphaI_threshold) < tol)
+        return(L_mid)
+      if (alphaI < alphaI_threshold)
+        L_left = L_mid
+      if (alphaI > alphaI_threshold)
+        L_right = L_mid
     }
-    alphaI <- rejected / M
-    print(c(sprintf("L=%d", L_max), alphaI))
+    stopCluster(cluster)
+    L_left
   }
-  stopCluster(cluster)
-  
-  L_max
-}
 ```
 
 Параметры функции optimize.mcssa:
@@ -63,120 +120,143 @@ optimize.mcssa <- function(ts, signif.level, alphaI_threshold, step = 0.1, M = 1
 
 2. **alphaI_threshold** --- порог ошибки I рода $\alpha_I(\alpha)$
 
-3. **step** --- шаг для длины окна
+3. **interval** --- интервал поиска оптимального значения L
 
 4. **M** --- количество моделируемых рядов для вычисления $\alpha_I(\alpha)$
 
+5. **G** --- количество суррогатных реализаций
 
+6. **tol** --- желаемая точность
 
-
-
-При $\varphi=0.1$ была проблема, что при $L=80,90$ критерий очень радикальный и ROC-кривую на всем промежутке построить невозможно. Давайте посмотрим, какую длину окна выдаст optimize.mcssa
-
+# Пример
 ```{r}
-N <- 100
-varphi <- 0.1
+N <- 200
+varphi <- 0.3
 delta <- 1
-M <- 500
 model <- list(varphi = varphi,
               delta = delta,
               N = N)
+M <- 500
+G <- 1000
 omega <- 0.075
-A <- 0.6
+A <- 0.7
 signal <- signal.one.channel(model$N, omega, A)
 ```
 
-```{r, results='hide'}
+```{r, include=FALSE}
 pb <- txtProgressBar(max = M, style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 ```
 
 ```{r, results='hide'}
+set.seed(10)
 f <- one.channel.ts(model, signal)
-L <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, step = 0.1, M = M)
+system.time(L_optim <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, interval = c(100, 190), M = M, G = G))
 ```
 
 ```{r}
-L
+L_optim
 ```
-Посмотрим на ROC-кривые, добавив $L=70$.
+
+Построим ROC-кривые и сравним критерии для разных длин окна.
 
 ```{r}
-load("diff_phis.RData")
+alphas <- 0:1000/1000
+clrs <- c('black', 'red', 'green', 'orange', 'purple')
+lwds <- c(2, 1, 1, 1, 2)
+Ls <- c(100, 130, 160, 190, L_optim)
+model.est <- est.model.arima(f)
 ```
 
-```{r, eval=FALSE, results='hide'}
+```{r, include=FALSE}
 cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
 registerDoRNG(seed = 1, once = FALSE)
 
-p.values_noise_phi.1[[6]] <- foreach (
-  i = 1:M,
-  .combine = 'c',
-  .export = c('Norm', 'rowQuantiles'),
-  .packages = "Rssa",
-  .options.snow = opts
-) %dopar% {
-  f <- one.channel.ts(model, 0)
-  res <-
-    MonteCarloSSA(
-      f = f,
-      L = 70,
-      model = model,
-      basis = "ev",
-      kind = "ev",
-      D = 1,
-      G = 1000,
-      level.conf = NULL
-    )
-  res$p.value
-}
-
-p.values_signal_phi.1[[6]] <- foreach (
-  i = 1:M,
-  .combine = 'c',
-  .export = c('Norm', 'rowQuantiles'),
-  .packages = "Rssa",
-  .options.snow = opts
-) %dopar% {
-  f <- one.channel.ts(model, signal)
-  res <-
-    MonteCarloSSA(
-      f = f,
-      L = 70,
-      model = model,
-      basis = "ev",
-      kind = "ev",
-      D = 1,
-      G = 1000,
-      level.conf = NULL
-    )
-  res$p.value
+p.values_noise_phi.3_N200 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model.est, 0)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model.est,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_noise_phi.3_N200[[idx]] <- result
 }
 
 stopCluster(cluster)
 ```
 
 ```{r}
-Ls <- c(10, 20, 50, 80, 90, 70)
-alphas <- 0:1000/1000
-clrs <- c('black', 'red', 'green', 'orange', 'purple', "blue")
-lwds <- c(2, 1, 1, 1, 1, 1)
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_phi.3_N200 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model.est, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model.est,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_phi.3_N200[[idx]] <- result
+}
+
+stopCluster(cluster)
 ```
 
 ```{r}
-alphaI_phi.1 <- lapply(p.values_noise_phi.1, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
-beta_phi.1 <- lapply(p.values_signal_phi.1, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+alphaI <- lapply(p.values_noise_phi.3_N200, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <- lapply(p.values_signal_phi.3_N200, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "ROC curve", xlab = 'type I error', ylab = 'power')
-for (i in seq_along(Ls))
-  lines(alphaI_phi.1[[i]], beta_phi.1[[i]], lwd = lwds[i], col = clrs[i])
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
+for (i in seq_along(Ls)[-5])
+  lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls)[-5], col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power')
+lines(alphaI[[4]][-1], beta[[4]][-1], lwd = lwds[4], col = clrs[4])
+for (i in seq_along(Ls)[c(-4)]) {
+  lines(alphaI[[i]], beta[[i]], lwd = lwds[i], col = clrs[i])
+}
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
-
-Как видим, такой выбор $L=70$ дает наибольший по мощности критерий.
 
