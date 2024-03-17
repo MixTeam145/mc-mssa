@@ -12,35 +12,34 @@ Lcov <- function(f1, f2, K) {
 }
 
 toeplitz.mssa <- function(ts, L, D, method = c("sum", "block")) {
-  # assume that the signals have the same length 
-  N <- dim(ts)[1]
+  N <- dim(ts)[1] # assert equal length in each channel
   K <- N - L + 1
   this <- list("F" = ts, N = N, L = L, K = K, D = D)
   traj.mat <- new.hbhmat(ts, L = c(L, 1))
   if (method == "block") {
-    C <- rbind()
+    toepl.mat <- rbind()
     for (i in 1:D) {
-      c <- cbind()
+      mat <- cbind()
       for (j in 1:D) {
-        c <- cbind(c, Lcov(ts[, i], ts[, j], K))
+        mat <- cbind(mat, Lcov(ts[, i], ts[, j], K))
       }
-      C <- rbind(C, c)
+      toepl.mat <- rbind(toepl.mat, mat)
     }
     traj.mat <- t(traj.mat)
   } else if (method == "sum") {
-    C <- matrix(0, nrow = L, ncol = L)
+    toepl.mat <- matrix(0, nrow = L, ncol = L)
     for (i in 1:D) {
-      C <- C + Lcov(ts[, i], ts[, i], L)
+      toepl.mat <- toepl.mat + Lcov(ts[, i], ts[, i], L)
     }
   }
   else
     stop('method should be one of "block", "sum"')
-  S <- eigen(C, symmetric = TRUE)
+  S <- eigen(toepl.mat, symmetric = TRUE)
   U <- S$vectors
   Z <- crossprod(traj.mat, U)
   sigma <- apply(Z, 2, function(x) sqrt(sum(x^2)))
   V <- sweep(Z, 2, sigma, FUN = "/")
-  o <- order(sigma[seq_len(min(50, L, D * K))], decreasing = TRUE)
+  o <- order(sigma[seq_len(min(L, D * K))], decreasing = TRUE)
   sigma <- sigma[o]
   U <- U[, o, drop = FALSE]
   V <- V[, o, drop = FALSE]

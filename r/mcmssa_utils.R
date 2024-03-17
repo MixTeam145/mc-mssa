@@ -3,7 +3,7 @@ library("pracma")
 library("matrixStats")
 library("magic")
 source("toeplitz_mssa.R")
-source("auto_trend_ssa.R")
+#source("auto_trend_ssa.R")
 
 type = 8
 
