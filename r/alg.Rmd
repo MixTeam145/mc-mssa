@@ -135,7 +135,7 @@ delta <- 1
 model <- list(varphi = varphi,
               delta = delta,
               N = N)
-M <- 500
+M <- 1000
 G <- 1000
 omega <- 0.075
 A <- 0.6
@@ -169,7 +169,7 @@ L_optim
 ```{r}
 alphas <- 0:1000/1000
 clrs <- c('black', 'red', 'green', 'orange', 'purple')
-lwds <- c(2, 1, 1, 1, 2)
+lwds <- c(2, 1, 1, 1, 1)
 Ls <- c(100, 130, 160, 190, L_optim)
 ```
 
