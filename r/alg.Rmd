@@ -15,17 +15,16 @@ library(doRNG)
 
 ```{r}
 optimize.mcssa <-
-  function(ts,
+  function(model,
            signif.level,
            alphaI_threshold,
            interval,
            M = 1000,
            G = 1000,
-           tol = 0.05) {
-    model <- est.model.arima(ts)
-    N <- length(ts)
+           tol = 0.01) {
     L_left <- interval[1]
     L_right <- interval[2]
+    
     cores <- detectCores()
     cluster <- makeCluster(cores - 1)
     registerDoSNOW(cluster)
@@ -131,7 +130,7 @@ optimize.mcssa <-
 # Пример
 ```{r}
 N <- 200
-varphi <- 0.3
+varphi <- 0.35
 delta <- 1
 model <- list(varphi = varphi,
               delta = delta,
@@ -139,7 +138,7 @@ model <- list(varphi = varphi,
 M <- 500
 G <- 1000
 omega <- 0.075
-A <- 0.7
+A <- 0.6
 signal <- signal.one.channel(model$N, omega, A)
 ```
 
@@ -150,9 +149,15 @@ opts <- list(progress = progress)
 ```
 
 ```{r, results='hide'}
-set.seed(10)
-f <- one.channel.ts(model, signal)
-system.time(L_optim <- optimize.mcssa(f, signif.level = 0.05, alphaI_threshold = 0.5, interval = c(100, 190), M = M, G = G))
+L_optim <-
+  optimize.mcssa(
+    model,
+    signif.level = 0.05,
+    alphaI_threshold = 0.5,
+    interval = c(100, 190),
+    M = M,
+    G = G
+  )
 ```
 
 ```{r}
@@ -166,7 +171,6 @@ alphas <- 0:1000/1000
 clrs <- c('black', 'red', 'green', 'orange', 'purple')
 lwds <- c(2, 1, 1, 1, 2)
 Ls <- c(100, 130, 160, 190, L_optim)
-model.est <- est.model.arima(f)
 ```
 
 ```{r, include=FALSE}
@@ -184,12 +188,12 @@ for (idx in seq_along(Ls)) {
     .packages = "Rssa",
     .options.snow = opts
   ) %dopar% {
-    f <- one.channel.ts(model.est, 0)
+    f <- one.channel.ts(model, 0)
     res <-
       MonteCarloSSA(
         f = f,
         L = Ls[idx],
-        model = model.est,
+        model = model,
         basis = "ev",
         kind = "ev",
         D = 1,
@@ -204,7 +208,7 @@ for (idx in seq_along(Ls)) {
 stopCluster(cluster)
 ```
 
-```{r}
+```{r, include=FALSE}
 cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
@@ -219,12 +223,12 @@ for (idx in seq_along(Ls)) {
     .packages = "Rssa",
     .options.snow = opts
   ) %dopar% {
-    f <- one.channel.ts(model.est, signal)
+    f <- one.channel.ts(model, signal)
     res <-
       MonteCarloSSA(
         f = f,
         L = Ls[idx],
-        model = model.est,
+        model = model,
         basis = "ev",
         kind = "ev",
         D = 1,
@@ -254,9 +258,9 @@ legend(x = "bottomright", as.character(Ls)[-5], col = clrs, lty = 1, lwd = lwds)
 ```{r}
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power')
 lines(alphaI[[4]][-1], beta[[4]][-1], lwd = lwds[4], col = clrs[4])
-for (i in seq_along(Ls)[c(-4)]) {
+lines(alphaI[[3]][-1], beta[[3]][-1], lwd = lwds[3], col = clrs[3])
+for (i in seq_along(Ls)[c(-3, -4)]) {
   lines(alphaI[[i]], beta[[i]], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
-
