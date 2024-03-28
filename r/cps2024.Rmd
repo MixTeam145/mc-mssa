@@ -1,0 +1,556 @@
+---
+title: "CPS2024"
+output:
+  html_notebook
+---
+
+```{r, include=FALSE}
+source("mcmssa_utils.R")
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+```
+
+```{r}
+M <- 1000
+G <- 1000
+omega <- 0.075
+```
+
+```{r, include=FALSE}
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+```
+
+# $\varphi=0.7$
+
+1. $N=100$
+```{r}
+N <- 100
+varphi <- 0.7
+delta <- 1
+model <- list(varphi = varphi,
+              delta = delta,
+              N = N)
+A <- 1
+signal <- A * cos(2 * pi * omega * (1:N))
+Ls <- c(10, 50, 90)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_phi7_N100 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, 0)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_noise_phi7_N100[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_phi7_N100 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_phi7_N100[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r}
+alphas <- 0:1000/1000
+clrs <- c('black', 'red', 'green')
+lwds <- c(2, 1, 1)
+alphaI <- lapply(p.values_noise_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <- lapply(p.values_signal_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
+for (i in seq_along(Ls))
+  lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+for (i in seq_along(Ls)) {
+  lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+2. $N=400$
+
+```{r}
+N <- 400
+Ls <- c(10, 200, 300)
+model$N <- 400
+A <- 0.5
+signal <- A * cos(2 * pi * omega * (1:N))
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_phi7_N400 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, 0)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_noise_phi7_N400[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_phi7_N400 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_phi7_N400[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r}
+alphaI <- lapply(p.values_noise_phi7_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <- lapply(p.values_signal_phi7_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
+for (i in seq_along(Ls))
+  lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+for (i in seq_along(Ls)) {
+  lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+# $\varphi=0.3$
+
+1. $N=100$
+```{r}
+N <- 100
+varphi <- 0.3
+delta <- 1
+model <- list(varphi = varphi,
+              delta = delta,
+              N = N)
+A <- 0.8
+signal <- A * cos(2 * pi * omega * (1:N))
+Ls <- c(10, 50, 90)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_phi3_N100 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, 0)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_noise_phi3_N100[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_phi3_N100 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_phi3_N100[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r}
+alphaI <- lapply(p.values_noise_phi3_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <- lapply(p.values_signal_phi3_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
+for (i in seq_along(Ls))
+  lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+for (i in seq_along(Ls)) {
+  lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+2. $N=400$
+
+```{r}
+N <- 400
+Ls <- c(10, 200, 300)
+model$N <- 400
+A <- 0.3
+signal <- A * cos(2 * pi * omega * (1:N))
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_phi3_N400 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, 0)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_noise_phi3_N400[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_phi3_N400 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_phi3_N400[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r}
+alphaI <- lapply(p.values_noise_phi3_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <- lapply(p.values_signal_phi3_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
+for (i in seq_along(Ls))
+  lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+for (i in seq_along(Ls)) {
+  lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+Пусть $\varphi=0.7$, $N=100$.
+```{r}
+varphi <- 0.7
+delta <- 1
+model <- list(varphi = varphi,
+              delta = delta,
+              N = N)
+Ls <- c(10, 50, 90)
+```
+
+# $\omega=0.175$
+```{r}
+omega <- 0.175
+A <- 0.6
+signal <- A * cos(2 * pi * omega * (1:N))
+```
+
+```{r, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_phi7_omega0175 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_phi7_omega0175[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r}
+alphaI <- lapply(p.values_noise_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <- lapply(p.values_signal_phi7_omega0175, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+for (i in seq_along(Ls)) {
+  lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+# $\omega=0.025$
+```{r}
+omega <- 0.025
+A <- 1.5
+signal <- A * cos(2 * pi * omega * (1:N))
+```
+
+```{r}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_phi7_omega0025 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    f <- one.channel.ts(model, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = Ls[idx],
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_phi7_omega0025[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r}
+alphaI <- lapply(p.values_noise_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <- lapply(p.values_signal_phi7_omega0025, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+```
+
+```{r}
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+for (i in seq_along(Ls)) {
+  lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
+}
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
