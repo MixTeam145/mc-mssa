@@ -118,18 +118,24 @@ beta <- lapply(p.values_signal_phi7_N100, function(pvals) sapply(alphas, functio
 ```
 
 ```{r}
+setEPS()
+postscript("../cps2024/images/alphaI_phi7_N100.eps", width = 10, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
 for (i in seq_along(Ls))
   lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+dev.off()
 ```
 
 ```{r}
+setEPS()
+postscript("../cps2024/images/roc_phi7_N100.eps", width = 10, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+dev.off()
 ```
 2. $N=400$
 
@@ -224,11 +230,14 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
 ```{r}
+setEPS()
+postscript("../cps2024/images/roc_phi7_N400.eps", width = 10, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+dev.off()
 ```
 
 # $\varphi=0.3$
@@ -322,18 +331,24 @@ beta <- lapply(p.values_signal_phi3_N100, function(pvals) sapply(alphas, functio
 ```
 
 ```{r}
+setEPS()
+postscript("../cps2024/images/alphaI_phi3_N100.eps", width = 10, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
 for (i in seq_along(Ls))
   lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+dev.off()
 ```
 
 ```{r}
+setEPS()
+postscript("../cps2024/images/roc_phi3_N100.eps", width = 10, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+dev.off()
 ```
 
 2. $N=400$
@@ -429,12 +444,16 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
 ```{r}
+setEPS()
+postscript("../cps2024/images/roc_phi3_N400.eps", width = 10, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+dev.off()
 ```
+
 Пусть $\varphi=0.7$, $N=100$.
 ```{r}
 varphi <- 0.7
@@ -493,11 +512,14 @@ beta <- lapply(p.values_signal_phi7_omega0175, function(pvals) sapply(alphas, fu
 ```
 
 ```{r}
+setEPS()
+postscript("../cps2024/images/roc_omega0175.eps", width = 10, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+dev.off()
 ```
 
 # $\omega=0.025$
@@ -548,9 +570,12 @@ beta <- lapply(p.values_signal_phi7_omega0025, function(pvals) sapply(alphas, fu
 ```
 
 ```{r}
+setEPS()
+postscript("../cps2024/images/roc_omega0025.eps", width = 10, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+dev.off()
 ```
