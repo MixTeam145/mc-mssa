@@ -53,8 +53,7 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL,
-                         composite = "none")
+                         level.conf = NULL)
       r$p.value
     }
   p.values_h0_arima[[k]] <- pvals
@@ -82,8 +81,7 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL,
-                         composite = "none")
+                         level.conf = NULL)
       r$p.value
     }
   p.values_h0[[k]] <- pvals
@@ -94,6 +92,8 @@ stopCluster(cluster)
 ```{r}
 # Поправка при L=50
 load("p_values_for_extract.RData")
+alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
+alphas_idx <- seq_along(alphas)
 alphas_corrected_arima <- correction(p.values_h0_arima[[3]])
 ```
 
@@ -117,8 +117,7 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL,
-                         composite = "none")
+                         level.conf = NULL)
       r$p.value
     }
   p.values_h0_extract[[k]] <- pvals
@@ -146,8 +145,7 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL,
-                         composite = "none")
+                         level.conf = NULL)
       r$p.value
     }
   p.values_h1[[k]] <- pvals
@@ -175,8 +173,7 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL,
-                         composite = "none")
+                         level.conf = NULL)
       r$p.value
     }
   p.values_h1_arima[[k]] <- pvals
@@ -204,8 +201,7 @@ for (k in 1:5) {
                          basis = "ev",
                          kind = "ev",
                          G = G,
-                         level.conf = NULL,
-                         composite = "none")
+                         level.conf = NULL)
       r$p.value
     }
   p.values_h1_extract[[k]] <- pvals
@@ -214,55 +210,54 @@ stopCluster(cluster)
 ```
 
 ```{r}
-alphas <- c(seq(0, 0.025, 0.0001), seq(0.025, 1, 0.001))
 clrs <- c("black", "red", "blue")
 legends <- c("True model", "Estimated model (arima)", "Estimated model (extract)")
 lwds <- c(2,2,2)
 ```
 
 ```{r}
-alphaI <- lapply(p.values_h0, function(p) sapply(alphas, function(a) sum(p < a) / M))
+#alphaI <- lapply(p.values_h0, function(p) sapply(alphas, function(a) sum(p < a) / M))
 alphaI_arima <- lapply(p.values_h0_arima, function(p) sapply(alphas, function(a)  sum(p < a) / M))
 alphaI_extract <- lapply(p.values_h0_extract, function(p) sapply(alphas, function(a)  sum(p < a) / M))
 
-beta <- lapply(p.values_h1, function(p) sapply(alphas, function(a) sum(p < a) / M))
+#beta <- lapply(p.values_h1, function(p) sapply(alphas, function(a) sum(p < a) / M))
 beta_arima <- lapply(p.values_h1_arima, function(p) sapply(alphas, function(a) sum(p < a) / M))
 beta_extract <- lapply(p.values_h1_extract, function(p) sapply(alphas, function(a) sum(p < a) / M))
 ```
 Посмотрим на графики ошибок первого рода. Видим, что при $L=10,20$ критерии с оцененными параметрами до определенного момента консервативны, потом радикальные. Для остальных $L$ критерии радикальные. Заметим, что для всех $L$ графики критериев с оцененными параметрами практически идентичны, что соответствует $\pm$ одинаковой точности оценок при отсутствии сигнала. 
 ```{r}
-#pdf("../tex/img/type1error_arima.pdf", width = 6, height = 3.5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "Type I error", xlab = 'significance level', ylab = 'type I error')
+pdf("type1error_arima.pdf", width = 15, height = 5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in 1:5)
   lines(alphas, alphaI_arima[[i]], col = clrs[i], lwd = lwds[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-#dev.off()
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
+dev.off()
 ```
 
 ```{r}
-#pdf("../tex/img/type1error_extract.pdf", width = 6, height = 3.5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "Type I error", xlab = 'significance level', ylab = 'type I error')
+pdf("type1error_extract.pdf", width = 15, height = 5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in 1:5)
   lines(alphas, alphaI_extract[[i]], col = clrs[i], lwd = lwds[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-#dev.off()
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
+dev.off()
 ```
 
 Если посмотреть на ROC-кривые критериев, видим серьезное повышение мощности, используя метод extract, при $L=10,20,50$. Для остальных $L$ улучшения нет.
 ```{r}
-#pdf("../tex/img/roc_arima.pdf", width = 6, height = 3.5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, main = "ROC curve", xlab = 'type I error', ylab = 'power')
+pdf("roc_arima.pdf", width = 15, height = 5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, xlab = 'type I error', ylab = 'power', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in 1:5)
   lines(alphaI_arima[[i]], beta_arima[[i]], col = clrs[i], lwd = lwds[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-#dev.off()
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
+dev.off()
 ```
 
 ```{r}
-#pdf("../tex/img/roc_extract.pdf", width = 6, height = 3.5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, main = "ROC curve", xlab = 'type I error', ylab = 'power')
+pdf("roc_extract.pdf", width = 15, height = 5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, xlab = 'type I error', ylab = 'power', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in 1:5)
   lines(alphaI_extract[[i]], beta_extract[[i]], col = clrs[i], lwd = lwds[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-#dev.off()
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
+dev.off()
 ```

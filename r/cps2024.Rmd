@@ -112,29 +112,29 @@ stopCluster(cluster)
 ```{r}
 alphas <- 0:1000/1000
 clrs <- c('black', 'red', 'green')
-lwds <- c(2, 1, 1)
+lwds <- c(3, 3, 3)
 alphaI <- lapply(p.values_noise_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 beta <- lapply(p.values_signal_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
 setEPS()
-postscript("../cps2024/images/alphaI_phi7_N100.eps", width = 10, height = 5)
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
+postscript("alphaI_phi7_N100.eps", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls))
   lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 ```
 
 ```{r}
 setEPS()
-postscript("../cps2024/images/roc_phi7_N100.eps", width = 10, height = 5)
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+postscript("roc_phi7_N100.eps", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 ```
 2. $N=400$
@@ -231,12 +231,12 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 
 ```{r}
 setEPS()
-postscript("../cps2024/images/roc_phi7_N400.eps", width = 10, height = 5)
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+postscript("roc_phi7_N400.eps", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 ```
 
@@ -332,22 +332,22 @@ beta <- lapply(p.values_signal_phi3_N100, function(pvals) sapply(alphas, functio
 
 ```{r}
 setEPS()
-postscript("../cps2024/images/alphaI_phi3_N100.eps", width = 10, height = 5)
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
+postscript("alphaI_phi3_N100.eps", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls))
   lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 ```
 
 ```{r}
 setEPS()
-postscript("../cps2024/images/roc_phi3_N100.eps", width = 10, height = 5)
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+postscript("roc_phi3_N100.eps", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 ```
 
@@ -445,12 +445,12 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 
 ```{r}
 setEPS()
-postscript("../cps2024/images/roc_phi3_N400.eps", width = 10, height = 5)
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+postscript("roc_phi3_N400.eps", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 ```
 
@@ -513,12 +513,12 @@ beta <- lapply(p.values_signal_phi7_omega0175, function(pvals) sapply(alphas, fu
 
 ```{r}
 setEPS()
-postscript("../cps2024/images/roc_omega0175.eps", width = 10, height = 5)
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+postscript("roc_omega0175.eps", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 ```
 
@@ -571,11 +571,11 @@ beta <- lapply(p.values_signal_phi7_omega0025, function(pvals) sapply(alphas, fu
 
 ```{r}
 setEPS()
-postscript("../cps2024/images/roc_omega0025.eps", width = 10, height = 5)
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
+postscript("roc_omega0025.eps", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 1.5)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 ```

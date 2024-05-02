@@ -1,0 +1,57 @@
+---
+title: "R Notebook"
+output: html_document
+---
+
+```{r}
+source("mcmssa_utils.R")
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+library(tidyr)
+```
+
+Рассмотрим индекс южного колебания (SOI) -- разница в давлении между Таити и Дарвином.
+```{r}
+df <- read.table("data/soi.txt", sep = ",")
+f <- ts(df$V2, start = 1876, frequency = 12)
+y <- aggregate(f, nfrequency = 1)
+plot(f)
+```
+
+Поскольку длина ряда очень большая (почти 1800) возьмем длину окна побольше, пусть $L=120$.
+```{r}
+set.seed(5)
+m1 <- MonteCarloSSA(f, L = 120, D = 1, basis = "ev", kind = "ev", level.conf = 0.95)
+plot.ci(m1)
+m1$freq[m1$v > m1$upper]
+```
+
+MC-SSA обнаружил сигнал. Самыми явными тут являются компоненты 1,2 с частотой $0.1$ и 3,4 с частотой $0.2$. Давайте выделим эти компоненты.
+```{r}
+s1 <- ssa(f, L = 120)
+r1 <- reconstruct(s1, list(1:4))
+plot(r1)
+```
+
+Оценим параметры остатка и применим MC-SSA к исходному ряду.
+```{r}
+model1 <- est.model.arima(resid(r1))
+m2 <- MonteCarloSSA(f, model = model1, L = 120, D = 1, basis = "ev", kind = "ev", level.conf = 0.95)
+plot.ci(m2)
+```
+
+Как видим, теперь значимыми являются первые 10 компонент. Выделим их.
+```{r}
+s2 <- ssa(f, L = 120)
+r2 <- reconstruct(s2, list(1:10))
+plot(r2)
+```
+
+Продолжаем
+```{r}
+model2 <- est.model.arima(resid(r2))
+m3 <- MonteCarloSSA(f, model = model2, L = 120, D = 1, basis = "ev", kind = "ev", level.conf = 0.95, )
+plot.ci(m3)
+```

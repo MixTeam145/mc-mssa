@@ -1,5 +1,6 @@
 library("Rssa")
 library("pracma")
+library("ggplot2")
 library("matrixStats")
 library("magic")
 source("toeplitz_mssa.R")
@@ -43,7 +44,7 @@ est.model.arima <-  function(f) {
   estModel <-
     list(varphi = param$varphi,
          delta = param$delta,
-         N = model$N)
+         N = length(f))
   estModel
 }
 ###end
@@ -251,6 +252,9 @@ do.ci <-
       dim(X) <- c(length(X), 1)
     
     res <- list()
+    
+    res$freq <- plan$freq[idx]
+    
     ci <- list()
     ci$means <- apply(X, 1, mean)
     
@@ -290,7 +294,7 @@ do.ci <-
       if (two.tailed == FALSE)
         res$reject <- as.logical(stat.v.max > ci$q.upper)
       res$freq.max <- NA
-      res$freq <- plan$freq
+      #res$freq <- plan$freq
       if (res$reject == TRUE)
         res$freq.max <-
         plan$freq[idx][which.max((x - ci$means) / ci$sds)]
@@ -301,7 +305,7 @@ do.ci <-
         res$lower <- inv.transf(ci$means + ci$q.lower * ci$sds)
         # res$lower <- inv.transf(max(0, ci$means + ci$q.lower * ci$sds))
       res$plan <- plan
-      res$v <- v
+      res$v <- x
       res$f <- f
       res$idx <- idx
       res
@@ -416,13 +420,31 @@ do.ci.single <-
   }
 
 #plot by dominant frequency
-plot.ci <- function(res, lim = NULL, log_ = FALSE) {
-  v <- res$v
-  freq <- res$freq
-  idx <- res$idx
-  v <- res$v
-  sp <- spec.ar(res$f, order = 1, plot = FALSE)
-  if (is.null(lim))
+plot.ci <- function(res, log_ = FALSE) {
+  df <-
+    data.frame(
+      frequency = res$freq,
+      contribution = res$v,
+      ci.lower = res$lower,
+      ci.upper = res$upper
+    )
+  df_reject <- df |> filter(contribution < ci.lower | contribution > ci.upper)
+  p <-
+    ggplot(df, aes(frequency, contribution)) +
+    geom_point() +
+    geom_point(data = df_reject, aes(x=frequency, y=contribution), color = "red") +
+    geom_errorbar(aes(ymin = res$lower, ymax = res$upper), color = "blue") +
+    theme_bw()
+  if (log_)
+    p <- p + scale_y_sqrt()
+  p
+  # v <- res$v
+  # freq <- res$freq
+  # idx <- res$idx
+  # v <- res$v
+  # sp <- spec.ar(res$f, order = 1, plot = FALSE)
+  # if (is.null(lim))
+  
   #  lim = c(0, max(res$upper, v))
   # plot(
   #   sp$spec ~ sp$freq,
@@ -452,14 +474,15 @@ plot.ci <- function(res, lim = NULL, log_ = FALSE) {
   # lines(v[idx] ~ freq[idx], type = "p") #Squared projection norm for the original time series
   # else 
   # {
-    plot(
-      v[idx] ~ freq[idx],
-      ylim = c(min(res$lower, v), max(res$upper, v)),
-      xlab = "frequency",
-      ylab = "contribution"
-    )
-    
-    segments(freq[idx], res$lower, freq[idx], res$upper, col = "red")
+    # 
+    # plot(
+    #   v ~ freq,
+    #   ylim = c(min(res$lower, v), max(res$upper, v)),
+    #   xlab = "frequency",
+    #   ylab = "contribution"
+    # )
+    # 
+    # segments(freq, res$lower, freq, res$upper, col = "red")
   # }
 }
 
@@ -523,13 +546,13 @@ MonteCarloSSA <-
     else
       estModel <- model
     if (basis == "ev") {
-      f.basis <- f
-      if (composite)
-        f.basis <- f - model$signal
+      #f.basis <- f
+      #if (composite) 
+        #f.basis <- f - model$signal
       if (kind == 'fa')
-        basis <- basis.ev(f.basis, L, factor.v=T, toeplitz.kind = toeplitz.kind)
+        basis <- basis.ev(f, L, factor.v=T, toeplitz.kind = toeplitz.kind)
       else
-        basis <- basis.ev(f.basis, L, factor.v=F, toeplitz.kind = toeplitz.kind)
+        basis <- basis.ev(f, L, factor.v=F, toeplitz.kind = toeplitz.kind)
     }
     else if (basis == "sin") {
       stop(condition(c("NotImplementedError", "error"), "This function is not implemented"))
@@ -545,6 +568,7 @@ MonteCarloSSA <-
         basis <- basis.toeplitz.m(estModel, L, D, fa=F)
     }
     # basis <- basis.toeplitz(estModel, L*D)
+    
     plan <- list(U = basis$U,
                  freq = basis$freq,
                  range = freq.range)
@@ -589,6 +613,7 @@ MonteCarloSSA.single <-
     plan <- list(U = basis$U,
                  freq = basis$freq,
                  range = freq.range)
+    
     res <-
       do.ci.single(
         f,
