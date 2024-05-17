@@ -1,87 +1,165 @@
-@article{Golyandina_2015,
-	year = {2015},
-	publisher = {Foundation for Open Access Statistic},
-	volume = {67},
-	number = {2},
-	author = {Nina Golyandina and Anton Korobeynikov and Alex Shlemov and Konstantin Usevich},
-	title = {Multivariate and 2D Extensions of Singular Spectrum Analysis with the Rssa Package},
-	journal = {Journal of Statistical Software}
-}
-
-@Book{ssa_an,
-	language = {russian},
-	author = {Голяндина, Н. Э.},
-	note = {Учебное пособие}, 
-	title = {Метод <<Гусеница>>-SSA: анализ временных рядов},
-	publisher = {СПбГУ},
-	year = {2004},
-}
-
-@MastersThesis{Larin_2022,
-	language = {russian},
-	author = {Ларин, Е. С.},
-	title = {Метод SSA для проверки гипотезы о существовании сигнала во временном ряде},
-	school = {СПбГУ},
-	year = {2022},
-}
-
-@article{Golyandina_2023,
-	year = {2023},
-	publisher = {International Press of Boston},
-	volume = {16},
-	number = {1},
-	pages = {147--157},
-	author = {N. Golyandina},
-	title = {Detection of signals by Monte Carlo singular spectrum analysis: multiple testing},
-	journal = {Statistics and Its Interface},
-}
-
-@Manual{Rssa,
-	title = {Rssa: A Collection of Methods for Singular Spectrum Analysis},
-	note = {$\mathsf{R}$ package version 1.0.5},
-	url = {https://CRAN.R-project.org/package=Rssa},
-}
-
-@article{Plaut1994SpellsOL,
-	title={Spells of Low-Frequency Oscillations and Weather Regimes in the Northern Hemisphere.},
-	author={Guy Plaut and Robert Vautard},
-	journal={Journal of the Atmospheric Sciences},
-	year={1994},
-	volume={51},
-	pages={210-236}
+@article{Allen,
+  author  = {Allen, Myles and Smith, Leonard},
+  year    = {1996},
+  pages   = {3373-3404},
+  title   = {Monte Carlo SSA: Detecting irregular oscillations in the Presence of Colored Noise},
+  volume  = {9},
+  journal = {Journal of Climate}
 }
 
 @article{ARIMA_est,
-	author = {G. Gardner and A. Harvey and G. Phillips},
-	journal = {Applied Statistics},
-	pages = {311--322},
-	publisher = {[Wiley, Royal Statistical Society]},
-	title = {An Algorithm for Exact Maximum Likelihood Estimation of Autoregressive-Moving Average Models by Means of Kalman Filtering},
-	urldate = {2024-01-01},
-	volume = {29},
-	year = {1980}
+  author    = {G. Gardner and A. Harvey and G. Phillips},
+  journal   = {Applied Statistics},
+  pages     = {311--322},
+  publisher = {[Wiley, Royal Statistical Society]},
+  title     = {An Algorithm for Exact Maximum Likelihood Estimation of Autoregressive-Moving Average Models by Means of Kalman Filtering},
+  volume    = {29},
+  year      = {1980}
 }
 
-@Article{a16070353,
-	AUTHOR = {Golyandina, Nina and Dudnik, Pavel and Shlemov, Alex},
-	TITLE = {Intelligent Identification of Trend Components in Singular Spectrum Analysis},
-	JOURNAL = {Algorithms},
-	VOLUME = {16},
-	YEAR = {2023},
-	NUMBER = {7},
-	ARTICLE-NUMBER = {353},
-	URL = {https://www.mdpi.com/1999-4893/16/7/353},
-	ISSN = {1999-4893},
-	ABSTRACT = {Singular spectrum analysis (SSA) is a non-parametric adaptive technique used for time series analysis. It allows solving various problems related to time series without the need to define a model. In this study, we focus on the problem of trend extraction. To extract trends using SSA, a grouping of elementary components is required. However, automating this process is challenging due to the nonparametric nature of SSA. Although there are some known approaches to automated grouping in SSA, they do not work well when the signal components are mixed. In this paper, a novel approach that combines automated identification of trend components with separability improvement is proposed. We also consider a new method called EOSSA for separability improvement, along with other known methods. The automated modifications are numerically compared and applied to real-life time series. The proposed approach demonstrated its advantage in extracting trends when dealing with mixed signal components. The separability-improving method EOSSA proved to be the most accurate when the signal rank is properly detected or slightly exceeded. The automated SSA was very successfully applied to US Unemployment data to separate an annual trend from seasonal effects. The proposed approach has shown its capability to automatically extract trends without the need to determine their parametric form.},
-	DOI = {10.3390/a16070353}
+@article{auto.arima,
+  title   = {Automatic Time Series Forecasting: The forecast Package for R},
+  volume  = {27},
+  number  = {3},
+  journal = {Journal of Statistical Software},
+  author  = {Hyndman, Rob J. and Khandakar, Yeasmin},
+  year    = {2008},
+  pages   = {1–22}
+}
+
+@article{box-pierce,
+  author    = {G. E. P. Box and David A. Pierce},
+  journal   = {Journal of the American Statistical Association},
+  number    = {332},
+  pages     = {1509--1526},
+  publisher = {[American Statistical Association, Taylor & Francis, Ltd.]},
+  title     = {Distribution of Residual Autocorrelations in Autoregressive-Integrated Moving Average Time Series Models},
+  volume    = {65},
+  year      = {1970}
+}
+
+@article{Enchanced_mcssa,
+  author  = {Palu\v{s}, M. and Novotn\'a, D.},
+  title   = {Enhanced Monte Carlo Singular System Analysis and detection of period 7.8 years oscillatory modes in the monthly NAO index and temperature records},
+  journal = {Nonlinear Processes in Geophysics},
+  volume  = {11},
+  year    = {2004},
+  number  = {5/6},
+  pages   = {721--729}
+}
+
+@article{Golyandina_2015,
+  year      = {2015},
+  publisher = {Foundation for Open Access Statistic},
+  volume    = {67},
+  number    = {2},
+  author    = {Nina Golyandina and Anton Korobeynikov and Alex Shlemov and Konstantin Usevich},
+  title     = {Multivariate and 2D Extensions of Singular Spectrum Analysis with the Rssa Package},
+  journal   = {Journal of Statistical Software}
+}
+
+@article{Golyandina_2023,
+  year      = {2023},
+  publisher = {International Press of Boston},
+  volume    = {16},
+  number    = {1},
+  pages     = {147--157},
+  author    = {N. Golyandina},
+  title     = {Detection of signals by Monte Carlo singular spectrum analysis: multiple testing},
+  journal   = {Statistics and Its Interface}
+}
+
+@article{gps,
+  author  = {Xu, Chang and Yue, Dongjie},
+  year    = {2015},
+  pages   = {118-126},
+  title   = {Monte Carlo SSA to detect time-variable seasonal oscillations from GPS-derived site position time series},
+  volume  = {665},
+  journal = {Tectonophysics}
+}
+
+@mastersthesis{Larin_2022,
+  language = {russian},
+  author   = {Ларин, Е. С.},
+  title    = {Метод SSA для проверки гипотезы о существовании сигнала во временном ряде},
+  school   = {СПбГУ},
+  year     = {2022}
+}
+
+@article{mc-mssa,
+  author  = {Groth, Andreas and Ghil, Michael},
+  year    = {2015},
+  pages   = {7873–7893},
+  title   = {Monte Carlo Singular Spectrum Analysis (SSA) Revisited: Detecting Oscillator Clusters in Multivariate Datasets},
+  volume  = {28},
+  journal = {Journal of Climate}
+}
+
+@article{NAO,
+  author  = {Gámiz-Fortis, S. and Pozo-Vazquez, D. and Esteban-Parra, Maria-Jesus and Castro-Díez, Yolanda},
+  year    = {2002},
+  pages   = {},
+  title   = {Spectral characteristics and predictability of the NAO assessed through Singular Spectral Analysis},
+  volume  = {107},
+  journal = {Journal of Geophysical Research}
+}
+
+@article{non_lin_ssa,
+  author  = {Jemwa, Gorden and Aldrich, Chris},
+  year    = {2006},
+  pages   = {816-831},
+  title   = {Classification of process dynamics with Monte Carlo singular spectrum analysis},
+  volume  = {30},
+  journal = {Computers \& Chemical Engineering}
+}
+
+@article{Plaut1994SpellsOL,
+  title   = {Spells of Low-Frequency Oscillations and Weather Regimes in the Northern Hemisphere.},
+  author  = {Guy Plaut and Robert Vautard},
+  journal = {Journal of the Atmospheric Sciences},
+  year    = {1994},
+  volume  = {51},
+  pages   = {210-236}
+}
+
+@manual{Rssa,
+  title = {Rssa: A Collection of Methods for Singular Spectrum Analysis},
+  note  = {$\mathsf{R}$ package version 1.0.5},
+  url   = {https://CRAN.R-project.org/package=Rssa}
+}
+
+@book{ssa_an,
+  language  = {russian},
+  author    = {Голяндина, Н. Э.},
+  note      = {Учебное пособие},
+  title     = {Метод <<Гусеница>>-SSA: анализ временных рядов},
+  publisher = {СПбГУ},
+  year      = {2004}
+}
+
+@article{SSA_broom,
+  author  = {Broomhead, David and King, Gregory},
+  year    = {1986},
+  pages   = {217-236},
+  title   = {Broomhead DS, King GP. Extracting qualitative dynamics from experimental data. Physica D 20: 217-236},
+  volume  = {20},
+  journal = {Physica D Nonlinear Phenomena}
 }
 
 @book{SSA_R,
-	author = {Golyandina, Nina and Korobeynikov, Anton and Zhigljavsky, Anatoly},
-	year = {2018},
-	month = {01},
-	pages = {},
-	title = {Singular Spectrum Analysis with R},
-	isbn = {978-3-662-57378-5},
-	doi = {10.1007/978-3-662-57380-8}
+  author = {Golyandina, Nina and Korobeynikov, Anton and Zhigljavsky, Anatoly},
+  year   = {2018},
+  pages  = {},
+  title  = {Singular Spectrum Analysis with R},
+  isbn   = {978-3-662-57378-5},
+  doi    = {10.1007/978-3-662-57380-8}
+}
+
+@article{wavelet,
+  author  = {Nason, Guy and Savchev, Delyan},
+  year    = {2014},
+  pages   = {},
+  title   = {White noise testing using wavelets},
+  volume  = {3},
+  journal = {Stat}
 }
