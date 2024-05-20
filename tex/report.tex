@@ -394,8 +394,9 @@ $$\{\tF^{(1)}, \tF^{(2)}\}=\{\tS^{(1)},\tS^{(2)}\} + \{\tN^{(1)},\tN^{(2)}\},$$
 	\end{enumerate}
 \end{algorithm}
 
-\begin{remark}
-Заметим, что если критерий сильно радикальный, то функция $\alpha_I(\alpha)$ имеет большую производную в нуле, что существенно затрудняет оценку $\alpha_I^{-1}(\alpha^*)$ для маленьких ошибок первого рода.
+\begin{remark}\label{remark:large_G}
+Если критерий сильно радикальный, значение $\widetilde{\alpha}^*$ будет очень маленьким. Из-за этого оценка $(1-\alpha)$-квантиля в алгоритме~\ref{alg:multiple_mc-ssa} становится неточной, если количество суррогатных рядов $G$ недостаточно большое~\cite{Golyandina_2023}. Поэтому для построения поправки для слишком радикальных критериев нужно достаточно большое $G$, что влечет за собой б$\acute{\text{о}}$льшую трудоемкость.
+%то функция $\alpha_I(\alpha)$ имеет большую производную в нуле, что существенно затрудняет оценку $\alpha_I^{-1}(\alpha^*)$ для маленьких ошибок первого рода.
 \end{remark}
 
 \begin{definition}
@@ -478,154 +479,300 @@ MC-SSA легко обобщается на многомерный случай:
 
 Однако, в одномерном случае было установлено~\cite{Larin_2022}, что если вместо SVD разложения матрицы $\bfX$ использовать тёплицево, то радикальность критерия уменьшается, и уже можно применить поправку. Установим, что будет в многомерном случае, если использовать модификации, описанные в разделе~\ref{sect:decomposition}.
 
-Пусть количество каналов равно двум, количество суррогатных реализаций красного шума $G=1000$. Для оценки ошибки первого рода, будем рассматривать красный шум $\bfxi$ с параметрами $\varphi=0.7$ и $\delta=1$, а для оценки мощности будет рассматривать временной ряд $\tX=\tS+\bfxi$, где $\tS$ "--- сигнал с элементами
+Пусть количество каналов равно двум, длина каждого канала равна $N=100$, количество суррогатных реализаций красного шума $G=1000$. В качестве альтернативы рассмотрим сигнал $\tS$ с элементами
 \[
-	s_n^{(1)}=s_n^{(2)}=\cos(2\pi\omega n),\quad n=1,\ldots, N,
+s_n^{(1)}=s_n^{(2)}=A\cos(2\pi\omega n),\quad n=1,\ldots, N,
 \]
-где $\omega=0.075$, $N=100$.
+Будем смотреть на графики ошибок первого рода и ROC-кривые критериев для длин окна $L=10$, $20$, $50$, $80$, $90$. Будем воспринимать ROC-кривую как график мощности критерия, к которому был применен алгоритм~\ref{alg:correction}. Рассмотрим несколько примеров.
 
-Построим графики ошибки первого рода и ROC-кривые для каждой длины окна $L=10$, $20$, $50$, $80$, $90$. Будем воспринимать ROC-кривую как график мощности критерия, к которому был применен алгоритм~\ref{alg:correction}.
+\begin{example}\label{mc-mssa_example1}
+	Пусть параметры красного шума $\varphi=0.7$, $\delta=1$ и параметры сигнала $A=1$, $\omega=0.075$.
+
 \begin{figure}[h!]
 	\captionsetup[subfigure]{justification=Centering}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/type1error_sum_ev.pdf}
-		\caption{Ошибка первого рода (Sum).}
+		\includegraphics[width=0.9\textwidth]{img/type1error_sum_ev.pdf}
+		\caption{Ошибка первого рода (Sum)}
 		\label{fig:sum_ev_a}
 	\end{subfigure}\hspace{\fill}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/type1error_mssa_ev.pdf}
-		\caption{Ошибка первого рода (базовый MSSA).}
+		\includegraphics[width=0.9\textwidth]{img/type1error_mssa_ev.pdf}
+		\caption{Ошибка первого рода (Basic MSSA)}
 	\end{subfigure}
 	\bigskip
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/roc_sum_ev.pdf}
-		\caption{ROC-кривая (Sum).}
+		\includegraphics[width=0.9\textwidth]{img/roc_sum_ev_omega0075.pdf}
+		\caption{ROC-кривая (Sum)}
+		\label{fig:sum_ev_r}
 	\end{subfigure}\hspace{\fill}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/roc_mssa_ev.pdf}
-		\caption{ROC-кривая (базовый MSSA).}
+		\includegraphics[width=0.9\textwidth]{img/roc_mssa_ev.pdf}
+		\caption{ROC-кривая (Basic MSSA)}
 	\end{subfigure}
-	\caption{Сравнение методов Sum и базового MSSA (проекция на левые векторы).}
+	\caption{Сравнение методов с проекцией на левые векторы ($\varphi=0.7$, $\omega=0.075$)}
 	\label{fig:sum_ev}
 \end{figure}
 \begin{figure}[h!]
 	\captionsetup[subfigure]{justification=Centering}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/type1error_sum_fa.pdf}
-		\caption{Ошибка первого рода (Sum).}
+		\includegraphics[width=0.9\textwidth]{img/type1error_sum_fa.pdf}
+		\caption{Ошибка первого рода (Sum)}
 		\label{fig:sum_fa_a}
 	\end{subfigure}\hspace{\fill}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/type1error_mssa_fa.pdf}
-		\caption{Ошибка первого рода (базовый MSSA).}
+		\includegraphics[width=0.9\textwidth]{img/type1error_mssa_fa.pdf}
+		\caption{Ошибка первого рода (Basic MSSA)}
 	\end{subfigure}
 	\bigskip
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/roc_sum_fa.pdf}
-		\caption{ROC-кривая (Sum).}
+		\includegraphics[width=0.9\textwidth]{img/roc_sum_fa_omega0075.pdf}
+		\caption{ROC-кривая (Sum)}
+		\label{fig:sum_fa_r}
 	\end{subfigure}\hspace{\fill}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/roc_mssa_fa.pdf}
-		\caption{ROC-кривая (базовый MSSA).}
+		\includegraphics[width=0.9\textwidth]{img/roc_mssa_fa.pdf}
+		\caption{ROC-кривая (Basic MSSA)}
 	\end{subfigure}
-	\caption{Сравнение методов Sum и базового MSSA (проекция на правые векторы).}
+	\caption{Сравнение методов с проекцией на правые векторы ($\varphi=0.7$, $\omega=0.075$)}
 	\label{fig:sum_fa}
 \end{figure}
 
-На рис.~\ref{fig:sum_ev} и~\ref{fig:sum_fa} векторы для проекции были взяты из разложения~\eqref{eq:sum_decomposition}. На рис.~\ref{fig:sum_ev_a} видно, что при $L>20$ метод радикальный, а наибольшая мощность достигается при $L=90$. На рис.~\ref{fig:sum_fa_a} отчетливо заметно, что метод радикальный для всех $L$. Наибольшая мощность наблюдается при $L=90$, но отметим, что из-за слишком большой ошибки первого рода построить ROC-кривую на промежутке [0,3) для $L=50$ и на всем промежутке для $L=10$ и $L=20$ не получилось.
+На рис.~\ref{fig:sum_ev} и~\ref{fig:sum_fa} векторы для проекции были взяты из разложения~\eqref{eq:sum_decomposition}. На рис.~\ref{fig:sum_ev_a} видно, что при $L>20$ метод радикальный, а наибольшая мощность достигается при $L=90$. На рис.~\ref{fig:sum_fa_a} отчетливо заметно, что метод радикальный для всех $L$. Наибольшая мощность наблюдается при $L=80$, но отметим, что из-за слишком большой ошибки первого рода построить ROC-кривую на промежутке $[0,0.22)$ для $L=50$ и на всем промежутке для $L=10$ и $L=20$ не получилось.
 \begin{figure}[h!]
 	\captionsetup[subfigure]{justification=Centering}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/type1error_block_ev.pdf}
-		\caption{Ошибка первого рода (Block).}
+		\includegraphics[width=0.9\textwidth]{img/type1error_block_ev.pdf}
+		\caption{Ошибка первого рода (Block)}
 		\label{fig:block_ev_a}
 	\end{subfigure}\hspace{\fill}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/type1error_mssa_ev.pdf}
-		\caption{Ошибка первого рода (базовый MSSA).}
+		\includegraphics[width=0.9\textwidth]{img/type1error_mssa_ev.pdf}
+		\caption{Ошибка первого рода (Basic MSSA)}
 	\end{subfigure}
 	\bigskip
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/roc_block_ev.pdf}
-		\caption{ROC-кривая (Block).}
+		\includegraphics[width=0.9\textwidth]{img/roc_block_ev_omega0075.pdf}
+		\caption{ROC-кривая (Block)}
+		\label{fig:block_ev_r}
 	\end{subfigure}\hspace{\fill}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/roc_mssa_ev.pdf}
-		\caption{ROC-кривая (базовый MSSA).}
+		\includegraphics[width=0.9\textwidth]{img/roc_mssa_ev.pdf}
+		\caption{ROC-кривая (Basic MSSA)}
 	\end{subfigure}
-	\caption{Сравнение методов Block и базового MSSA (проекция на левые векторы).}
+	\caption{Сравнение методов с проекцией на левые векторы ($\varphi=0.7$, $\omega=0.075$)}
 	\label{fig:block_ev}
 \end{figure}
 \begin{figure}[h!]
 	\captionsetup[subfigure]{justification=Centering}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/type1error_block_fa.pdf}
-		\caption{Ошибка первого рода (Block).}
+		\includegraphics[width=0.9\textwidth]{img/type1error_block_fa.pdf}
+		\caption{Ошибка первого рода (Block)}
 		\label{fig:block_fa_a}
 	\end{subfigure}\hspace{\fill}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/type1error_mssa_fa.pdf}
-		\caption{Ошибка первого рода (базовый MSSA).}
+		\includegraphics[width=0.9\textwidth]{img/type1error_mssa_fa.pdf}
+		\caption{Ошибка первого рода (Basic MSSA)}
 	\end{subfigure}
 	\bigskip
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/roc_block_fa.pdf}
-		\caption{ROC-кривая (Block).}
+		\includegraphics[width=0.9\textwidth]{img/roc_block_fa_omega0075.pdf}
+		\caption{ROC-кривая (Block)}
+		\label{fig:block_fa_r}
 	\end{subfigure}\hspace{\fill}
-	\begin{subfigure}[t]{0.45\textwidth}
+	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=0.7\textwidth]{img/roc_mssa_fa.pdf}
-		\caption{ROC-кривая (базовый MSSA).}
+		\includegraphics[width=0.9\textwidth]{img/roc_mssa_fa.pdf}
+		\caption{ROC-кривая (Basic MSSA)}
 	\end{subfigure}
-	\caption{Сравнение методов Block и базового MSSA (проекция на правые векторы).}
+	\caption{Сравнение методов с проекцией на правые векторы ($\varphi=0.7$, $\omega=0.075$)}
 	\label{fig:block_fa}
 \end{figure}
 
 На рис.~\ref{fig:block_ev} и~\ref{fig:block_fa} векторы для проекции были взяты из разложения~\eqref{eq:block_decomposition}. Если рассматривать проекцию на левые векторы, то на рис.~\ref{fig:block_ev_a} видно, что метод радикальный, а наибольшая мощность достигается при $L=20$. Проекция на правые векторы также дает радикальный критерий, как видно на рис.~\ref{fig:block_fa_a}. Наибольшая мощность наблюдается при $L=80$, но из-за слишком большой ошибки первого рода ROC-кривую для $L=10$ и $L=20$, для которых метод, предположительно, имеет б\'oльшую мощность, удалось построить не на всем промежутке.
-
 \begin{table}[h]
-	\caption{Результаты численного сравнения методов для оптимальных длин окна}
+	\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.7$, $\omega=0.075$)}
 	\label{tab:res_mc-ssa}
 	\centering
 	\begin{tabular}{|c>{\centering\arraybackslash}m{1in}c>{\centering\arraybackslash}m{1in} >{\centering\arraybackslash}m{1in}cc|}\hline
-		Метод & левые/правые векторы & $L$ & длина векторов & количество векторов & $\alpha_I(\alpha)$ AUC & ROC AUC \\
+		Метод & левые/правые векторы & $L$ & длина векторов & количество векторов & $\alpha_I(\alpha^*)$ & $\beta(\widetilde\alpha^*)$ \\
 		\hline
-		MSSA & левые & $50$* & $50$ & $50$ & $0.7455$ & $0.405$\\
+		MSSA & левые & $50$* & $50$ & $50$ & $0.343$ & $0.728$\\
 		\hline
-		MSSA & правые & $80$* & $42$ & $42$ & $0.849$ & $0.3954$\\
+		MSSA & правые & $80$* & $42$ & $42$ & $0.558$ & $0.689$\\
 		\hline
-		Block & левые & $20$* & $162$ & $20$ & $0.5823$ & $0.4326$ \\
+		Block & левые & $20$* & $162$ & $20$ & $0.157$ & $0.796$ \\
 		\hline
-		Block & правые & $80$* & $80$ & $42$ & $0.8328$ & $0.3982$\\
+		Block & правые & $80$* & $80$ & $42$ & $0.367$ & $0.717$\\
 		\hline
-		Sum & левые & $90$ & $90$ & $22$ & $0.8185$ & $0.4402$ \\
+		Sum & левые & $90$ & $90$ & $22$ & $0.535$ & $0.806$ \\
 		\hline
-		Sum & правые & $90$* & $22$ & $22$ & $0.6441$ & $0.4415$ \\
+		Sum & правые & $80$* & $42$ & $42$ & $0.51$ & $0.748$ \\
 		\hline
 	\end{tabular}
-
 \end{table}
 
-В таблице~\ref{tab:res_mc-ssa} для каждого метода указана оптимальная длина окна (для которой удалось простроить ROC-кривую, звездочкой помечены $L$, которые могут не являться оптимальными), длина векторов для проекции, их количество, площадь под кривой ошибки первого рода, а также площадь под ROC-кривой при $\alpha_I\in[0,0.5]$. Видно, что MC-MSSA с проекцией на левые или правые векторы обеих модификаций мощнее, чем с проекцией на векторы базового MSSA.
-\subsubsection{Выводы}
-Подведем итоги. Для данного примера для метода Sum оптимальной длиной окна является $L=90$, если рассматривать проекцию как на левые, так и на правые векторы. Для метода Block оптимальной длиной окна является $L=20$, если рассматривать проекцию на левые векторы, и $L=80$, если рассматривать проекцию на правые векторы.
+В таблице~\ref{tab:res_mc-ssa} для каждого метода указана оптимальная длина окна (для которой удалось простроить ROC-кривую, звездочкой помечены $L$, которые могут не являться оптимальными), длина векторов для проекции, их количество, оптимальная длина окна, а также ошибка первого рода и мощность поправленного критерия при уровне значимости $\alpha^*=0.1$ для каждого метода. Видно, что MC-MSSA с проекцией на левые или правые векторы обеих модификаций мощнее, чем с проекцией на векторы базового MSSA.
+\end{example}
 
-Также все методы, кроме Sum, с проекцией на левые вектора сильно радикальные. Поэтому рекомендуется использовать вариант Sum с проекцией на левые векторы с $L=90$. 
+%Далее будем рассматривать только Toeplitz Sum MC-MSSA с проекцией на левые векторы и Toeplitz Block MC-MSSA c проекцией на правые векторы, поскольку именно эти критерии показали уменьшение радикальности по сравнению с базовым MC-MSSA.
+\begin{example}~\label{mc-mssa_example2}
+	Пусть $\varphi=0.3$, $\delta=1$. Поскольку при уменьшении $\varphi$ уменьшается дисперсия шума и это приводит к увеличению мощности критериев, уменьшим амплитуду сигнала до $A=0.5$.
+
+	\begin{figure}[h!]
+		\captionsetup[subfigure]{justification=Centering}
+		\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+			\includegraphics[width=0.95\textwidth]{img/type1error_sum_ev_phi3.pdf}
+			\caption{Ошибка I рода (Sum)}
+		\end{subfigure}\hspace{\fill}
+		\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+			\includegraphics[width=0.95\textwidth]{img/type1error_block_ev_phi3.pdf}
+			\caption{Ошибка I рода (Block)}
+		\end{subfigure}
+		\bigskip
+		\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+			\includegraphics[width=0.95\textwidth]{img/roc_sum_ev_phi3_omega0075.pdf}
+			\caption{ROC-кривая (Sum)}
+		\end{subfigure}\hspace{\fill}
+		\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+			\includegraphics[width=0.95\textwidth]{img/roc_block_ev_phi3_omega0075.pdf}
+			\caption{ROC-кривая (Block)}
+		\end{subfigure}
+		\caption{Сравнение методов с проекцией на левые векторы ($\varphi=0.3$, $\omega=0.075$)}
+		\label{fig:sum_block_ev_phi3}
+	\end{figure}
+
+	\begin{figure}[h!]
+		\captionsetup[subfigure]{justification=Centering}
+		\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+			\includegraphics[width=0.95\textwidth]{img/type1error_sum_fa_phi3.pdf}
+			\caption{Ошибка I рода (Sum)}
+		\end{subfigure}\hspace{\fill}
+		\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+			\includegraphics[width=0.95\textwidth]{img/type1error_block_fa_phi3.pdf}
+			\caption{Ошибка I рода (Block)}
+		\end{subfigure}
+		\bigskip
+		\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+			\includegraphics[width=0.95\textwidth]{img/roc_sum_fa_phi3_omega0075.pdf}
+			\caption{ROC-кривая (Sum)}
+		\end{subfigure}\hspace{\fill}
+		\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+			\includegraphics[width=0.95\textwidth]{img/roc_block_fa_phi3_omega0075.pdf}
+			\caption{ROC-кривая (Block)}
+		\end{subfigure}
+		\caption{Сравнение методов с проекцией на правые векторы ($\varphi=0.3$, $\omega=0.075$)}
+		\label{fig:sum_block_fa_phi3}
+	\end{figure}
+	\begin{table}[h]
+		\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.3$, $\omega=0.075$)}
+		\label{tab:res_mc-ssa_phi3}
+		\centering
+		\begin{tabular}{|c>{\centering\arraybackslash}m{1in}c>{\centering\arraybackslash}m{1in} >{\centering\arraybackslash}m{1in}cc|}\hline
+			Метод & левые/правые векторы & $L$ & длина векторов & количество векторов & $\alpha_I(\alpha^*)$ & $\beta(\widetilde{\alpha}^*)$ \\
+			\hline
+			Block & левые & $10$* & $182$ & $10$ & $0.177$ & $0.398$ \\
+			\hline
+			Block & правые & $90$* & $90$ & $22$ & $0.414$ & $0.386$\\
+			\hline
+			Sum & левые & $20$* & $20$ & $20$ & $0.176$ & $0.397$ \\
+			\hline
+			Sum & правые & $90$* & $22$ & $22$ & $0.425$ & $0.412$ \\
+			\hline
+		\end{tabular}
+	
+	\end{table}
+	На рис.~\ref{fig:sum_block_ev_phi3} изображены графики ошибок первого рода и ROC-кривые методов Sum и Block с проекцией на левые векторы, а на рис.~\ref{fig:sum_block_fa_phi3} "--- на правые векторы. Как видно по рисункам, при уменьшении параметра $\varphi$, во-первых, увеличивается радикальность критериев для любой длины окна, а во-вторых уменьшается разброс мощности после поправки. В таблице~\ref{tab:res_mc-ssa_phi3} представлены результаты для этого примера. По таблице видно, что различие в мощности у методов совсем небольшое, но все же наибольшая мощность наблюдается у метода Sum с проекцией на правые векторы. Стоит учесть, что из-за слишком сильной радикальности критериев, все приведенные в таблице $L$ могут не являтся оптимальными.
+\end{example}
+
+\begin{example}
+	В условиях примера~\ref{mc-mssa_example1} увеличим частоту сигнала $\omega$ до $0.225$ и посмотрим на ROC-кривые при такой альтернативе. Поскольку спектральная плотность красного шума монотонно убывает, чем выше частота сигнала, тем он меньше смешивается с красным шумом, следовательно, тем больше мощность критерия. Поэтому уменьшим амплитуду $A$ до $0.4$.
+
+	\begin{figure}
+		\captionsetup[subfigure]{justification=Centering}
+		\begin{subfigure}[t]{\textwidth}
+			\centering
+			\includegraphics[width=0.7\textwidth]{img/roc_block_ev_omega0225.pdf}
+			\caption{Проекция на левые векторы}
+		\end{subfigure}\hspace{\fill}
+		\begin{subfigure}[t]{\textwidth}
+			\centering
+			\includegraphics[width=0.7\textwidth]{img/roc_block_fa_omega0225.pdf}
+			\caption{Проекция на правые векторы}
+		\end{subfigure}
+		\caption{ROC-кривые метода Block ($\varphi=0.7$, $\omega=0.225$)}
+		\label{fig:block_omega0225}
+	\end{figure}
+	\begin{figure}[h!]
+		\captionsetup[subfigure]{justification=Centering}
+		\begin{subfigure}[t]{\textwidth}
+			\centering
+			\includegraphics[width=0.7\textwidth]{img/roc_sum_ev_omega0225.pdf}
+			\caption{Проекция на левые векторы}
+			%\label{fig:block_fa_a}
+		\end{subfigure}
+		\begin{subfigure}[t]{\textwidth}
+			\centering
+			\includegraphics[width=0.7\textwidth]{img/roc_sum_fa_omega0225.pdf}
+			\caption{Проекция на правые векторы}
+		\end{subfigure}
+		\caption{ROC-кривые метода Sum ($\varphi=0.7$, $\omega=0.225$)}
+		\label{fig:sum_omega0225}
+	\end{figure}
+	\begin{table}[h]
+		\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.7$, $\omega=0.075$)}
+		\label{tab:res_mc-mssa_omega0225}
+		\centering
+		\begin{tabular}{|c>{\centering\arraybackslash}m{1in}c>{\centering\arraybackslash}m{1in} >{\centering\arraybackslash}m{1in}cc|}\hline
+			Метод & левые/правые векторы & $L$ & длина векторов & количество векторов & $\alpha_I(\alpha^*)$ & $\beta(\widetilde{\alpha}^*)$ \\
+			\hline
+			Block & левые & $20$* & $162$ & $20$ & $0.157$ & $0.597$ \\
+			\hline
+			Block & правые & $80$* & $80$ & $42$ & $0.367$ & $0.473$\\
+			\hline
+			Sum & левые & $90$ & $10$ & $90$ & $0.535$ & $0.625$ \\
+			\hline
+			Sum & правые & $80$* & $42$ & $42$ & $0.51$ & $0.613$ \\
+			\hline
+		\end{tabular}
+	
+	\end{table}
+	На рис.~\ref{fig:sum_omega0225},~\ref{fig:block_omega0225} изображены ROC-кривые критериев. Если сравнить получившиеся графики с графиками на рис~\ref{fig:sum_fa_r},~\ref{fig:sum_fa_r},~\ref{fig:block_ev_r} и~\ref{fig:block_fa_r}, то видно, что с ростом частоты сигнала в альтернативе увеличивается различие в мощности критериев в зависимости от параметра $L$. Также для наглядного сравнения в таблице~\ref{tab:res_mc-mssa_omega0225} представлены результаты этого примера для оптимального $L$.
+\end{example}
+
+
+%Для оценки ошибки первого рода, будем рассматривать красный шум $\bfxi$ с параметрами $\varphi=0.7$ и $\delta=1$, а для оценки мощности будет рассматривать временной ряд $\tX=\tS+\bfxi$, где $\tS$ "--- сигнал с элементами
+%\[
+%	s_n^{(1)}=s_n^{(2)}=\cos(2\pi\omega n),\quad n=1,\ldots, N,
+%\]
+%где $\omega=0.075$, $N=100$.
+
+\subsubsection{Выводы}
+Подведем итоги. Для рассмотренных примеров метод Sum показывает наибольшую мощность среди всех рассмотренных модификаций MC-MSSA. Также хочется отметить, что метод Sum с проекцией на левые векторы дает наименее радикальный критерий, что важно при построении поправки (см. замечание~\ref{remark:large_G}). Также отметим, что из-за слишком сильной радикальности остальных критериев определить длину окна, дающую наибольшую мощность, затруднительно, поэтому нужно отдельно исследовать проблему выбора оптимального $L$. Но на данный момент, беря в учет рассмотренные примеры и результаты раздела~\ref{sect:mssa_comparison}, рекомендуется использовать метод Sum с проекцией на левые векторы c $L=90$ для рядов длины $N=100$.
+
+%Также все методы, кроме Sum, с проекцией на левые вектора сильно радикальные. Поэтому рекомендуется использовать вариант Sum с проекцией на левые векторы с $L=90$. 
 
 \chapter{Метод Monte-Carlo SSA для реальных задач}\label{chpt:mc_ssa_real}
 В главе~\ref{chpt:mc-ssa} предполагалось, что параметры шума известны и нет мешающего сигнала (например, сезонности или тренда). Мешающий сигнал "--- это сигнал, который уже не нужно обнаруживать при проверки гипотезы о наличии сигнала.  В этой главе рассмотрим случаи, которые более близки к реальным задачам.
@@ -696,17 +843,17 @@ MC-SSA легко обобщается на многомерный случай:
 		\begin{subfigure}[t]{\textwidth}
 			\centering
 			\includegraphics[width=0.7\textwidth]{../cps2024/images/roc_phi7_N400.eps}
-			\caption{ROC-кривая}
+			\caption{ROC-кривая ($\varphi=0.7$)}
 			\label{roc_phi7_N400}
 		\end{subfigure}
 		\begin{subfigure}[t]{\textwidth}
 			\centering
 			\includegraphics[width=0.7\textwidth]{../cps2024/images/roc_phi3_N400.eps}
-			\caption{ROC-кривая}
+			\caption{ROC-кривая ($\varphi=0.3$)}
 			\label{roc_phi3_N400}
 		\end{subfigure}
 	\label{fig:example3}
-	\caption{Пример 3 ($\varphi=0.3$, $N=400$, $\omega=0.075$)}
+	\caption{Пример 3 ($N=400$, $\omega=0.075$)}
 	\end{figure}
 	На рис.~\ref{roc_phi7_N400},~\ref{roc_phi3_N400} видим, что для обоих примеров с увеличением длины ряда уменьшается различие в мощности после поправки в зависимости от длины окна.
 \end{example}
@@ -820,26 +967,26 @@ s_n=A\cos(2\pi\omega n),\quad n=1,\ldots,N,
 	\captionsetup[subfigure]{justification=Centering}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_arima.pdf}
+		\includegraphics[width=0.95\textwidth]{img/type1error_arima.pdf}
 		\caption{Ошибка первого рода (обычная оценка)}
 		\label{fig:arima_type1error}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_extract.pdf}
+		\includegraphics[width=0.95\textwidth]{img/type1error_extract.pdf}
 		\caption{Ошибка первого рода (двухступенчатая оценка)}
 		\label{fig:extract_type1error}
 	\end{subfigure}
 	\bigskip
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_arima.pdf}
+		\includegraphics[width=0.95\textwidth]{img/roc_arima.pdf}
 		\caption{ROC-кривая (обычная оценка)}
 		\label{fig:arima_roc}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_extract.pdf}
+		\includegraphics[width=0.95\textwidth]{img/roc_extract.pdf}
 		\caption{ROC-кривая (двухступенчатая оценка)}
 		\label{fig:extract_roc}
 	\end{subfigure}
@@ -891,37 +1038,37 @@ f_n=A\cos(2\pi\omega n),\quad n=1,\ldots,N,
 	\captionsetup[subfigure]{justification=Centering}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_sin.pdf}
+		\includegraphics[width=0.95\textwidth]{img/type1error_sin.pdf}
 		\caption{Ошибка I рода}
 		\label{fig:sin_type1error}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_sin.pdf}	
+		\includegraphics[width=0.95\textwidth]{img/roc_sin.pdf}	
 		\caption{ROC-кривая}
 		\label{fig:sin_roc}
 	\end{subfigure}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_sin_est_noise.pdf}
+		\includegraphics[width=0.95\textwidth]{img/type1error_sin_est_noise.pdf}
 		\caption{Ошибка I рода (оцененные параметры шума)}
 		\label{fig:sin_est_noise_type1error}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_sin_est_noise.pdf}
+		\includegraphics[width=0.95\textwidth]{img/roc_sin_est_noise.pdf}
 		\caption{ROC-кривая (оцененные параметры шума)}
 		\label{fig:sin_est_noise_roc}
 	\end{subfigure}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_sin_est_noise_signal.pdf}
+		\includegraphics[width=0.95\textwidth]{img/type1error_sin_est_noise_signal.pdf}
 		\caption{Ошибка I рода (оцененный мешающий сигнал и параметры шума)}
 		\label{fig:sin_est_noise_signal_type1error}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_sin_est_noise_signal.pdf}
+		\includegraphics[width=0.95\textwidth]{img/roc_sin_est_noise_signal.pdf}
 		\caption{ROC-кривая (оцененный мешающий сигнал и параметры шума)}
 		\label{fig:sin_est_noise_signal_roc}
 	\end{subfigure}
@@ -1018,37 +1165,37 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 	\captionsetup[subfigure]{justification=Centering}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_trend.pdf}
+		\includegraphics[width=0.95\textwidth]{img/type1error_trend.pdf}
 		\caption{Ошибка I рода}
 		\label{fig:trend_type1error}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_trend.pdf}
+		\includegraphics[width=0.95\textwidth]{img/roc_trend.pdf}
 		\caption{ROC-кривая}
 		\label{fig:trend_roc}
 	\end{subfigure}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_trend_est_noise.pdf}
+		\includegraphics[width=0.95\textwidth]{img/type1error_trend_est_noise.pdf}
 		\caption{Ошибка I рода (оцененные параметры шума)}
 		\label{fig:trend_est_noise_type1error}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_trend_est_noise.pdf}
+		\includegraphics[width=0.95\textwidth]{img/roc_trend_est_noise.pdf}
 		\caption{ROC-кривая (оцененные параметры шума)}
 		\label{fig:trend_est_noise_roc}
 	\end{subfigure}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_trend_est_noise_signal.pdf}
+		\includegraphics[width=0.95\textwidth]{img/type1error_trend_est_noise_signal.pdf}
 		\caption{Ошибка I рода (оцененный мешающий сигнал и параметры шума)}
 		\label{fig:trend_est_noise_signal_type1error}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_sin_est_noise_signal.pdf}
+		\includegraphics[width=0.95\textwidth]{img/roc_sin_est_noise_signal.pdf}
 		\caption{ROC-кривая (оцененный мешающий сигнал и параметры шума)}
 		\label{fig:trend_est_noise_signal_roc}
 	\end{subfigure}
@@ -1056,14 +1203,14 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 \label{fig:trend}
 \end{figure}
 
-На рис.~\ref{fig:trend} представлены графики ошибок первого рода и ROC-кривые следующих критериев: когда тренд и параметры шума $\varphi$ и $\delta$ известны точно, когда тренд известен точно, но параметры шума оцениваются, и когда и тренд, и параметры шума оцениваются. Как и в разделе~\ref{sect:periodic_case}, графики ошибок первого рода на рис.~\ref{fig:trend_type1error},~\ref{fig:trend_est_noise_type1error} и~\ref{fig:trend_est_noise_signal_type1error} сохраняют общую тенденцию при оценке параметров/тренда. По ROC-кривым на рис.~\ref{fig:trend_roc},~\ref{fig:trend_est_noise_roc} и~\ref{fig:sin_est_noise_signal_roc} видно, что оптимальной длиной окна является $L=90$. Стоит также отметить странное поведение мощности при $L=10$.
-
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.7\textwidth]{img/roc_trend_copm.pdf}
 	\caption{Сравнение ROC-кривых критериев (мешающий сигнал "--- тренд)}
 	\label{fig:power_comp_trend}
 \end{figure}
+
+На рис.~\ref{fig:trend} представлены графики ошибок первого рода и ROC-кривые следующих критериев: когда тренд и параметры шума $\varphi$ и $\delta$ известны точно, когда тренд известен точно, но параметры шума оцениваются, и когда и тренд, и параметры шума оцениваются. Как и в разделе~\ref{sect:periodic_case}, графики ошибок первого рода на рис.~\ref{fig:trend_type1error},~\ref{fig:trend_est_noise_type1error} и~\ref{fig:trend_est_noise_signal_type1error} сохраняют общую тенденцию при оценке параметров/тренда. По ROC-кривым на рис.~\ref{fig:trend_roc},~\ref{fig:trend_est_noise_roc} и~\ref{fig:sin_est_noise_signal_roc} видно, что оптимальной длиной окна является $L=90$. Стоит также отметить странное поведение мощности при $L=10$.
 
 На рис.~\ref{fig:power_comp_trend} представлена ROC-кривая критериев для оптимального $L$. Аналогично случаю периодической компоненты, при оценке параметров шума и мешающего сигнала мощность падает незначительно.  
 %Будем смотреть на графики ошибки первого рода, мощности и ROC-кривые как в разделе~\ref{sect:periodic_case}. 
