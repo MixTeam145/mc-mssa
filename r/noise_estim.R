@@ -8,8 +8,7 @@ est.model.extract <- function(f, L = (N + 1) %/% 2, alpha) {
                      basis = "ev",
                      kind = "ev",
                      G = G,
-                     level.conf = 1 - alphas_corrected_arima(alpha),
-                     composite = "none")
+                     level.conf = 1 - alphas_corrected_arima(alpha))
   if (m$reject) {
     suspect <- which(m$v > m$upper)
     s <- ssa(f, L, kind = "toeplitz-ssa")
@@ -19,10 +18,4 @@ est.model.extract <- function(f, L = (N + 1) %/% 2, alpha) {
   else
     estModel <- est.model.arima(f)
   estModel
-}
-
-freq.est <- function(u) {
-  s <- ssa(u, kind = "1d-ssa")
-  p <- parestimate(s, groups = list(1:2))
-  p$frequencies[[1]]
 }

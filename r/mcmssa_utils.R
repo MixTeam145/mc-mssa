@@ -546,13 +546,14 @@ MonteCarloSSA <-
     else
       estModel <- model
     if (basis == "ev") {
-      #f.basis <- f
-      #if (composite) 
-        #f.basis <- f - model$signal
+      f.basis <- f
+      # comment this if statement to project vectors of original series (another version of the nuisance algorithm)
+      if (composite) 
+        f.basis <- f - model$signal
       if (kind == 'fa')
-        basis <- basis.ev(f, L, factor.v=T, toeplitz.kind = toeplitz.kind)
+        basis <- basis.ev(f.basis, L, factor.v=T, toeplitz.kind = toeplitz.kind)
       else
-        basis <- basis.ev(f, L, factor.v=F, toeplitz.kind = toeplitz.kind)
+        basis <- basis.ev(f.basis, L, factor.v=F, toeplitz.kind = toeplitz.kind)
     }
     else if (basis == "sin") {
       stop(condition(c("NotImplementedError", "error"), "This function is not implemented"))

@@ -11,7 +11,7 @@ test.ar1.wavelet <- function(ts0){
     method = "CSS-ML"
   ) #does not estimate parameters for nonstationary t.s. with trend
   #phi.est <- coef(ar.par) #test is conservative for estimated phi
-  phi.est <- phi #test is exact for true phi
+  phi.est <- varphi #test is exact for true phi
   Sigma <- toeplitz(phi.est^(0:(length(ts0)-1)))
   s.svd <- eigen(Sigma)
   Sigma.root.inv <- s.svd$vectors %*% diag(sqrt(1/s.svd$values)) %*% t(s.svd$vectors)
@@ -32,7 +32,7 @@ test.ar1 <- function(ts0){
     method = "CSS-ML"
   ) #does not estimate parameters for nonstationary t.s. with trend
   #phi.est <- coef(ar.par) #test is conservative for estimated phi
-  phi.est <- phi #test is exact for true phi
+  phi.est <- varphi #test is exact for true phi
   Sigma <- toeplitz(phi.est^(0:(length(ts0)-1)))
   s.svd <- eigen(Sigma)
   Sigma.root.inv <- s.svd$vectors %*% diag(sqrt(1/s.svd$values)) %*% t(s.svd$vectors)

@@ -14,27 +14,34 @@ load("p.values_Ns.RData")
 ```
 
 Возьмем $N=100,200,500,1000$ и посмотрим на графики ошибок первого рода при разных $L$.
-```{r, include=FALSE}
+```{r}
 Ns <- c(100, 200, 500, 1000)
 varphi <- 0.7
 delta <- 1
 model <- list(varphi = varphi,
               delta = delta)
-
 M <- 1000
 G <- 1000
+L <- 10
+```
+
+```{r}
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+
 alphas <- 0:1000/1000
 clrs <- c('black', 'red', 'green', "orange")
 lwds <- c(2, 1, 1, 1)
 ```
 
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE}
 cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
 registerDoRNG(seed = 1, once = FALSE)
 
-p.values_noise_L80 <- list()
+p.values_noise_L10 <- list()
 for (idx in seq_along(Ns)) {
   result <- foreach (
     i = 1:M,
@@ -58,74 +65,94 @@ for (idx in seq_along(Ns)) {
       )
     res$p.value
   }
-  p.values_noise_L80[[idx]] <- result
+  p.values_noise_L10[[idx]] <- result
 }
 
 stopCluster(cluster)
 ```
 
+```{r eval=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_L10 <- list()
+for (idx in seq_along(Ns)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = c('Norm', 'rowQuantiles'),
+    .packages = "Rssa",
+    .options.snow = opts
+  ) %dopar% {
+    model$N <- Ns[idx]
+    signal <- 0.6 * cos(2 * pi * (1:Ns[idx]) * 0.075)
+    f <- one.channel.ts(model, signal)
+    res <-
+      MonteCarloSSA(
+        f = f,
+        L = L,
+        model = model,
+        basis = "ev",
+        kind = "ev",
+        D = 1,
+        G = G,
+        level.conf = NULL
+      )
+    res$p.value
+  }
+  p.values_signal_L10[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+
 1. $L=10$
-```{r, include=FALSE}
+```{r}
 alphaI_L10 <- lapply(p.values_noise_L10, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_L10 <- lapply(p.values_signal_L10, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
 ```
 
-```{r, echo=FALSE}
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', main = "L = 10")
+```{r}
+pdf(file = "../tex/img/alphaI_L10.pdf", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ns))
-  lines(alphas, alphaI_L10[[i]], lwd = lwds[i], col = clrs[i])
-legend(x = "bottomright", as.character(Ns), col = clrs, lty = 1, lwd = lwds)
+  lines(alphaI_L10[[i]], beta_L10[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ns), col = clrs, lty = 1, lwd = lwds, cex = 2)
+dev.off()
 ```
 
-Ошибка первого рода при $\alpha=0.1$:
-```{r, echo=FALSE}
-sapply(p.values_noise_L10, function(p) mean(p < 0.1))
-```
-
-AUC:
-```{r, echo=FALSE}
-sapply(seq_along(Ns), function(i) auc(alphas, alphaI_L10[[i]], xlim = c(0, 1)))
+```{r}
+pdf(file = "../tex/img/roc_L10.pdf", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = "power", cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
+for (i in seq_along(Ns))
+  lines(alphaI_L10[[i]], beta_L10[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ns), lty = 1, lwd = lwds, col = clrs, cex = 2)
+dev.off()
 ```
 
 2. $L=40$
-```{r, include=FALSE}
+```{r}
 alphaI_L40 <- lapply(p.values_noise_L40, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_L40 <- lapply(p.values_signal_L40, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
 ```
 
-```{r, echo=FALSE}
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', main = "L = 40")
+```{r}
+pdf(file = "../tex/img/alphaI_L40.pdf", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ns))
-  lines(alphas, alphaI_L40[[i]], lwd = lwds[i], col = clrs[i])
-legend(x = "bottomright", as.character(Ns), col = clrs, lty = 1, lwd = lwds)
+  lines(alphaI_L40[[i]], beta_L40[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ns), col = clrs, lty = 1, lwd = lwds, cex = 2)
+dev.off()
 ```
 
-Ошибка первого рода при $\alpha=0.1$:
-```{r echo=FALSE}
-sapply(p.values_noise_L40, function(p) mean(p < 0.1))
-```
-
-AUC:
-```{r, echo=FALSE}
-sapply(seq_along(Ns), function(i) auc(alphas, alphaI_L40[[i]], xlim = c(0, 1)))
-```
-
-3. $L=80$
-```{r, include=FALSE}
-alphaI_L80 <- lapply(p.values_noise_L80, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-```
-
-```{r, echo=FALSE}
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', main = "L = 80")
+```{r}
+pdf(file = "../tex/img/roc_L40.pdf", width = 15, height = 5)
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = "power", cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ns))
-  lines(alphas, alphaI_L80[[i]], lwd = lwds[i], col = clrs[i])
-legend(x = "bottomright", as.character(Ns), col = clrs, lty = 1, lwd = lwds)
-```
-
-Ошибка первого рода при $\alpha=0.1$:
-```{r echo=FALSE}
-sapply(p.values_noise_L80, function(p) mean(p < 0.1))
-```
-
-AUC:
-```{r, echo=FALSE}
-sapply(seq_along(Ns), function(i) auc(alphas, alphaI_L80[[i]], xlim = c(0, 1)))
+  lines(alphaI_L40[[i]], beta_L40[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ns), lty = 1, lwd = lwds, col = clrs, cex = 2)
+dev.off()
 ```

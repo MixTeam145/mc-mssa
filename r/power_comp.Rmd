@@ -210,9 +210,9 @@ stopCluster(cluster)
 ```
 
 ```{r}
-clrs <- c("black", "red", "blue")
-legends <- c("True model", "Estimated model (arima)", "Estimated model (extract)")
-lwds <- c(2,2,2)
+#clrs <- c("black", "red", "blue")
+#legends <- c("True model", "Estimated model (arima)", "Estimated model (extract)")
+#lwds <- c(2,2,2)
 ```
 
 ```{r}
@@ -226,38 +226,38 @@ beta_extract <- lapply(p.values_h1_extract, function(p) sapply(alphas, function(
 ```
 Посмотрим на графики ошибок первого рода. Видим, что при $L=10,20$ критерии с оцененными параметрами до определенного момента консервативны, потом радикальные. Для остальных $L$ критерии радикальные. Заметим, что для всех $L$ графики критериев с оцененными параметрами практически идентичны, что соответствует $\pm$ одинаковой точности оценок при отсутствии сигнала. 
 ```{r}
-pdf("type1error_arima.pdf", width = 15, height = 5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
+pdf("../tex/img/type1error_arima.pdf", width = 6, height = 3.5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
 for (i in 1:5)
   lines(alphas, alphaI_arima[[i]], col = clrs[i], lwd = lwds[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 dev.off()
 ```
 
 ```{r}
-pdf("type1error_extract.pdf", width = 15, height = 5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
+pdf("../tex/img/type1error_extract.pdf", width = 6, height = 3.5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error')
 for (i in 1:5)
   lines(alphas, alphaI_extract[[i]], col = clrs[i], lwd = lwds[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 dev.off()
 ```
 
 Если посмотреть на ROC-кривые критериев, видим серьезное повышение мощности, используя метод extract, при $L=10,20,50$. Для остальных $L$ улучшения нет.
 ```{r}
-pdf("roc_arima.pdf", width = 15, height = 5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, xlab = 'type I error', ylab = 'power', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
+pdf("../tex/img/roc_arima.pdf", width = 6, height = 3.5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, xlab = 'type I error', ylab = 'power')
 for (i in 1:5)
   lines(alphaI_arima[[i]], beta_arima[[i]], col = clrs[i], lwd = lwds[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 dev.off()
 ```
 
 ```{r}
-pdf("roc_extract.pdf", width = 15, height = 5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, xlab = 'type I error', ylab = 'power', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
+pdf("../tex/img/roc_extract.pdf", width = 6, height = 3.5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, xlab = 'type I error', ylab = 'power')
 for (i in 1:5)
   lines(alphaI_extract[[i]], beta_extract[[i]], col = clrs[i], lwd = lwds[i])
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 dev.off()
 ```
