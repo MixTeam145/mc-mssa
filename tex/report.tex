@@ -100,7 +100,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
  
 В приложение помещены графики и таблицы, на основе которых делаются выводы в основном тексте, но которые затрудняют его чтение.
 
-Для реализации рассматриваемых алгоритмов использовался язык R.
+Для реализации рассматриваемых алгоритмов использовался язык \textsf{R}.
 %Рассмотрим вещественнозначный временной ряд, т.е. последовательность вещественнозначных чисел, упорядоченных по времени. Метод Singular Spectrum Analysis (SSA) позволяет представить такой ряд в виде суммы интерпретируемых компонент, таких как тренд, периодические компоненты и шум, что упрощает процесс анализа временного ряда.
 
 %В повседневной жизни чаще всего временные ряды встречаются в виде детерминированного сигнала и случайного шума. Тогда возникает задача обнаружения сигнала в шуме. Метод Monte-Carlo SSA~--- решение этой задачи.
@@ -1669,7 +1669,7 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 
 
 \conclusion
-В ходе данной работы были реализованы два метода Toeplitz MSSA на языке программирования $\tR$. На основе численных экспериментов были сделаны следующие выводы: Sum и Block версии Toeplitz MSSA для стационарного ряда точнее выделяют гармонический сигнал, чем Basic MSSA, причем метод Toeplitz Sum MSSA для рассмотренных примеров оказался наиболее эффективным в построении автоковариационной матрицы и нахождении ее спектрального разложения.
+В ходе данной работы были реализованы два метода Toeplitz MSSA на языке программирования \textsf{R}. На основе численных экспериментов были сделаны следующие выводы: Sum и Block версии Toeplitz MSSA для стационарного ряда точнее выделяют гармонический сигнал, чем Basic MSSA, причем метод Toeplitz Sum MSSA для рассмотренных примеров оказался наиболее эффективным в построении автоковариационной матрицы и нахождении ее спектрального разложения.
 
 На основе методов Sum и Block Toeplitz MSSA были реализованы модификации критерия MC-MSSA. Было получено, что во всех рассмотренных примерах метод Toeplitz Sum MC-MSSA с проекцией на левые векторы дает самый мощный критерий, причем не слишком радикальный. Помимо этого, он численно эффективнее по сравнению с другими модификациями MC-MSSA. Поэтому этот метод более предпочтителен, чем метод Block, что важно ввиду его простоты в реализации и структуры, подходящей под пакет Rssa~\cite{Rssa}.
 
@@ -1695,27 +1695,27 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 	\captionsetup[subfigure]{justification=Centering}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_sum_ev_phi3.pdf}
+		\includegraphics[width=0.9\textwidth]{img/type1error_sum_ev_phi3.pdf}
 		\caption{Ошибка I рода (Sum)}
 		\label{fig:sum_ev_phi3}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_block_ev_phi3.pdf}
+		\includegraphics[width=0.9\textwidth]{img/type1error_block_ev_phi3.pdf}
 		\caption{Ошибка I рода (Block)}
 	\end{subfigure}
 	\bigskip
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_sum_ev_phi3_omega0075.pdf}
+		\includegraphics[width=0.9\textwidth]{img/roc_sum_ev_phi3_omega0075.pdf}
 		\caption{ROC-кривая (Sum)}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_block_ev_phi3_omega0075.pdf}
+		\includegraphics[width=0.9\textwidth]{img/roc_block_ev_phi3_omega0075.pdf}
 		\caption{ROC-кривая (Block)}
 	\end{subfigure}
-	\caption{Сравнение методов с проекцией на левые векторы ($\varphi=0.3$, $\omega=0.075$)}
+	\caption{Сравнение методов с проекцией на левые векторы ($\varphi=0.3$, $A=0.5$, $\omega=0.075$)}
 	\label{fig:sum_block_ev_phi3}
 \end{figure}
 
@@ -1723,26 +1723,26 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 	\captionsetup[subfigure]{justification=Centering}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_sum_fa_phi3.pdf}
+		\includegraphics[width=0.9\textwidth]{img/type1error_sum_fa_phi3.pdf}
 		\caption{Ошибка I рода (Sum)}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/type1error_block_fa_phi3.pdf}
+		\includegraphics[width=0.9\textwidth]{img/type1error_block_fa_phi3.pdf}
 		\caption{Ошибка I рода (Block)}
 	\end{subfigure}
 	\bigskip
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_sum_fa_phi3_omega0075.pdf}
+		\includegraphics[width=0.9\textwidth]{img/roc_sum_fa_phi3_omega0075.pdf}
 		\caption{ROC-кривая (Sum)}
 	\end{subfigure}\hspace{\fill}
 	\begin{subfigure}[t]{0.5\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{img/roc_block_fa_phi3_omega0075.pdf}
+		\includegraphics[width=0.9\textwidth]{img/roc_block_fa_phi3_omega0075.pdf}
 		\caption{ROC-кривая (Block)}
 	\end{subfigure}
-	\caption{Сравнение методов с проекцией на правые векторы ($\varphi=0.3$, $\omega=0.075$)}
+	\caption{Сравнение методов с проекцией на правые векторы ($\varphi=0.3$, $A=0.5$, $\omega=0.075$)}
 	\label{fig:sum_block_fa_phi3}
 \end{figure}
 
@@ -1752,7 +1752,7 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 %Стоит учесть, что из-за слишком сильной радикальности критериев, все приведенные в таблице $L$ могут не являтся оптимальными.
 
 \subsubsection{$\varphi=0.7$, $\omega=0.225$}
-\begin{figure}
+\begin{figure}[h!]
 	\captionsetup[subfigure]{justification=Centering}
 	\begin{subfigure}[t]{\textwidth}
 		\centering
@@ -1764,7 +1764,7 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\includegraphics[width=0.7\textwidth]{img/roc_block_fa_omega0225.pdf}
 		\caption{Проекция на правые векторы}
 	\end{subfigure}
-	\caption{ROC-кривые метода Block ($\varphi=0.7$, $\omega=0.225$)}
+	\caption{ROC-кривые метода Block ($\varphi=0.7$, $A=0.4$, $\omega=0.225$)}
 	\label{fig:block_omega0225}
 \end{figure}
 \begin{figure}[h!]
@@ -1773,14 +1773,13 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\centering
 		\includegraphics[width=0.7\textwidth]{img/roc_sum_ev_omega0225.pdf}
 		\caption{Проекция на левые векторы}
-		%\label{fig:block_fa_a}
 	\end{subfigure}
 	\begin{subfigure}[t]{\textwidth}
 		\centering
 		\includegraphics[width=0.7\textwidth]{img/roc_sum_fa_omega0225.pdf}
 		\caption{Проекция на правые векторы}
 	\end{subfigure}
-	\caption{ROC-кривые метода Sum ($\varphi=0.7$, $\omega=0.225$)}
+	\caption{ROC-кривые метода Sum ($\varphi=0.7$, $A=0.4$, $\omega=0.225$)}
 	\label{fig:sum_omega0225}
 \end{figure}
 
@@ -1789,7 +1788,6 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 \section{Искажение критерия при использовании оценок}\label{appendix:est_graphs}
 Здесь приведены графики к разделу~\ref{sect:mc-ssa_est} основного текста.
 \subsubsection{$\varphi=0.3$, $\omega=0.075$}
-
 \begin{figure}[h!]
 	\captionsetup[subfigure]{justification=Centering}
 	\begin{subfigure}[t]{0.5\textwidth}
@@ -1817,7 +1815,7 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\caption{ROC-кривая (оцененные параметры)}
 		\label{fig:roc_phi3est_omega0075}
 	\end{subfigure}
-	\caption{Влияние оценки параметров на критерий ($\varphi=0.3$, $\omega=0.075$)}
+	\caption{Влияние оценки параметров на критерий ($\varphi=0.3$, $A=0.7$, $\omega=0.075$)}
 	\label{fig:phi3est}
 \end{figure}
 
@@ -1838,7 +1836,7 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\caption{ROC-кривая (оцененные параметры)}
 		\label{fig:roc_phi7est_omega0225}
 	\end{subfigure}
-	\caption{Влияние оценки параметров на критерий ($\varphi=0.7$, $\omega=0.225$)}
+	\caption{Влияние оценки параметров на критерий ($\varphi=0.7$, $A=0.4$, $\omega=0.225$)}
 	\label{fig:phi7est_omega0225}
 \end{figure}
 
@@ -1887,10 +1885,10 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\caption{ROC-кривая (оцененный мешающий сигнал и параметры шума)}
 		\label{fig:roc_sin_phi3est_signal}
 	\end{subfigure}
-	\caption{Анализ алгоритма~\ref{alg:mc-ssa_nuisance} (мешающий сигнал~--- периодика) ($\varphi=0.3$, $\omega=0.075$)}
+	\caption{Анализ алгоритма~\ref{alg:mc-ssa_nuisance} (мешающий сигнал~--- периодика) ($\varphi=0.3$, $A=0.7$, $\omega=0.075$)}
 \label{fig:sin_phi3}
 \end{figure}
-Уменьшим параметр $\varphi$ до $0.3$ и амплитуду сигнала в альтернативе до $A=0.6$. На рис.~\ref{fig:sin_phi3} приведено сравнение следующих критериев: когда мешающий сигнал и параметры красного шума известны точно, когда параметры шума оцениваются, и когда всесте с параметрами оценивается мешающий сигнал. Если сравнить графики ошибок первого рода на рис.~\ref{fig:type1error_sin_phi3},~\ref{fig:type1error_sin_phi3est} и~\ref{fig:type1error_sin_phi3est_signal} с рис.~\ref{fig:sin_type1error},~\ref{fig:sin_est_noise_type1error} и~\ref{fig:sin_est_noise_signal_type1error}, то видно, что уменьшение параметра $\varphi$ приводит к увеличению радикальности критерия. Если вглянуть на ROC-кривые критериев на рис.~\ref{fig:roc_sin_phi3},~\ref{fig:roc_sin_phi3est} и~\ref{fig:roc_sin_phi3est_signal}, заметно сильное снижение мощности при оценивании параметров красного шума.
+Уменьшим параметр $\varphi$ до $0.3$ и амплитуду сигнала в альтернативе до $A=0.7$. На рис.~\ref{fig:sin_phi3} приведено сравнение следующих критериев: когда мешающий сигнал и параметры красного шума известны точно, когда параметры шума оцениваются, и когда всесте с параметрами оценивается мешающий сигнал. Если сравнить графики ошибок первого рода на рис.~\ref{fig:type1error_sin_phi3},~\ref{fig:type1error_sin_phi3est} и~\ref{fig:type1error_sin_phi3est_signal} с рис.~\ref{fig:sin_type1error},~\ref{fig:sin_est_noise_type1error} и~\ref{fig:sin_est_noise_signal_type1error}, то видно, что уменьшение параметра $\varphi$ приводит к увеличению радикальности критерия. Если вглянуть на ROC-кривые критериев на рис.~\ref{fig:roc_sin_phi3},~\ref{fig:roc_sin_phi3est} и~\ref{fig:roc_sin_phi3est_signal}, заметно сильное снижение мощности при оценивании параметров красного шума.
 
 \subsubsection{$\varphi=0.7$, $\omega=0.225$}
 \begin{figure}[h!]
@@ -1913,7 +1911,7 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\caption{ROC-кривая (оцененные параметры шума и мешающий сигнал)}
 		\label{fig:roc_sin_phi7est_signal_omega0225}
 	\end{subfigure}
-	\caption{Анализ алгоритма~\ref{alg:mc-ssa_nuisance} (мешающий сигнал~--- периодика) ($\varphi=0.7$, $\omega=0.225$)}
+	\caption{Анализ алгоритма~\ref{alg:mc-ssa_nuisance} (мешающий сигнал~--- периодика) ($\varphi=0.7$, $A=0.4$, $\omega=0.225$)}
 	\label{fig:sin_phi7_omega0225}
 \end{figure}
 
@@ -1962,11 +1960,11 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\caption{ROC-кривая (оцененный мешающий сигнал и параметры шума)}
 		\label{fig:roc_trend_phi3est_signal}
 	\end{subfigure}
-	\caption{Анализ алгоритма~\ref{alg:mc-ssa_nuisance} (мешающий сигнал~--- тренд) ($\varphi=0.3$, $\omega=0.075$)}
+	\caption{Анализ алгоритма~\ref{alg:mc-ssa_nuisance} (мешающий сигнал~--- тренд) ($\varphi=0.3$, $A=0.7$, $\omega=0.075$)}
 \label{fig:trend_phi3}
 \end{figure}
 
-Уменьшим параметр $\varphi$ до $0.3$, амлитуду сигнала в альтернативе до $A=0.6$ и рассмотрим $3$ случая: когда мешающий сигнал и параметры красного шума известны точно, когда параметры шума оцениваются, и когда всесте с параметрами оценивается мешающий сигнал. Заметим, что как и в разделе~\ref{appendix:trend_phi3}, уменьшение параметра $\varphi$ приводит к увеличению радикальности критерия, а также приводит к уменьшению разницы в мощностях поправленных критериев. Также, как в случае с периодикой в качестве мешающего сигнала, при небольших $\varphi$ оценка неизвестных параметров сильно снижает мощность критериев. Это можно объяснить погрешностью при оценке параметров и погрешностью в выделении мешающего сигнала.
+Уменьшим параметр $\varphi$ до $0.3$, амлитуду сигнала в альтернативе до $A=0.7$ и рассмотрим $3$ случая: когда мешающий сигнал и параметры красного шума известны точно, когда параметры шума оцениваются, и когда всесте с параметрами оценивается мешающий сигнал. Заметим, что как и в разделе~\ref{appendix:trend_phi3}, уменьшение параметра $\varphi$ приводит к увеличению радикальности критерия, а также приводит к уменьшению разницы в мощностях поправленных критериев. Также, как в случае с периодикой в качестве мешающего сигнала, при небольших $\varphi$ оценка неизвестных параметров сильно снижает мощность критериев. Это можно объяснить погрешностью при оценке параметров и погрешностью в выделении мешающего сигнала.
 
 
 \subsubsection{$\varphi=0.7$, $\omega=0.225$}
@@ -1991,7 +1989,7 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\caption{ROC-кривая (оцененные параметры шума и мешающий сигнал)}
 		\label{fig:roc_trend_phi7est_signal_omega0225}
 	\end{subfigure}
-	\caption{Анализ алгоритма~\ref{alg:mc-ssa_nuisance} (мешающий сигнал~--- тренд) ($\varphi=0.7$, $\omega=0.225$)}
+	\caption{Анализ алгоритма~\ref{alg:mc-ssa_nuisance} (мешающий сигнал~--- тренд) ($\varphi=0.7$, $A=0.4$, $\omega=0.225$)}
 	\label{fig:trend_phi7_omega0225}
 \end{figure}
 
@@ -2002,7 +2000,7 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 Здесь приведены результаты к разделу~\ref{sect:mc-ssa_est} основного текста.
 \subsubsection{$\varphi=0.7$, $\omega=0.075$}
 \begin{table}[h]
-	\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.7$, $\omega=0.075$)}
+	\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.7$, $A=1$, $\omega=0.075$)}
 	\label{tab:res_mc-ssa}
 	\centering
 	\begin{tabular}{|c>{\centering\arraybackslash}m{1in}cc>{\centering\arraybackslash}m{1in} >{\centering\arraybackslash}m{1in}cc|}\hline
@@ -2012,48 +2010,48 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\hline
 		SVD* & правые & $80$ &42& $42$ & $42$ & $0.394$ & $0.754$\\
 		\hline
-		Block* & левые & 20, \textcolor{blue}{50} & 162, 102 & $162$ & $20$ & $0.157$ & $\mathbf{0.796}$ \\
+		Block* & левые & 20, \textcolor{blue}{50} & 162, \textcolor{blue}{102} & $162$ & $20$ & $0.157$ & $\mathbf{0.796}$ \\
 		\hline
 		Block* & правые & $80$ &42& $80$ & $42$ & $0.367$ & $0.717$\\
 		\hline
-		Sum & левые & \textcolor{blue}{80}, 90 &42, 22& $90$ & $22$ & $0.535$ & $\mathbf{0.806}$ \\
+		Sum & левые & \textcolor{blue}{80}, 90 & \textcolor{blue}{42}, 22& $90$ & $22$ & $0.535$ & $\mathbf{0.806}$ \\
 		\hline
 		Sum* & правые & $80$ &42& $42$ & $42$ & $0.51$ & $0.748$ \\
 		\hline
 	\end{tabular}
 \end{table}
-В таблице~\ref{tab:res_mc-ssa} для каждого метода указана оптимальная по мощности длина окна (для которой удалось простроить ROC-кривую, звездочкой помечены те методы, для которых эта $L$ может не являться оптимальной), значение $KD$, длина проекционных векторов, их количество, а также ошибка первого рода и мощность поправленного критерия при уровне значимости $\alpha^*=0.1$. Черным выделены максимальная мощность и примерно равные ей. Также для каждого критерия дополнительно добавлена длина окна, дающая примерно ту же мощность, что и оптимальная, но метод с таким $L$ более эффективный в нахождения левых или правых векторов автоковариационной матрицы (такая длина окна выделена синим). Видно, что MC-MSSA с проекцией на левые или правые векторы обеих модификаций мощнее, чем с проекцией на векторы базового MSSA. Самыми мощными являются методы Block и Sum с проекцией на левые векторы, причем метод Sum более эффективнее (матрица размера $80$ против матрицы размера $162$).
+В таблице~\ref{tab:res_mc-ssa} представлены результаты для примера~\ref{mc-mssa_example1}. Для каждого метода указана оптимальная по мощности длина окна (для которой удалось простроить ROC-кривую, звездочкой помечены те методы, для которых эта $L$ может не являться оптимальной), значение $KD$, длина проекционных векторов, их количество, а также ошибка первого рода и мощность поправленного критерия при уровне значимости $\alpha^*=0.1$. Черным выделены максимальная мощность и примерно равные ей. Также для каждого критерия дополнительно добавлена длина окна, дающая примерно ту же мощность, что и оптимальная, но метод с таким $L$ более эффективный в нахождения левых или правых векторов автоковариационной матрицы (такая длина окна и соответствующее значение $KD$ выделены синим). Видно, что MC-MSSA с проекцией на левые или правые векторы обеих модификаций мощнее, чем с проекцией на векторы базового MSSA. Самыми мощными являются методы Block и Sum с проекцией на левые векторы, причем метод Sum более эффективнее (матрица размера $80$ против матрицы размера $162$).
 
 
 \subsubsection{$\varphi=0.3$, $\omega=0.075$}
 
 \begin{table}[h]
-	\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.3$, $\omega=0.075$)}
+	\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.3$, $A=0.5$, $\omega=0.075$)}
 	\label{tab:res_mc-ssa_phi3}
 	\centering
 	\begin{tabular}{|c>{\centering\arraybackslash}m{1in}cc>{\centering\arraybackslash}m{1in} >{\centering\arraybackslash}m{1in}cc|}\hline
 		Метод & левые/правые векторы & $L$ & $KD$ & длина векторов & количество векторов & $\alpha_I(\alpha^*)$ & $\beta(\widetilde{\alpha}^*)$ \\
 		\hline
-		SVD* & левые & \textcolor{blue}{10}, 20 & 182, 162 & $20$ & $20$ & $0.199$ & $\mathbf{0.399}$ \\
+		SVD* & левые & \textcolor{blue}{10}, 20 & \textcolor{blue}{182}, 162 & $20$ & $20$ & $0.199$ & $\mathbf{0.399}$ \\
 		\hline
-		SVD* & правые & \textcolor{blue}{80}, 90 & 42, 22  & $22$ & $22$ & $0.449$ & $0.382$ \\
+		SVD* & правые & \textcolor{blue}{80}, 90 & \textcolor{blue}{42}, 22  & $22$ & $22$ & $0.449$ & $0.382$ \\
 		\hline
-		Block* & левые & 10, \textcolor{blue}{20} & 182, 162 & $182$ & $10$ & $0.177$ & $\mathbf{0.398}$ \\
+		Block* & левые & 10, \textcolor{blue}{20} & 182, \textcolor{blue}{162} & $182$ & $10$ & $0.177$ & $\mathbf{0.398}$ \\
 		\hline
-		Block* & правые & 80, \textcolor{blue}{90} & 42, 22 & $90$ & $22$ & $0.414$ & $0.389$\\
+		Block* & правые & 80, \textcolor{blue}{90} & 42, \textcolor{blue}{22} & $90$ & $22$ & $0.414$ & $0.389$\\
 		\hline
-		Sum & левые & \textcolor{blue}{20}, 90 & 162, 22 & $20$ & $20$ & $0.905$ & $\mathbf{0.421}$ \\
+		Sum & левые & \textcolor{blue}{20}, 90 & \textcolor{blue}{162}, 22 & $20$ & $20$ & $0.905$ & $\mathbf{0.421}$ \\
 		\hline
-		Sum* & правые & \textcolor{blue}{80}, 90 & 42, 22 & 22 & $22$ & $0.425$ & $\mathbf{0.412}$ \\
+		Sum* & правые & \textcolor{blue}{80}, 90 & \textcolor{blue}{42}, 22 & 22 & $22$ & $0.425$ & $\mathbf{0.412}$ \\
 		\hline
 	\end{tabular}
 \end{table}
 
-В таблице~\ref{tab:res_mc-ssa_phi3} представлены результаты для этого примера. По таблице видно, что различие в мощности у методов совсем небольшое. Если сравнивать методы с наибольшей мощностью по трудоемкости, самым эффективным является метод Sum с проекцией на левые векторы с $L=20$.
+В таблице~\ref{tab:res_mc-ssa_phi3} представлены результаты для примера~\ref{mc-mssa_example2}. По таблице видно, что различие в мощности у методов совсем небольшое. Если сравнивать методы с наибольшей мощностью по трудоемкости, самым эффективным является метод Sum с проекцией на левые векторы с $L=20$.
 
 \subsubsection{$\varphi=0.7$, $\omega=0.225$}
 \begin{table}[h]
-	\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.7$, $\omega=0.225$)}
+	\caption{Численное сравнение методов для оптимальных $L$ ($\varphi=0.7$, $A=0.4$, $\omega=0.225$)}
 	\label{tab:res_mc-mssa_omega0225}
 	\centering
 	\begin{tabular}{|c>{\centering\arraybackslash}m{1in}cc>{\centering\arraybackslash}m{1in} >{\centering\arraybackslash}m{1in}cc|}\hline
@@ -2065,25 +2063,25 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 		\hline
 		Block* & левые & $20$ & 162 & $162$ & $20$ & $0.157$ & $\mathbf{0.597}$ \\
 		\hline
-		Block* & правые & 50, \textcolor{blue}{80} & 102, 42 & $80$ & $42$ & $0.83$ & $0.509$\\
+		Block* & правые & 50, \textcolor{blue}{80} & 102, \textcolor{blue}{42} & $80$ & $42$ & $0.83$ & $0.509$\\
 		\hline
-		Sum & левые & \textcolor{blue}{80}, 90 & 42, 22 & $10$ & $90$ & $0.535$ & $\mathbf{0.625}$ \\
+		Sum & левые & \textcolor{blue}{80}, 90 & \textcolor{blue}{42}, 22 & $10$ & $90$ & $0.535$ & $\mathbf{0.625}$ \\
 		\hline
 		Sum* & правые & $80$ & 42 & $42$ & $42$ & $0.51$ & $\mathbf{0.613}$ \\
 		\hline
 	\end{tabular}
 \end{table}
 
-Также для наглядного сравнения методов в таблице~\ref{tab:res_mc-mssa_omega0225} представлены результаты. Метод Block с проекцией на левые и метод Sum с проекцией на левые и правые векторы в этом случае дают наибольшую мощность, причем метод Sum с проекцией на левые или правые векторы при $L=80$ наиболее эффективный среди наиболее мощных критериев.
+В таблице~\ref{tab:res_mc-mssa_omega0225} представлены результаты для примера~\ref{mc-mssa_example3}. Метод Block с проекцией на левые и метод Sum с проекцией на левые и правые векторы в этом случае дают наибольшую мощность, причем метод Sum с проекцией на левые или правые векторы при $L=80$ наиболее эффективный среди наиболее мощных критериев.
 
 
 \section{Сравнение двух алгоритмов MC-SSA с мешающим сигналом}\label{appendix:mc-ssa_nuisance_comp_tables}
 Здесь приведены результаты к разделу~\ref{sect:periodic_case} основного текста.
 \subsubsection{$\varphi=0.3$, $\omega=0.075$}
-Уменьшим параметр $\varphi$ до $0.3$, амплитуду сигнала в альтернативе до $A=0.6$ и сравним алгоритм~\ref{alg:mc-ssa_nuisance} и~\ref{alg:mc-ssa_nuisance_periodic} в 3 случаях: когда мешающий сигнал и параметры красного шума известны точно, когда параметры шума оцениваются, и когда всесте с параметрами оценивается мешающий сигнал.
+Уменьшим параметр $\varphi$ до $0.3$, амплитуду сигнала в альтернативе до $A=0.7$ и сравним алгоритм~\ref{alg:mc-ssa_nuisance} и~\ref{alg:mc-ssa_nuisance_periodic} в 3 случаях: когда мешающий сигнал и параметры красного шума известны точно, когда параметры шума оцениваются, и когда всесте с параметрами оценивается мешающий сигнал.
 
 \begin{table}[h]
-	\caption{Сравнение алгоритма~\ref{alg:mc-ssa_nuisance} и алгоритма~\ref{alg:mc-ssa_nuisance_periodic} при $\alpha^*=0.1$ ($\varphi=0.3$, $\omega=0.075$)}
+	\caption{Сравнение алгоритма~\ref{alg:mc-ssa_nuisance} и алгоритма~\ref{alg:mc-ssa_nuisance_periodic} при $\alpha^*=0.1$ ($\varphi=0.3$, $A=0.7$, $\omega=0.075$)}
 	\label{tab:mc-ssa_nuisance_comp_phi3}
 	\centering
 	\begin{tabular}{|p{2.3in}c>{\centering\arraybackslash}m{1in}>{\centering\arraybackslash}m{1in}|}\hline
@@ -2108,11 +2106,11 @@ f_n=A e^{\alpha n},\quad n=1,\ldots,N,
 
 В таблице~\ref{tab:mc-ssa_nuisance_comp_phi3} представлены результаты сравнения двух алгоритмов, а именно оптимальная длина окна, ошибка первого рода и мощность поправленного критерия при уровне значимости $\alpha^*=0.1$. По таблице видно, что в этом примере алгоритм~\ref{alg:mc-ssa_nuisance_periodic} менее радикальнее алгоритма~\ref{alg:mc-ssa_nuisance}, что дает использовать поправку для больших $L$, тем самым давая б$\acute{\text{о}}$льшую мощность при оценке неизвестных параметров.
 
-\subsubsection{$\varphi=0.7$, $\omega=0.075$}
+\subsubsection{$\varphi=0.7$, $\omega=0.225$}
 В условиях примера, рассмотренного в разделе~\ref{sect:periodic_case}, увеличим частоту в альтернативе до $\omega=0.225$, уменьшив амплитуду до $A=0.4$.
 
 \begin{table}[h]
-	\caption{Сравнение алгоритма~\ref{alg:mc-ssa_nuisance} и алгоритма~\ref{alg:mc-ssa_nuisance_periodic} при $\alpha^*=0.1$ ($\varphi=0.7$, $\omega=0.225$)}
+	\caption{Сравнение алгоритма~\ref{alg:mc-ssa_nuisance} и алгоритма~\ref{alg:mc-ssa_nuisance_periodic} при $\alpha^*=0.1$ ($\varphi=0.7$, $A=0.4$, $\omega=0.225$)}
 	\label{tab:mc-ssa_nuisance_comp_omega0225}
 	\centering
 	\begin{tabular}{|p{2.3in}c>{\centering\arraybackslash}m{1in}>{\centering\arraybackslash}m{1in}|}\hline

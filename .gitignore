@@ -14,3 +14,4 @@
 *.gz
 *.blg
 /cps2024/images/*.pdf
+/tex/.vscode
