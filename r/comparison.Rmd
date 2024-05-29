@@ -3,17 +3,43 @@ title: "Сравнение с другими методами"
 output: html_document
 ---
 
-```{r, include=FALSE}
+
+# Про зависимость мощности критерия от коэффициента авторегрессии и частоты сигнала
+
+```{r}
 source("mcmssa_utils.R")
+
+spectral_density <- function(omega) {
+    delta^2 / (1 + varphi^2 - 2 * varphi * cos(2 * pi * omega))
+}
+
+N <- 1000
+varphi <- 0.7
+delta <- 1
+model <- list(varphi = varphi,
+              delta = delta,
+              N = N)
+omega <- 0.25
+set.seed(1)
+f <- one.channel.ts(model, 0.6 * cos(2 * pi * (1:N) * omega))
+m <- MonteCarloSSA(f, L = 40, D = 1, basis = "ev", kind = "ev", model = model, level.conf = 0.8)
+p <- plot.ci(m) + geom_function(fun = spectral_density)
+p
+#ggsave("../tex/img/mcssa_spec_phi7_omega025.pdf", p, device = "pdf", width = 15, height = 8, units = "cm")
+```
+
+
+# Сравнение с другими критериями
+```{r, include=FALSE}
 library(foreach)
 library(doSNOW)
 library(parallel)
 library(doRNG)
 library(xtable)
-load("compatison.RData")
+load("comparison.RData")
 
 N <- 128
-varphi <- 0
+varphi <- 0.7
 delta <- 1
 model <- list(varphi = varphi,
               delta = delta,
@@ -60,15 +86,15 @@ stopCluster(cluster)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-omega <- 0.225
-signal <- 0.5 *  cos(2 * pi * (1:N) * omega)
+omega <- 0.025
+signal <- 1.5 *  cos(2 * pi * (1:N) * omega)
 
 cores <- detectCores()
 cluster <- makeCluster(cores - 1)
 registerDoSNOW(cluster)
 registerDoRNG(seed = 1, once = FALSE)
 
-p.values_signal_mcssa_omega0225 <- list()
+p.values_signal_mcssa_omega0025 <- list()
 for (idx in seq_along(Ls)) {
   result <- foreach (
     i = 1:M,
@@ -91,7 +117,7 @@ for (idx in seq_along(Ls)) {
       )
     res$p.value
   }
-  p.values_signal_mcssa_omega0225[[idx]] <- result
+  p.values_signal_mcssa_omega0025[[idx]] <- result
 }
 
 stopCluster(cluster)
@@ -108,12 +134,12 @@ for (i in 1:M) {
 ```
 
 ```{r eval=FALSE, warning=FALSE}
-p.value.signal_wavelet_omega0225 <- c()
+p.value.signal_wavelet_omega0025 <- c()
 set.seed(5)
 for (i in 1:M) {
   ts.ar <- one.channel.ts(model, 0)
   ts0 <- ts.ar + signal
-  p.value.signal_wavelet_omega0225 <- c(p.value.signal_wavelet_omega0225, test.ar1.wavelet(ts0))
+  p.value.signal_wavelet_omega0025 <- c(p.value.signal_wavelet_omega0025, test.ar1.wavelet(ts0))
 }
 ```
 
@@ -123,17 +149,17 @@ set.seed(5)
 for (i in 1:M) {
   ts.ar <- one.channel.ts(model, 0)
   ts0 <- ts.ar
-  p.value.noise_box_white <- c(p.value.noise_box, test.ar1(ts0))
+  p.value.noise_box <- c(p.value.noise_box, test.ar1(ts0))
 }
 ```
 
 ```{r eval=FALSE, include=FALSE}
-p.value.signal_box_omega0225 <- c()
+p.value.signal_box_omega0025 <- c()
 set.seed(5)
 for (i in 1:M) {
   ts.ar <- one.channel.ts(model, 0)
   ts0 <- ts.ar + signal
-  p.value.signal_box_omega0225 <- c(p.value.signal_box_omega0225, test.ar1(ts0))
+  p.value.signal_box_omega0025 <- c(p.value.signal_box_omega0025, test.ar1(ts0))
 }
 ```
 
@@ -156,19 +182,19 @@ beta_mcssa_omega0225 <-
     sapply(alphas, function(a)
       mean(pvals < a)))
 
-alphaI_wavelet <- sapply(alphas, function(a) mean(p.value.noise_wavelet_white < a))
+alphaI_wavelet <- sapply(alphas, function(a) mean(p.value.noise_wavelet < a))
 beta_wavelet_omega0025 <- sapply(alphas, function(a) mean(p.value.signal_wavelet_omega0025 < a))
 beta_wavelet_omega0125 <- sapply(alphas, function(a) mean(p.value.signal_wavelet_omega0125 < a))
 beta_wavelet_omega0225 <- sapply(alphas, function(a) mean(p.value.signal_wavelet_omega0225 < a))
 
-alphaI_box <- sapply(alphas, function(a) mean(p.value.noise_box_white < a))
+alphaI_box <- sapply(alphas, function(a) mean(p.value.noise_box < a))
 beta_box_omega0025 <- sapply(alphas, function(a) mean(p.value.signal_box_omega0025 < a))
 beta_box_omega0125 <- sapply(alphas, function(a) mean(p.value.signal_box_omega0125 < a))
 beta_box_omega0225 <- sapply(alphas, function(a) mean(p.value.signal_box_omega0225 < a))
 ```
 
 ```{r echo=FALSE}
-pdf(file = "../tex/img/alphaI_testAR.pdf", width = 15, height = 5)
+#pdf(file = "../tex/img/alphaI_testAR.pdf", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls))
   lines(alphas, alphaI_mcssa[[i]], lwd = lwds[i], col = clrs[i])
@@ -181,16 +207,16 @@ legend(
   lty = 1,
   lwd = c(lwds, 3, 3), cex = 1.4
 )
-dev.off()
+#dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/roc_testAR_omega0025.pdf", width = 15, height = 5)
+#pdf(file = "../tex/img/roc_testAR_omega0025.pdf", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls))
-  lines(alphaI_mcssa[[i]][-1], beta_mcssa_omega0025[[i]][-1], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet, lwd = 3, col = "brown")
+  lines(alphaI_mcssa[[i]][-1], beta_mcssa_omega0125[[i]][-1], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta_box_omega0225, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta_wavelet_omega0125, lwd = 3, col = "brown")
 legend(
   x = "bottomright",
   c("L = 10", "L = 32", "L = 64", "L = 96", "L = 115", "box", "wavelet"),
@@ -198,5 +224,5 @@ legend(
   lty = 1,
   lwd = c(lwds, 3, 3), cex = 1.4
 )
-dev.off()
+#dev.off()
 ```

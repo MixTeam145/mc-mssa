@@ -1,55 +1,73 @@
+# Rssa (ttps://CRAN.R-project.org/package=Rssa): only Basic MSSA is implemented
+# Contribution of Egor Poteshkin: Toeplitz MSSA in two versions is implemented
+# "Sum" version of Toeplitz MSSA is preferable
+
 library("Rssa")
 library("dplyr")
 library("pracma")
 
+# Calculate toeplitz cross-covariance matrix
 Lcov <- function(f1, f2, K) {
   f1 <- as.vector(f1)
   f2 <- as.vector(f2)
   N <- length(f1)
-  c1 <- sapply(0:(K-1), function(i) sum(f1 * lag(f2, i), na.rm = TRUE) / (N - i))
-  c2 <- sapply(0:(K-1), function(i) sum(lag(f1, i) * f2, na.rm = TRUE) / (N - i))
+  c1 <- sapply(0:(K - 1), function(i)
+    sum(f1 * lag(f2, i), na.rm = TRUE) / (N - i))
+  c2 <- sapply(0:(K - 1), function(i)
+    sum(lag(f1, i) * f2, na.rm = TRUE) / (N - i))
   Toeplitz(c1, c2)
 }
 
-toeplitz.mssa <- function(ts, L, D, method = c("sum", "block")) {
+toeplitz.mssa <- function(ts, # time series
+                          L, # window length
+                          D, # number of channels
+                          method = c("sum", "block"), # decomposition method
+                          neig = NULL # number of desired non-zero eigenvalues
+                          ) {
   N <- dim(ts)[1] # assert equal length in each channel
   K <- N - L + 1
-  this <- list("F" = ts, N = N, L = L, K = K, D = D)
+  
+  method <- match.arg(method)
+  
+  if (is.null(neig))
+    neig <- min(L, D * K)
+  
+  this <- list("F" = ts, N = N, L = L, K = K, D = D, method = method)
+  
   traj.mat <- new.hbhmat(ts, L = c(L, 1))
-  if (method == "block") {
+  if (identical(method, "sum")) {
+    toepl.mat <- matrix(0, nrow = L, ncol = L)
+    for (i in 1:D)
+      toepl.mat <- toepl.mat + Lcov(ts[, i], ts[, i], L)
+  } else {
     toepl.mat <- rbind()
     for (i in 1:D) {
       mat <- cbind()
-      for (j in 1:D) {
+      for (j in 1:D)
         mat <- cbind(mat, Lcov(ts[, i], ts[, j], K))
-      }
       toepl.mat <- rbind(toepl.mat, mat)
     }
     traj.mat <- t(traj.mat)
-  } else if (method == "sum") {
-    toepl.mat <- matrix(0, nrow = L, ncol = L)
-    for (i in 1:D) {
-      toepl.mat <- toepl.mat + Lcov(ts[, i], ts[, i], L)
-    }
   }
-  else
-    stop('method should be one of "block", "sum"')
+  
   S <- eigen(toepl.mat, symmetric = TRUE)
   U <- S$vectors
   Z <- crossprod(traj.mat, U)
-  sigma <- apply(Z, 2, function(x) sqrt(sum(x^2)))
+  sigma <- apply(Z, 2, function(x)
+    sqrt(sum(x ^ 2)))
   V <- sweep(Z, 2, sigma, FUN = "/")
-  o <- order(sigma[seq_len(min(L, D * K))], decreasing = TRUE)
+  
+  o <- 1:min(neig, L, D * K)
   sigma <- sigma[o]
   U <- U[, o, drop = FALSE]
   V <- V[, o, drop = FALSE]
-  if (method == "block") {
-    this$U <- V
-    this$V <- U
-  }
-  else {
+  if (identical(method, "sum")) {
     this$U <- U
     this$V <- V
+  }
+  else {
+    this$U <- V
+    this$V <- U
   }
   this$sigma <- sigma
   this
@@ -70,7 +88,9 @@ diag.avg <- function(x, group) {
   ts(series)
 }
 
-toeplitz.reconstruct <- function(x, groups) {
+toeplitz.reconstruct <- function(x, # result of toeplitz.mssa
+                                 groups # desired grouping
+                                 ) {
   residuals <- x$F
   out <- list()
   for (i in seq_along(groups)) {

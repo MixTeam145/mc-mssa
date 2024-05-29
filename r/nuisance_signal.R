@@ -1261,10 +1261,10 @@ for (i in seq_along(Ls)) {
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
 
-pdf("../tex/img/roc_trend_phi7est_signal_omega0225.pdf", width = 6, height = 3.5, bg = "white")
-plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, xlab = 'type I error', ylab = 'power')
+pdf("../tex/img/roc_trend_phi7est_signal_omega0225.pdf", width = 15, height = 5, bg = "white")
+plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, xlab = 'type I error', ylab = 'power', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI_trend_est_noise_signal[[i]][-1], beta_trend_phi7est_signal_omega0225[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
-legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
 dev.off()
