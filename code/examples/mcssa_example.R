@@ -6,7 +6,7 @@
 # correction of liberal criteria is implemented
 # projection vectors with parameter basis="ev" are from Toeplitz SSA of original time series
 
-source("R/mcmssa.R")
+source("R/mc-mssa.R", chdir = TRUE)
 
 # for parallel computation
 library(foreach)
