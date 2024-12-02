@@ -1,5 +1,4 @@
 \documentclass[pdf,notheorems,10pt,intlimits, unicode]{beamer}
-%\documentclass[notheorems, handout]{beamer}
 \usetheme[numbers,totalnumbers,compress, nologo]{Statmod}
 \usefonttheme[onlymath]{serif}
 \setbeamertemplate{navigation symbols}{}
@@ -25,17 +24,17 @@
   \end{frame}
 }
 
-%Более крупный шрифт для подзаголовков титульного листа
 \setbeamerfont{institute}{size=\normalsize}
+\setbeamercolor{bluetext_color}{fg=blue}
 
-\newcommand{\bfxi}{\boldsymbol{\xi}}
 \newtheorem{remark}{Замечание}
 \newtheorem{algorithm}{Алгоритм}
 \newtheorem{assumption}{Предположение}
 \newtheorem{definition}{Определение}
 
-\setbeamercolor{bluetext_color}{fg=blue}
+\newcommand{\bfxi}{\boldsymbol{\xi}}
 \newcommand{\bluetext}[1]{{\usebeamercolor[fg]{bluetext_color}#1}}
+\newcommand{\redtext}[1]{{\usebeamercolor[fg]{redtext_color}#1}}
 
 \title[Метод Монте-Карло SSA]{Метод Монте-Карло SSA для одномерных и многомерных временных рядов}
 
@@ -167,56 +166,33 @@
         \hhline{======}
         \rowcolor{lightgray} Случай 1 ($\omega_1=\omega_2$) & & & & &\\
         \hline
-        MSSA & $3.18$ & $1.83$ & $1.59$ & $\mathbf{1.47}$ & $2.00$\\
+        MSSA & $3.18$ & $1.83$ & $1.59$ &  \bluetext{\textbf{1.47}} & $2.00$\\
         \hline
-        Toeplitz Sum MSSA &  $3.17$ & $1.75$ & $1.44$ & $\mathbf{1.32}$ & $\mathbf{1.33}$\\
+        Toeplitz Sum MSSA &  $3.17$ & $1.75$ & $1.44$ & \bluetext{\textbf{1.32}} & \bluetext{\textbf{1.33}}\\
         \hline
-        Toeplitz Block MSSA & $1.39$ & $\bluetext{\mathbf{1.26}}$ & $\bluetext{\mathbf{1.25}}$ & $1.33$ & $1.97$\\
+        Toeplitz Block MSSA & $1.39$ & \textcolor{red}{\textbf{1.26}} & \textcolor{red}{\textbf{1.25}} & $1.33$ & $1.97$\\
         \hhline{======}
         \rowcolor{lightgray} Случай 2 ($\omega_1\ne\omega_2$) & & & & &\\
         \hline
-        MSSA & $6.91$ & $3.77$ & $3.07$ & $\mathbf{2.88}$ & $3.84$\\
+        MSSA & $6.91$ & $3.77$ & $3.07$ & \bluetext{\textbf{2.88}} & $3.84$\\
         \hline
-        Toeplitz Sum MSSA & $6.88$ & $3.65$ & $2.64$ & $2.37$ & $\bluetext{\mathbf{2.27}}$\\
+        Toeplitz Sum MSSA & $6.88$ & $3.65$ & $2.64$ & $2.37$ & \textcolor{red}{\textbf{2.27}}\\
         \hline
-        Toeplitz Block MSSA & $4.47$ & $3.67$ & $\mathbf{3.22}$ & $\mathbf{3.23}$ & $3.8$\\
+        Toeplitz Block MSSA & $4.47$ & $3.67$ & \bluetext{\textbf{3.22}} & \bluetext{\textbf{3.23}} & $3.8$\\
         \hhline{======}
         \rowcolor{lightgray} Случай 3 (тренд) & & & & &\\
         \hline
-        MSSA & $3.42$ & $1.94$ & $1.63$ & $\bluetext{\mathbf{1.57}}$ & $2.27$\\
+        MSSA & $3.42$ & $1.94$ & $1.63$ & \textcolor{red}{\textbf{1.57}} & $2.27$\\
         \hline
-        Toeplitz Sum MSSA & $3.32$  & $\mathbf{2.24}$ & $3.04$ & $5.91$ & $11.95$ \\
+        Toeplitz Sum MSSA & $3.32$  & \bluetext{\textbf{2.24}} & $3.04$ & $5.91$ & $11.95$ \\
         \hline
-        Toeplitz Block MSSA & $12.55$ & $6.18$  & $2.97$ & $\mathbf{1.78}$ & $1.97$\\
+        Toeplitz Block MSSA & $12.55$ & $6.18$  & $2.97$ & \bluetext{\textbf{1.78}} & $1.97$\\
         \hline
     \end{tabular}}
     \label{tab:mse}
   \end{table}
   \bluetext{Трудоемкость}: нахождение собственных векторов. Toeplitz Block MSSA зависит от $DK$, а Toeplitz Sum MSSA "--- от $L$.
 \end{frame}
-
-% \begin{frame}{Глава 2. Monte Carlo SSA: одиночный тест}
-%   Рассмотрим задачу поиска сигнала (не случайной составляющей) во временном ряде.\medskip
-
-%   \bluetext{Модель}: $\tX=\tS + \boldsymbol{\xi}$, где $\tS$ "--- сигнал (колебания с какой-то частотой), $\boldsymbol{\xi}$ "--- стационарный процесс с нулевым средним.\medskip
-
-%   \bluetext{Параметр}: длина окна $L$, $W\in\mathbb{R}^L$ "--- вектор с какой-то частотой.\medskip
-
-%   \bluetext{Результат}: решение, отвергать $H_0:\tS=0$ или нет.\medskip
-
-%   %\bluetext{Задача}: проверить $H_0:\tS=0$ "--- отсутствие сигнала.\medskip
-
-%   %\bluetext{Метод}: Monte Carlo SSA:
-%   \begin{enumerate}
-%     \item Построить статистику критерия $\widehat{p}=\|\bfX^\rmT W\|^2$.
-%     \item Построить доверительную область случайной величины $p=\|\mathbf\Xi^\rmT W\|^2$.
-%     \item Если $\widehat p$	не попадает в построенную область "--- $H_0$ отвергается.
-%   \end{enumerate}\medskip
-%   % \begin{definition}
-%   %   Случайный вектор $\boldsymbol{\xi}=(\xi_1,\dots,\xi_N)$ называют красным шумом с параметрами $\varphi$ и $\delta$, если $\xi_n = \varphi\xi_{n-1} + \delta\varepsilon_n$, где $0<\varphi<1$, $\varepsilon_n\sim N(0,1)$ и $\xi_1\sim N(0, \delta^2/(1-\varphi^2))$.
-%   % \end{definition}
-%   Далее предполагаем, что $\boldsymbol{\xi}$ "--- красный шум (процесс авторегрессии первого порядка с положительным коэффициентом), причем с известными параметрами.
-% \end{frame}
 
 \section{Глава 2. Метод Monte Carlo (M)SSA}
 \begin{frame}{Статистический критерий с суррогатными выборками}
@@ -244,41 +220,9 @@
    \end{enumerate}
 
   \begin{remark}
-    Критерий с суррогатными выборками, к которому применяется поправка, не должен быть слишком радикальным. Для сильно радикальных критерием с очень маленьким $\widetilde\alpha^*$ условие $G > 1/\widetilde\alpha^*$ приводит к очень большим вычислительным затратам и, тем самым, к практической нереализуемости.
+    Критерий с суррогатными выборками, к которому применяется поправка, не должен быть слишком радикальным. Для сильно радикальных критериев с очень маленьким $\widetilde\alpha^*$ условие $G > 1/\widetilde\alpha^*$ приводит к очень большим вычислительным затратам и, тем самым, к практической нереализуемости.
   \end{remark}
 \end{frame}
-
-% \begin{frame}{Глава 2. Проблема критериев с суррогатными выборками}
-%   \begin{assumption}
-%     Пусть $\delta(\alpha,G)=\mathsf E\hat t_\alpha - t_\alpha$. Тогда $\delta(\alpha,G)<0$, причем $|\delta(\alpha, G)|$ монотонно убывает по $\alpha$ и $G$.\medskip
-%   \end{assumption}
-
-%   \begin{proof}[Обоснование]
-%     Например, оценим $0.999$-квантиль $N(0,1)$ с помощью выборки размера $100$. Тогда истинное значение квантиля равно $3.09$, в среднем оценка равна $2.459$, а ее медиана~--- $2.426$. Увеличив размер выборки до $1000$ получаем уже более точную оценку: в среднем $2.956$ и медиана равна $2.932$.
-%   \end{proof}
-
-%   \begin{remark}
-%     Из всего вышеперечисленного следует, что критерий с суррогатными выборками радикальнее исходного критерия при $\alpha < 1/G$: поскольку $\mathsf E\hat t_\alpha < t_\alpha$, значения $t$ будут чаще попадать в критическую область.
-%   \end{remark}
-% \end{frame}
-
-
-% \begin{frame}{Глава 2. Обозначения и известные результаты: Monte-Carlo SSA. Алгоритм}
-%   \bluetext{Входные данные}: временной ряд $\tX$.\medskip
-
-%   \bluetext{Параметр}: длина окна $L$, $W\in\mathbb{R}^L$ "--- вектор с какой-то частотой.\medskip
-
-%   \bluetext{Результат}: решение, отвергать $H_0$ или нет.\medskip
-%   \begin{enumerate}
-%     \item Построить статистику критерия $\widehat{p}=\|\bfX^\rmT W\|^2$.
-%     \item Построить доверительную область случайной величины $p=\|\mathbf\Xi^\rmT W\|^2$: распределение $p$ оценивается методом Монте-Карло.
-%     \item Если $\widehat p$	не попадает в построенный интервал "--- $H_0$ отвергается.
-%   \end{enumerate}
-
-%   \begin{remark}
-%     Если частота $\omega$ сигнала $\tS$ известна, то в качестве $W$ можно взять синусоиду с частотой $\omega$. Но на практике $\omega$ редко бывает известна, что делает данный критерий несостоятельным против $H_1:\tS\ne0$.
-%   \end{remark}
-% \end{frame}
 
 \begin{frame}{Multiple Monte Carlo SSA}
 
@@ -292,25 +236,12 @@
 
   \bluetext{Параметры}: длина окна $L$, выбор векторов $W_1,\ldots,W_H\in \mathbb{R}^{L}$, количество суррогатных реализаций $G$.
   \begin{enumerate}
-    \item Строятся статистики критерия $\widehat p_k=\|\bfX^\rmT W_k\|$, $k=1,\ldots,H$.
+    \item Строятся статистики критерия $\widehat p_k=\|\bfX^\rmT W_k\|^2$, $k=1,\ldots,H$.
     \item Оцениваются их распределения на основе $G$ суррогатных реализаций $\bfxi$.
     \item Строятся предсказательные интервалы с поправкой на множественные сравнения с уровнем доверия $(1-\alpha)$.
   \end{enumerate}
 
   Далее предполагаем, что $\boldsymbol{\xi}$ "--- красный шум, причем с известными параметрами.
-  % Подобно одиночному тесту рассмотрим набор $W_1,\ldots,W_H$ векторов для проекции, и для каждого $k=1,\ldots,H$ построим статистику критерия $\widehat p_k$:
-  % \begin{equation*}
-  % \widehat p_k = \|\bfX^\rmT W_k\|^2,\quad k=1,\ldots,H.
-  % \end{equation*}
-
-  % В таком случае нужно построить $H$ предсказательных интервалов для каждого $W_k$ по выборкам $P_k=\{p_{ki}\}_{i=1}^G$ с элементами
-  % \begin{equation*}
-  % p_{ki}=\|\mathbf{\Xi}_i^\rmT W_k\|^2,\quad i=1,\ldots,G;\ k=1,\ldots,H.
-  % \end{equation*}
-
-  % MC-SSA с учетом поправки на множественные сравнения: Multiple MC-SSA~[Golyandina, 2023].\medskip
-
-  % Гипотеза об отсутствии сигнала отвергается, если хотя бы для одного вектора $W=W_k$ значение $\widehat p$ оказывается значимым.
 \end{frame}
 
 \begin{frame}{Используемый варинт MC-SSA}
@@ -328,7 +259,7 @@
 \begin{frame}{Численное сравнение MC-SSA с другими критериями}
   \bluetext{Подход}: отбелить красный шум, т.~е. сделать его белым, и затем применить статистический критерий, проверяющий гипотезу, что ряд является реализацией белого шума.\medskip
 
-  Для проверки на белый шум возьмем Q-тест Бокса-Пирса и тест с использованием вейвлетов~[Nason and Savchev, 2014].\medskip
+  Для проверки исходного ряда на белый шум возьмем Q-тест Бокса-Пирса~[Box and Pierce, 1970] и тест с использованием вейвлетов~[Nason and Savchev, 2014].\medskip
 
   \bluetext{Особенность второго теста}: длина ряда должна быть степенью двойки.\medskip
 
@@ -356,7 +287,7 @@
         \hline
         MC-SSA ($L=96$) & 0.593 & 0.599 & 0.734 & 0.709\\
         \hline
-        MC-SSA ($L=115$) & 0.668 & \textbf{0.668} & \textbf{0.791} & \textbf{0.753}\\
+        MC-SSA ($L=115$) & 0.668 & \textcolor{red}{\textbf{0.668}} & \textcolor{red}{\textbf{0.791}} & \textcolor{red}{\textbf{0.753}}\\
         \hline
         box & 0.103 & 0.289 & 0.269 & 0.064\\
         \hline
@@ -403,31 +334,31 @@
     \caption{Мощность методов для оптимальных $L$ при $\alpha^*=0.1$}
 	  \label{tab:res_mc-ssa_power}
 	  \centering
-    \scalebox{0.68}{
+    \scalebox{0.75}{
       \begin{tabular}{|c>{\centering\arraybackslash}m{0.8in}>{\centering\arraybackslash}m{0.8in}>{\centering\arraybackslash}m{0.8in}>{\centering\arraybackslash}m{0.8in}|}\hline
         Метод & левые/правые векторы & $\beta(\widetilde\alpha^*)$ (пример 1) & $\beta(\widetilde\alpha^*)$ (пример 2) & $\beta(\widetilde\alpha^*)$ (пример 3)\\
 		    \hline
-		    SVD & левые & 0.754 & \textbf{0.399} & 0.573 \\
+		    SVD & левые & 0.754 & \textcolor{blue}{\textbf{0.399}} & 0.573 \\
 		    \hline
 		    SVD & правые & 0.754 & 0.382 & 0.442 \\
 		    \hline
-		    Block & левые & \textbf{0.796} & \textbf{0.398} & \textbf{0.597} \\
+		    Block & левые & \textcolor{blue}{\textbf{0.796}} & \textcolor{blue}{\textbf{0.398}} & \textcolor{blue}{\textbf{0.597}} \\
 		    \hline
 		    Block & правые & 0.717 & 0.389 & 0.473 \\
 		    \hline
-		    Sum & левые & \textbf{0.806} & \textbf{0.421} & \textbf{0.625} \\
+		    Sum & левые & \textcolor{red}{\textbf{0.806}} & \textcolor{red}{\textbf{0.421}} & \textcolor{red}{\textbf{0.625}} \\
 		    \hline
-		    Sum & правые & 0.748 & \textbf{0.412} & \textbf{0.613} \\
+		    Sum & правые & 0.748 & \textcolor{blue}{\textbf{0.412}} & \textcolor{blue}{\textbf{0.613}} \\
 		    \hline
       \end{tabular}
       }
-    \end{table}
+    \end{table}\vspace{-1em}
 
     \begin{table}[h]
       \caption{Размеры матриц методов}
       \label{tab:res_mc-ssa_complexity}
       \centering
-      \scalebox{0.68}{
+      \scalebox{0.75}{
         \begin{tabular}{|c>{\centering\arraybackslash}m{0.8in}>{\centering\arraybackslash}m{0.8in}>{\centering\arraybackslash}m{0.8in}>{\centering\arraybackslash}m{0.8in}|}\hline
           Метод & левые/правые векторы & Размер матрицы (пример 1) & Размер матрицы (пример 2) & Размер матрицы (пример 3) \\
           \hline
@@ -435,11 +366,11 @@
           \hline
           SVD & правые & 80 & 80 & 80 \\
           \hline
-          Block & левые & 102 & 162 & 162 \\
+          \rowcolor{cyan} Block & левые & \textbf{102} & \textbf{162} & \textbf{162} \\
           \hline
           Block & правые & 42 & 22 & 42\\
           \hline
-          Sum & левые & 80 & 20 & 80 \\
+          \rowcolor{cyan} Sum & левые & \textbf{80} & \textbf{20} & \textbf{80} \\
           \hline
           Sum & правые & 80 & 80 & 80 \\
           \hline
@@ -457,7 +388,7 @@
 
   На их основе были выработаны следующие рекомендации:
   \begin{enumerate}
-    \item Без поправки использовать MC-SSA можно только с $L=10$.
+    \item Без поправки использовать MC-SSA можно только с $L\approx10$.
     \item Можно построить зависимость оптимальной длины окна от параметров ряда с помощью численного моделирования. Но это возможно, если есть дополнительная информация о диапазоне возможных частот в ряде.
   \end{enumerate}
 \end{frame}
@@ -469,137 +400,17 @@
 
   \bluetext{Модель}: $\tX=\tF + \tS + \boldsymbol{\xi}$, где $\tF$ "--- мешающий сигнал, $\tS$ "--- неизвестный сигнал и $\boldsymbol{\xi}$ "--- красный шум.\medskip
 
-  Тогда $H_0:\tS=0$ и $H_1:\tS\ne 0$.\medskip
+  Тогда $H_0:\tS=0$ и $H_1:\tS\ne 0$.\bigskip
 
-  \bluetext{Параметр}: способ нахождения $\hat \tF$.\bigskip
-
-  В данной работе рассмотрены два примера мешающего сигнала:\medskip
-  \begin{enumerate}
-      \item Периодическая компонента.\medskip
-      % \[
-      % f_n=3\cos(2\pi n/4),\quad n=1,\ldots,N.
-      % \]
-      \item Экспоненциальный ряд (тренд).
-      % \[
-      % f_n=0.2e^{0.05n},\quad n=1,\ldots,N.
-      % \]
-  \end{enumerate}
-
-  %\bluetext{Результат}: решение, отвергать $H_0: \tS=0$ или нет.\medskip
-  % \begin{enumerate}
-  %  \item Находится приближенное значение мешающего сигнала $\hat{\tF}$ и оцениваются параметры $\boldsymbol{\xi}$ на основе остатка $\tilde\tX=\tX-\hat{\tF}$.\medskip
-  %   \item Находятся левые векторы $P_1,\ldots,P_L$ траекторной матрицы временного ряда $\tilde\tX$, полученные из теплицева разложения. \medskip
-  %   \item Применяется MC-SSA к исходному ряду $\tX$ с проекцией на векторы $P_1,\ldots,P_L$, при этом суррогатными рядами являются реализации случайной величины $\boldsymbol{\eta}$:
-  %   \[
-  %   \boldsymbol{\eta} = \boldsymbol{\xi} + \hat\tF.
-  %   \]
-  % \end{enumerate}
+  Получено, что мощность критерия понижается, но больше от оценки параметров шума, чем от мешающего сигнала, причем чем меньше параметр $\varphi$, тем больше потеря в мощности.\medskip
 \end{frame}
-
-\begin{frame}{MC-SSA с мешающим сигналом. Результаты}
-  \begin{enumerate}
-    \item Было реализовано два варианта MC-SSA с мешающим сигналом: один подходит для любого мешающего сигнала, другой только для периодического.\medskip
-    \item Для каждого примера были рассмотрены три случая: когда мешающий сигнал и параметры красного шума известны точно, когда параметры шума оцениваются, и когда вместе с параметрами оценивается мешающий сигнал.\medskip
-    \item Во втором и третьем случаях мощность критерия понижается, но больше от оценки параметров шума, чем от мешающего сигнала, причем чем меньше параметр $\varphi$, тем больше потеря в мощности.\medskip
-    \item Если частоты мешающего и неизвестного сигнала близки, то критерий показывает очень маленькую мощность в обоих вариантах.
-  \end{enumerate}
-\end{frame}
-
-
-
-% \begin{frame}{Глава 3. MC-SSA с мешающим сигналом. Численное исследование}
-
-%   \bluetext{Дано}: $\tX=\tF + \tS + \boldsymbol{\xi}$, где $\tS=\{A\cos(2\pi\omega n)\}_{n=1}^N$, $N=100$ и $\boldsymbol{\xi}$ "--- красный шум с параметрами $\varphi$ и $\delta=1$.\medskip
-
-%   $H_0: A=0$,\medskip
-
-%   $H_1: A\ne0$.\medskip
-
-%   В данной работе рассмотрим два примера мешающего сигнала:\medskip
-%   \begin{enumerate}
-%       \item Периодическая компонента:
-%       \[
-%       f_n=3\cos(2\pi n/4),\quad n=1,\ldots,N.
-%       \]
-%       \item Экспоненциальный ряд (тренд):
-%       \[
-%       f_n=0.2e^{0.05n},\quad n=1,\ldots,N.
-%       \]
-%   \end{enumerate}
-% \end{frame}
-
-% \begin{frame}{Глава 3. MC-SSA с мешающим сигналом. Численное исследование: тренд}
-%   \begin{table}[h]
-%     \caption{Результаты численного исследования (мешающий сигнал~--- тренд) при $\alpha^*=0.1$}
-%     \centering
-%     \begin{tabular}{|p{1.65in}c>{\centering\arraybackslash}m{0.5in}>{\centering\arraybackslash}m{0.5in}|}\hline
-%       \rowcolor{lightgray} $\varphi=0.7$, $A=1$, $\omega=0.075$ & $L$ & $\alpha_I(\alpha^*)$ & $\beta(\widetilde\alpha^*)$ \\
-%       \hline
-%       Exact & 90 & 0.521 & 0.501 \\
-%       \hline
-%       Est (noise) & 90 & 0.546 & 0.413 \\
-%       \hline
-%       Est (noise + signal) & 90 & 0.714 & 0.389 \\
-%       \hhline{====}
-%       \rowcolor{lightgray} $\varphi=0.3$, $A=0.7$, $\omega=0.075$ & $L$ & $\alpha_I(\alpha^*)$ & $\beta(\widetilde\alpha^*)$ \\
-%       \hline
-%       Exact & 50 & 0.304 & 0.416 \\
-%       \hline
-%       Est (noise) & 50 & 0.255 & 0.223 \\
-%       \hline
-%       Est (noise + signal) & 50 & 0.358 & 0.243 \\
-%       \hhline{====}
-%       \rowcolor{lightgray} $\varphi=0.7$, $A=0.4$, $\omega=0.225$ & $L$ & $\alpha_I(\alpha^*)$ & $\beta(\widetilde\alpha^*)$ \\
-%       \hline
-%       Exact & 90 & 0.521 & 0.393 \\
-%       \hline
-%       Est (noise) & 90 & 0.546 & 0.351 \\
-%       \hline
-%       Est (noise + signal) & 80 & 0.613 & 0.327 \\
-%       \hline
-%     \end{tabular}
-%   \end{table}
-% \end{frame}
-
-% \begin{frame}{Глава 3. MC-SSA с мешающим сигналом. Численное исследование: периодика}
-%   \begin{table}[h]
-%     \caption{Результаты численного исследования (мешающий сигнал~--- периодика) при $\alpha^*=0.1$}
-%     \centering
-%     \begin{tabular}{|p{1.65in}c>{\centering\arraybackslash}m{0.5in}>{\centering\arraybackslash}m{0.5in}|}\hline
-%       \rowcolor{lightgray} $\varphi=0.7$, $A=1$, $\omega=0.075$ & $L$ & $\alpha_I(\alpha^*)$ & $\beta(\widetilde\alpha^*)$ \\
-%       \hline
-%       Exact & 90 & 0.57 & 0.542 \\
-%       \hline
-%       Est (noise) & 90 & 0.593 & 0.48 \\
-%       \hline
-%       Est (noise + signal) & 90 & 0.6 & 0.475 \\
-%       \hhline{====}
-%       \rowcolor{lightgray} $\varphi=0.3$, $A=0.7$, $\omega=0.075$ & $L$ & $\alpha_I(\alpha^*)$ & $\beta(\widetilde\alpha^*)$ \\
-%       \hline
-%       Exact & 10 & 0.127 & 0.497  \\
-%       \hline
-%       Est (noise) & 90 & 0.921 & 0.261 \\
-%       \hline
-%       Est (noise + signal) & 90 & 0.94 & 0.239 \\
-%       \hhline{====}
-%       \rowcolor{lightgray} $\varphi=0.7$, $A=0.4$, $\omega=0.225$ & $L$ & $\alpha_I(\alpha^*)$ & $\beta(\widetilde\alpha^*)$ \\
-%       \hline
-%       Exact & 80 & 0.525 & 0.273 \\
-%       \hline
-%       Est (noise) & 80 & 0.518 & 0.214 \\
-%       \hline
-%       Est (noise + signal) & 80 & 0.586 & 0.214 \\
-%       \hline
-%     \end{tabular}
-%   \end{table}
-% \end{frame}
 
 \begin{frame}{Анализ реального примера}
   \begin{figure}
     \centering
-    \includegraphics[width=\textwidth]{img/Nino_reconstruct_trend.pdf}\vspace{-2.8em}
-    \includegraphics[width=\textwidth]{img/Nino_reconstruct_season.pdf}\vspace{-1em}
-    Выделенный тренд ($L=120$) и годовая сезонность ($L=444$) (данные по месяцам)
+    \includegraphics[width=\textwidth]{img/Nino_reconstruct_trend_slides.pdf}\vspace{-2.8em}
+    \includegraphics[width=\textwidth]{img/Nino_reconstruct_season_slides.pdf}\vspace{-1em}
+    \caption{Выделенный тренд ($L=120$) и годовая периодичность ($L=444$) с помощью SSA (данные по месяцам)}
   \end{figure}
 \end{frame}
 
@@ -620,7 +431,7 @@
 		\item Был реализован метод Toeplitz MSSA в вариантах Block и Sum (на языке \textsf{R}). На основе численных исследований рекомендуется использовать вариант Sum в виду численной эффективности и реализации, подходящей под структуру пакета \textsf{Rssa}.
 		\item Был выработан подход к сравнению критериев, построенных на основе радикальных и использующих суррогатные выборки: выбирать наиболее мощный критерий среди не слишком радикальных.
 		\item На основе этого подхода по результатам численных исследований рекомендуется использовать модификацию Toeplitz Sum MC-MSSA с проекцией на левые векторы.
-    \item Проведены численные исследования по выбору оптимальной длины окна, степени искажения критерия при оценке параметров красного шума, а также случая мешающего сигнала. %Однако эти проблемы оказались непростыми, поэтому требуется их дальнейшее исследование.
+    \item Проведены численные исследования по выбору оптимальной длины окна, степени искажения критерия при оценке параметров красного шума, а также случая мешающего сигнала.
     \item Показано, что метод MC-SSA намного мощнее двух рассмотренных критериев в задаче обнаружения сигнала в красном шуме, особенно при малых частотах сигнала в альтернативе.
   \end{enumerate}
 \end{frame}
