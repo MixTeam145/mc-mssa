@@ -1,14 +1,25 @@
 ---
-title: "Сравнение с другими методами"
+title: "Сравнение методов"
 output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+library(xtable)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+source("test_AR1.R")
+load("data/comparison.RData")
+```
+
 
 # Про зависимость мощности критерия от коэффициента авторегрессии и частоты сигнала
-
 ```{r}
-source("mcmssa_utils.R")
-
 spectral_density <- function(omega) {
     delta^2 / (1 + varphi^2 - 2 * varphi * cos(2 * pi * omega))
 }
@@ -25,19 +36,11 @@ f <- one.channel.ts(model, 0.6 * cos(2 * pi * (1:N) * omega))
 m <- MonteCarloSSA(f, L = 40, D = 1, basis = "ev", kind = "ev", model = model, level.conf = 0.8)
 p <- plot.ci(m) + geom_function(fun = spectral_density)
 p
-#ggsave("../tex/img/mcssa_spec_phi7_omega025.pdf", p, device = "pdf", width = 15, height = 8, units = "cm")
+# ggsave("../tex/img/mcssa_spec_phi7_omega025.pdf", p, device = "pdf", width = 15, height = 8, units = "cm")
 ```
-
 
 # Сравнение с другими критериями
 ```{r, include=FALSE}
-library(foreach)
-library(doSNOW)
-library(parallel)
-library(doRNG)
-library(xtable)
-load("comparison.RData")
-
 N <- 128
 varphi <- 0.7
 delta <- 1
@@ -194,7 +197,7 @@ beta_box_omega0225 <- sapply(alphas, function(a) mean(p.value.signal_box_omega02
 ```
 
 ```{r echo=FALSE}
-#pdf(file = "../tex/img/alphaI_testAR.pdf", width = 15, height = 5)
+# pdf(file = "../tex/img/alphaI_testAR.pdf", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls))
   lines(alphas, alphaI_mcssa[[i]], lwd = lwds[i], col = clrs[i])
@@ -207,11 +210,11 @@ legend(
   lty = 1,
   lwd = c(lwds, 3, 3), cex = 1.4
 )
-#dev.off()
+# dev.off()
 ```
 
 ```{r}
-#pdf(file = "../tex/img/roc_testAR_omega0025.pdf", width = 15, height = 5)
+# pdf(file = "../tex/img/roc_testAR_omega0025.pdf", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls))
   lines(alphaI_mcssa[[i]][-1], beta_mcssa_omega0125[[i]][-1], lwd = lwds[i], col = clrs[i])
@@ -224,5 +227,5 @@ legend(
   lty = 1,
   lwd = c(lwds, 3, 3), cex = 1.4
 )
-#dev.off()
+# dev.off()
 ```

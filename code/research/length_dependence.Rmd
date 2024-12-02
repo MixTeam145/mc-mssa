@@ -3,14 +3,17 @@ title: "Зависимость радикальности от длины ряд
 output: html_document
 ---
 
-```{r, include=FALSE}
-source("mcmssa_utils.R")
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
 library(foreach)
 library(doSNOW)
 library(parallel)
 library(doRNG)
 library(gcplyr)
-load("p.values_Ns.RData")
+
+source("../R/mc-mssa.R", chdir = TRUE)
+load("data/p.values_Ns.RData")
 ```
 
 Возьмем $N=100,200,500,1000$ и посмотрим на графики ошибок первого рода при разных $L$.
@@ -111,48 +114,52 @@ stopCluster(cluster)
 
 1. $L=10$
 ```{r}
-alphaI_L10 <- lapply(p.values_noise_L10, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_L10 <- lapply(p.values_signal_L10, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_L10 <-
+  lapply(p.values_noise_L10, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_L10 <-
+  lapply(p.values_signal_L10, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
 ```
 
 ```{r}
-pdf(file = "../tex/img/alphaI_L10.pdf", width = 15, height = 5)
+# pdf(file = "../tex/img/alphaI_L10.pdf", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ns))
   lines(alphaI_L10[[i]], beta_L10[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ns), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/roc_L10.pdf", width = 15, height = 5)
+# pdf(file = "../tex/img/roc_L10.pdf", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = "power", cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ns))
   lines(alphaI_L10[[i]], beta_L10[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ns), lty = 1, lwd = lwds, col = clrs, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 2. $L=40$
 ```{r}
-alphaI_L40 <- lapply(p.values_noise_L40, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_L40 <- lapply(p.values_signal_L40, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_L40 <-
+  lapply(p.values_noise_L40, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_L40 <-
+  lapply(p.values_signal_L40, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
 ```
 
 ```{r}
-pdf(file = "../tex/img/alphaI_L40.pdf", width = 15, height = 5)
+# pdf(file = "../tex/img/alphaI_L40.pdf", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ns))
   lines(alphaI_L40[[i]], beta_L40[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ns), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/roc_L40.pdf", width = 15, height = 5)
+# pdf(file = "../tex/img/roc_L40.pdf", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = "power", cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ns))
   lines(alphaI_L40[[i]], beta_L40[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ns), lty = 1, lwd = lwds, col = clrs, cex = 2)
-dev.off()
+# dev.off()
 ```

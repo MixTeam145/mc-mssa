@@ -7,213 +7,15 @@ output:
 
 ```{r, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-source("mcmssa_utils.R")
-source("noise_estim.R")
+
 library(foreach)
 library(doSNOW)
 library(parallel)
 library(doRNG)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+load("data/p.values_noise_estim.RData")
 ```
-
-Пусть нам известно, что данный временной ряд представляет собой реализацию красного шума, но параметры $\varphi$ и $\delta$ неизвестны, т.е.
-\[
-f_n = \varphi f_{n-1} + \delta\varepsilon_n,\quad n=1,\ldots,N,
-\]
-где $\varepsilon_n\sim N(0, 1)\; \forall n$.
-```{r, results='hide'}
-varphi <- 0.7
-delta <- 1
-N <- 100
-model <- list(varphi = varphi, delta = delta, N = N)
-M <- 100
-G <- 1000
-cores <- detectCores()
-pb <- txtProgressBar(max = M, style = 3)
-progress <- function(n) setTxtProgressBar(pb, n)
-opts <- list(progress = progress)
-```
-
-Пусть временной ряд представляет собой смесь сумму косинуса с периодом $\omega=0.075$ и амплитудой $A=3$ и красного шума. 
-```{r}
-omega <- 0.275
-signal <- signal.one.channel(model$N, omega, A = 1.5)
-```
-Оценим параметры в этом случая в два этапа: сначала оценим параметры исходног ряда, затем, если MC-SSA обнаружит сигнал, восстановим его и оценим параметры "остатка". Интуитивно кажется, что оценка должна стать точнее. Будем использовать собственные векторы в качестве векторов для проекции с целью облегчения дальнейшего выделения периодичной компоненты, если алгоритм отвергнет нулевую гипотезу.
-```{r, results='hide'}
-res <- numeric()
-set.seed(5)
-for(i in 1:M) {
-  f <- one.channel.ts(model = model, signal = signal)
-  varphi.before <- est.model.arima(f)$varphi
-  #m <- MonteCarloSSA(f, L = 50, D = 1, basis = "ev", kind = "ev", G = G, level.conf = 0.975)
-  #varphi.after <- varphi.before
-  #if (m$reject) {
-  #  suspect <- which(m$v > m$upper)
-  #  s <- ssa(f, L = 50, D = 1, kind = "toeplitz-ssa")
-  #  r <- reconstruct(s, groups = list(signal = suspect))
-  #  varphi.after <- est.model.arima(residuals(r))$varphi
-  #}
-  res <- cbind(res, varphi.before)
-}
-```
-Как видно из значений MSE, выделение сигнала, действительно положительно повлияло на точность оценненного параметра.
-```{r}
-rowMeans((res - varphi)^2)
-```
-Поскольку $\mathsf{MSE}(\hat\varphi)=\mathsf D(\hat\varphi) + (\mathsf E\hat\varphi -\varphi)^2$, интересно посмотреть отдельно на дисперсию и на отклонение оценки от настоящего значения.
-Дисперсия:
-```{r}
-rowVars(res)
-```
-Отклонение:
-```{r}
-rowMeans(res) - varphi
-```
-Проверим гипотезу, что смещение после выделения равно нулю.
-\[
-H_0:~ \mathsf E\hat\varphi=\varphi\\
-H_1:~\mathsf E\hat\varphi\ne\varphi\\
-t=\frac{\sqrt{n-1}(\overline{\hat\varphi}-\varphi)}{s}\to N(0, 1)
-\]
-```{r}
-alpha <- 0.025
-t <- sqrt(M - 1) * (mean(res[2,]) - varphi) / sqrt(var(res[2,]))
-t.critical <- qnorm(1-alpha/2)
-if (t > t.critical | t < -t.critical)
-  print("rejected")
-```
-Дисперсия выросла, в то время как отклонение уменьшилось в абсолютном значении и поменяло знак, что говорит о том, что в среднем, после выделения "сигнала", оценка параметра авторегрессии находится слева от настоящего значения. Проверим это утверждение для остальных частот. Будем брать частоты от $0.05$ до $0.5$ с шагом $0.05$.
-
-```{r}
-# Поправка при L=50
-load("p_values_for_extract.RData")
-alphas_corrected_arima <- correction(p.values_h0_arima[[3]])
-```
-
-```{r, results='hide'}
-omega <- seq(0.075, 0.475, 0.1)
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-res1 <- list()
-for (j in 1:length(omega))
-{
-  set.seed(5)
-  signal <- signal.one.channel(model$N, omega[j], A = 1)
-  res1[[j]] <-
-    foreach (
-      i = 1:M,
-      .export = c(
-        'ssa',
-        'nu',
-        'parestimate',
-        'Norm',
-        'rowQuantiles',
-        'reconstruct'
-      ),
-      .combine = 'rbind',
-      .options.snow = opts
-    ) %dopar%
-    {
-      f <- one.channel.ts(model, signal)
-      est.model <- est.model.arima(f)
-      #varphi.before <- est.model.arima(f)$varphi
-      #varphi.after <- est.model.extract(f, alpha = 0.1)$varphi
-      #rbind(varphi.before, varphi.after)
-      cbind(est.model$varphi, est.model$delta)
-    }
-}
-stopCluster(cluster)
-```
-
-```{r}
-#mse.before <- sapply(res1, function(r) mean((r[1,]-varphi)^2))
-#mse.after <- sapply(res1, function(r) mean((r[2,] - varphi)^2))
-#plot(omega, mse.before, type = "b")
-#lines(omega, mse.after, type = "b", col = "red")
-
-sapply(res1, function(r) mean((r[, 1] - varphi)^2))
-sapply(res1, function(r) mean((r[, 2] - delta)^2))
-
-
-```
-
-```{r}
-#var.before <- sapply(res1, function(r) var(r[1,]))
-#var.after <- sapply(res1, function(r) var(r[2,]))
-#plot(omega, var.before, type = "b")
-#lines(omega, var.after, type = "b", col = "red")
-
-sapply(res1, function(r) var(r[, 1]))
-sapply(res1, function(r) var(r[, 2]))
-```
-
-```{r}
-#bias.before <- sapply(res1, function(r) mean(r[1,]) - varphi)
-#bias.after <- sapply(res1, function(r) mean(r[2,]) - varphi)
-#plot(omega, bias.before, type = "b")
-#lines(omega, bias.after, type = "b", col = "red")
-
-sapply(res1, function(r) mean(r[, 1] - varphi))
-sapply(res1, function(r) mean(r[, 2] - delta))
-```
-
-По графику 3 видно, что основной вклад в ошибку вносит смещение, процедура это смещение сильно уменьшает, делая слабо-отрицательной.
-
-Заметим, что чем меньше амплитуда у гармоники, тем меньше должно быть улучшение. Проверим это для $A=0.5$.
-```{r, results='hide'}
-omega <- 0.075
-signal <- signal.one.channel(model$N, omega, A = 0.5)
-res2 <- numeric()
-set.seed(5)
-for(i in 1:M) {
-  f <- one.channel.ts(model = model, signal = signal)
-  varphi.before <- est.model.arima(f)$varphi
-  m <- MonteCarloSSA(f, L = 50, D = 1, basis = "ev", kind = "ev", G = G, level.conf = 0.975)
-  varphi.after <- varphi.before
-  if (m$reject) {
-    suspect <- which(m$v > m$upper)
-    s <- ssa(f, L = 50, D = 1, kind = "toeplitz-ssa")
-    r <- reconstruct(s, groups = list(signal = suspect))
-    varphi.after <- est.model.arima(residuals(r))$varphi
-  }
-  res2 <- cbind(res2, rbind(varphi.before,varphi.after))
-}
-```
-
-```{r}
-rowMeans((res2 - varphi)^2)
-rowVars(res2)
-rowMeans(res2) - varphi
-```
-Действительно, улучшение практически незначительное.
-
-Посмотрим, как будет вести себя процедура, если сигнала на самом деле не будет.
-```{r, results='hide'}
-signal <- 0
-res3 <- numeric()
-set.seed(5)
-for(i in 1:M) {
-  f <- one.channel.ts(model = model, signal = signal)
-  varphi.before <- est.model.arima(f)$varphi
-  m <- MonteCarloSSA(f, L = 50, D = 1, basis = "ev", kind = "ev", G = G, level.conf = 0.975)
-  varphi.after <- varphi.before
-  if (m$reject) {
-    suspect <- which(m$v > m$upper)
-    s <- ssa(f, L = 50, D = 1, kind = "toeplitz-ssa")
-    r <- reconstruct(s, groups = list(signal = suspect))
-    varphi.after <- est.model.arima(residuals(r))$varphi
-  }
-  res3 <- cbind(res3, rbind(varphi.before,varphi.after))
-}
-```
-
-```{r}
-rowMeans((res3 - varphi)^2)
-rowVars(res3)
-rowMeans(res3) - varphi
-```
-
-Таким образом, оценка улучшилась настолько незначительно, можно считать, что данная процедура не влияет плохо на результат, если ряд представляет из себя чистый красный шум.
 
 ```{r}
 Ls <- c(10, 20, 50, 80, 90)
@@ -226,7 +28,11 @@ progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 ```
 
-
+Пусть нам известно, что данный временной ряд представляет собой реализацию красного шума, но параметры $\varphi$ и $\delta$ неизвестны, т.е.
+\[
+f_n = \varphi f_{n-1} + \delta\varepsilon_n,\quad n=1,\ldots,N,
+\]
+где $\varepsilon_n\sim N(0, 1)\; \forall n$.
 
 1. $\varphi=0.7$, $\omega=0.075$.
 ```{r}
@@ -619,111 +425,122 @@ alphas <- 0:1000/1000
 clrs <- c('black', 'red', 'green', "orange", "purple")
 lwds <- c(2, 1, 1, 1, 1)
 
-alphaI_phi7 <- lapply(p.values_h0_phi7, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-alphaI_phi7est <- lapply(p.values_h0_phi7est, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_phi7_omega0075 <- lapply(p.values_h1_phi7_omega0075, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_phi7est_omega0075 <- lapply(p.values_h1_phi7est_omega0075, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_phi7 <-
+  lapply(p.values_h0_phi7, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_phi7est <-
+  lapply(p.values_h0_phi7est, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_phi7_omega0075 <-
+  lapply(p.values_h1_phi7_omega0075, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_phi7est_omega0075 <-
+  lapply(p.values_h1_phi7est_omega0075, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
 
-alphaI_phi3 <- lapply(p.values_h0_phi3, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-alphaI_phi3est <- lapply(p.values_h0_phi3est, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_phi3_omega0075 <- lapply(p.values_h1_phi3_omega0075, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_phi3est_omega0075 <- lapply(p.values_h1_phi3est_omega0075, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_phi3 <-
+  lapply(p.values_h0_phi3, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_phi3est <-
+  lapply(p.values_h0_phi3est, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_phi3_omega0075 <-
+  lapply(p.values_h1_phi3_omega0075, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_phi3est_omega0075 <-
+  lapply(p.values_h1_phi3est_omega0075, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
 
-beta_phi7_omega0225 <- lapply(p.values_h1_phi7_omega0225, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_phi7est_omega0225 <- lapply(p.values_h1_phi7est_omega0225, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_phi7_omega0225 <- 
+  lapply(p.values_h1_phi7_omega0225, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_phi7est_omega0225 <-
+  lapply(p.values_h1_phi7est_omega0225, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
 ```
 
 ```{r}
-pdf(file = "../tex/img/type1error_phi7.pdf", width = 6, height = 3.5, bg = "white")
+# pdf(file = "../tex/img/type1error_phi7.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = 'type I error')
 for (i in seq_along(Ls))
   lines(alphas, alphaI_phi7[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/type1error_phi7est.pdf", width = 6, height = 3.5, bg = "white")
+# pdf(file = "../tex/img/type1error_phi7est.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = 'type I error')
 for (i in seq_along(Ls))
   lines(alphas, alphaI_phi7est[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/type1error_phi3.pdf", width = 6, height = 3.5, bg = "white")
+# pdf(file = "../tex/img/type1error_phi3.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = 'type I error')
 for (i in seq_along(Ls))
   lines(alphas, alphaI_phi3[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/type1error_phi3est.pdf", width = 6, height = 3.5, bg = "white")
+# pdf(file = "../tex/img/type1error_phi3est.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = 'type I error')
 for (i in seq_along(Ls))
   lines(alphas, alphaI_phi3est[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/roc_phi7_omega0075.pdf", width = 6, height = 3.5, bg = "white")
+# pdf(file = "../tex/img/roc_phi7_omega0075.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI_phi7[[i]][-1], beta_phi7_omega0075[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/roc_phi7est_omega0075.pdf", width = 6, height = 3.5, bg = "white")
+# pdf(file = "../tex/img/roc_phi7est_omega0075.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI_phi7est[[i]][-1], beta_phi7est_omega0075[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/roc_phi3_omega0075.pdf", width = 6, height = 3.5, bg = "white")
+# pdf(file = "../tex/img/roc_phi3_omega0075.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI_phi3[[i]][-1], beta_phi3_omega0075[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-dev.off()
+#dev.off()
 ```
+
 ```{r}
-pdf(file = "../tex/img/roc_phi3est_omega0075.pdf", width = 6, height = 3.5, bg = "white")
+# pdf(file = "../tex/img/roc_phi3est_omega0075.pdf", width = 6, height = 3.5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1))
 for (i in seq_along(Ls)) {
   lines(alphaI_phi3est[[i]][-1], beta_phi3est_omega0075[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/roc_phi7_omega0225.pdf", width = 15, height = 5, bg = "white")
+# pdf(file = "../tex/img/roc_phi7_omega0225.pdf", width = 15, height = 5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI_phi7[[i]][-1], beta_phi7_omega0225[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-pdf(file = "../tex/img/roc_phi7est_omega0225.pdf", width = 15, height = 5, bg = "white")
+# pdf(file = "../tex/img/roc_phi7est_omega0225.pdf", width = 15, height = 5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI_phi7est[[i]][-1], beta_phi7est_omega0225[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```

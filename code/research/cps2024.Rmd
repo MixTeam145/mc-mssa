@@ -1,15 +1,17 @@
 ---
 title: "CPS2024"
-output:
-  html_notebook
+output: html_document
 ---
 
-```{r, include=FALSE}
-source("mcmssa_utils.R")
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
 library(foreach)
 library(doSNOW)
 library(parallel)
 library(doRNG)
+
+source("../R/mc-mssa.R", chdir = TRUE)
 ```
 
 ```{r}
@@ -113,32 +115,34 @@ stopCluster(cluster)
 alphas <- 0:1000/1000
 clrs <- c('black', 'red', 'green')
 lwds <- c(3, 3, 3)
-alphaI <- lapply(p.values_noise_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
-beta <- lapply(p.values_signal_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+alphaI <-
+  lapply(p.values_noise_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <-
+  lapply(p.values_signal_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
-setEPS()
-postscript("alphaI_phi7_N100.eps", width = 15, height = 5)
+# setEPS()
+# postscript("alphaI_phi7_N100.eps", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'significance level', ylab = 'type I error', cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls))
   lines(alphas, alphaI[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 ```{r}
-setEPS()
-postscript("roc_phi7_N100.eps", width = 15, height = 5)
+# setEPS()
+# postscript("roc_phi7_N100.eps", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
-2. $N=400$
 
+2. $N=400$
 ```{r}
 N <- 400
 Ls <- c(10, 200, 300)
@@ -218,8 +222,10 @@ stopCluster(cluster)
 ```
 
 ```{r}
-alphaI <- lapply(p.values_noise_phi7_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
-beta <- lapply(p.values_signal_phi7_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+alphaI <-
+  lapply(p.values_noise_phi7_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <-
+  lapply(p.values_signal_phi7_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
@@ -230,14 +236,14 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
 ```{r}
-setEPS()
-postscript("roc_phi7_N400.eps", width = 15, height = 5)
+# setEPS()
+# postscript("roc_phi7_N400.eps", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 # $\varphi=0.3$
@@ -343,17 +349,15 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex
 ```{r}
 #setEPS()
 #postscript("roc_phi3_N100.eps", width = 15, height = 5)
-pdf("../tex/img/roc_phi3_N100.pdf", width = 15, height = 5, bg = "white")
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 2. $N=400$
-
 ```{r}
 N <- 400
 Ls <- c(10, 200, 300)
@@ -433,8 +437,10 @@ stopCluster(cluster)
 ```
 
 ```{r}
-alphaI <- lapply(p.values_noise_phi3_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
-beta <- lapply(p.values_signal_phi3_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+alphaI <-
+  lapply(p.values_noise_phi3_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <-
+  lapply(p.values_signal_phi3_N400, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
@@ -445,14 +451,14 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
 ```{r}
-setEPS()
-postscript("roc_phi3_N400.eps", width = 15, height = 5)
+# setEPS()
+# postscript("roc_phi3_N400.eps", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 Пусть $\varphi=0.7$, $N=100$.
@@ -513,14 +519,14 @@ beta <- lapply(p.values_signal_phi7_omega0175, function(pvals) sapply(alphas, fu
 ```
 
 ```{r}
-setEPS()
-postscript("roc_omega0175.eps", width = 15, height = 5)
+# setEPS()
+# postscript("roc_omega0175.eps", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```
 
 # $\omega=0.025$
@@ -566,17 +572,19 @@ stopCluster(cluster)
 ```
 
 ```{r}
-alphaI <- lapply(p.values_noise_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
-beta <- lapply(p.values_signal_phi7_omega0025, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+alphaI <-
+  lapply(p.values_noise_phi7_N100, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
+beta <-
+  lapply(p.values_signal_phi7_omega0025, function(pvals) sapply(alphas, function(a) sum(pvals < a) / M))
 ```
 
 ```{r}
-setEPS()
-postscript("roc_omega0025.eps", width = 15, height = 5)
+# setEPS()
+# postscript("roc_omega0025.eps", width = 15, height = 5)
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', xlim = c(0, 1), cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 for (i in seq_along(Ls)) {
   lines(alphaI[[i]][-1], beta[[i]][-1], lwd = lwds[i], col = clrs[i])
 }
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds, cex = 2)
-dev.off()
+# dev.off()
 ```

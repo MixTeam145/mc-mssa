@@ -1,16 +1,17 @@
 ---
-title: "task1"
-output: html_notebook
+title: "Мешающий сигнал"
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-source("mcmssa_utils.R")
-source("noise_estim.R")
+
 library(foreach)
 library(doSNOW)
 library(parallel)
 library(doRNG)
+
+source("../R/mc-mssa.R", chdir = TRUE)
 ```
 
 Пусть извезтно, что во временном ряде присутствует некоторый сигнал, но, возможно, еще присутствует какой-то другой сигнал, например гармоника с неизвестной нам частотой. Тогда модель выглядит следующим образом:
@@ -22,7 +23,7 @@ $$
 H_0:\mathsf{P}=0,\\
 H_1:\mathsf{P}\ne0.
 $$
-Пусть известно, что в ряде есть синус с частотой $\omega_1=0.075$. Посмотрим на ошибку первого рода и на ROC-кривую альтернативы, что в ряде еще присутствует синус с $\omega_2=0.1$.
+Пусть известно, что в ряде есть синус с частотой $\omega_\text{known}=0.25$. Посмотрим на ошибку первого рода и на ROC-кривую альтернативы, что в ряде еще присутствует синус с $\omega_\text{unknown}=0.075$.
 ```{r}
 omega.known <- 0.25
 omega.unknown <- 0.075
@@ -35,8 +36,8 @@ delta <- 1
 Ls <- c(10, 20, 50, 80, 90)
 L_idx <- 1:length(Ls)
 D <- 1
-G <- 1000
-M <- 1000
+G <- 100
+M <- 100
 model <- list(varphi = varphi,
               delta = delta,
               N = N)
@@ -47,7 +48,7 @@ pb <- txtProgressBar(max = M, style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 ```
-Будем требовать сильную разделимость, т.е. чтобы собственные числа компонент, отвечающих за синусы не пересекались. Возьмем $A_1=3$ для известного сигнала и $A_2=1$ для неизвестного.
+Будем требовать сильную разделимость, т.е. чтобы собственные числа компонент, отвечающих за синусы не пересекались. Возьмем $A=3$ для известного сигнала и $A=1$ для неизвестного.
 ```{r}
 signal.known <- signal.one.channel(N, omega.known, A = 3)
 signal.unknown <- signal.one.channel(N, omega.unknown, A = 1)
@@ -76,10 +77,10 @@ for (k in 1:5) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
-  pvals.h0sin.estim[[k]] <- result
+  pvals.h0sin[[k]] <- result
 }
 stopCluster(cluster)
 ```
@@ -107,7 +108,7 @@ for (k in 1:5) {
                          kind = "ev",
                          G = G,
                          level.conf = NULL,
-                         composite = "var1")
+                         composite = TRUE)
       m$p.value
     }
   pvals.h1sin[[k]] <- result
@@ -184,13 +185,13 @@ stopCluster(cluster)
 ```
 
 ```{r}
-alphaI <- lapply(pvals.h0, function(p) sapply(alphas, function(a) sum(p < a) / M))
+alphaI <-lapply(pvals.h0, function(p) sapply(alphas, function(a) sum(p < a) / M))
 beta <- lapply(pvals.h1, function(p) sapply(alphas, function(a) sum(p < a) / M))
 ```
 
 # Графики ошибки I рода, мощности и ROC-кривые
 ```{r}
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, main = "Type I error", xlab = 'significance level', ylab = 'type I error')
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, main = "Type I error", xlab = 'significance level', ylab = 'type I error')
 for (i in 1:5) {
   lines(alphas, alphaI.sin[[i]], lwd = lwds[i], col = clrs[i])
   lines(alphas, alphaI[[i]], lty = 2, lwd = lwds[i], col = clrs[i])
@@ -199,7 +200,7 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
 ```{r}
-plot(c(0,1),c(0,1), type="l", col="blue", lty = 2, main = "Power", xlab = 'significance level', ylab = 'power')
+plot(c(0, 1), c(0, 1), type="l", col="blue", lty = 2, main = "Power", xlab = 'significance level', ylab = 'power')
 for (i in 1:5) {
   lines(alphas, beta.sin[[i]], lwd = lwds[i], col = clrs[i])
   lines(alphas, beta[[i]], lwd = lwds[i], lty = 2, col = clrs[i])
@@ -208,7 +209,7 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
 ```{r}
-plot(c(0,1),c(0,1), type="l", lty = 2, col="blue", main = "ROC curve", xlab = 'type I error', ylab = 'power')
+plot(c(0, 1), c(0, 1), type = "l", lty = 2, col="blue", main = "ROC curve", xlab = 'type I error', ylab = 'power')
 for (i in 1:5) {
   lines(alphaI.sin[[i]], beta.sin[[i]], lwd = lwds[i], col = clrs[i])
   lines(alphaI[[i]], beta[[i]], lwd = lwds[i], lty = 2, col = clrs[i])

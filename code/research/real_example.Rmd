@@ -1,22 +1,24 @@
 ---
-title: "Example"
+title: "Real example"
 output: html_document
 ---
 
-```{r, include=FALSE}
-source("mcmssa_utils.R")
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
 library(foreach)
 library(doSNOW)
 library(parallel)
 library(doRNG)
 library(tidyr)
 
-load("example.RData")
+source("../R/mc-mssa.R", chdir = TRUE)
+load("data/real_example.RData")
 recalculate.correction <- FALSE
 ```
 
 ```{r}
-df <- read.table("data.txt", na.strings = -99.99)
+df <- read.table("data/nino34.txt", na.strings = -99.99)
 df <- na.omit(df)
 names(df) <- c("year", 1:12)
 df <- df |> pivot_longer(cols = 2:13, names_to = "month", values_to = "Temperature")
@@ -24,43 +26,43 @@ df.year_mean <- df |> group_by(year) |> summarise(Temperature = mean(Temperature
 f <- ts(df$Temperature, start = 1950, frequency = 12)
 f.year_mean <- ts(df.year_mean$Temperature, start = 1950)
 
-#pdf("../tex/img/Nino_ts.pdf", width = 15, height = 8, pointsize = 20)
+# pdf("../tex/img/Nino_ts.pdf", width = 15, height = 8, pointsize = 20)
 plot(f, ylab = "Temperature")
-#dev.off()
+# dev.off()
 ```
 
 В этом ряде присутствует тренд, выделим его.
 ```{r}
 s <- ssa(f)
 
-#pdf("../tex/img/Nino_ssa_vectors.pdf")
+# pdf("../tex/img/Nino_ssa_vectors.pdf")
 plot(s, type = "vector", idx = 1:6)
-#dev.off()
+# dev.off()
 
-#pdf("../tex/img/Nino_ssa_paired.pdf")
+# pdf("../tex/img/Nino_ssa_paired.pdf")
 plot(s, type = "paired", idx = 1:6)
-#dev.off()
+# dev.off()
 ```
 
 Помимо тренда есть еще годовая сезонность. Выделим тренд с помощью SSA при $L=120$ и сезонность с помощью Toepltiz SSA при $L=444.
 ```{r}
 s <- ssa(f, L = 120)
 r <- reconstruct(s, groups = list(Trend = 1))
-#pdf(file = "../tex/img/Nino_reconstruct_trend.pdf", width = 15, height = 8, pointsize = 20)
+# pdf(file = "../slides/img/Nino_reconstruct_trend.pdf", width = 15, height = 6, pointsize = 20)
 plot(f, ylab = "Temperature")
 lines(r$Trend, col = "blue")
 legend("bottomright", legend = c("Original", "Trend"), col = c("black", "blue"), lty = 1)
-#dev.off()
+# dev.off()
 ```
 
 ```{r}
 s1 <- ssa(resid(r), kind = "toeplitz-ssa")
 r1 <- reconstruct(s1, groups = list(season.year = 1:2))
-#pdf(file = "../tex/img/Nino_reconstruct_season.pdf", width = 15, height = 8, pointsize = 20)
+# pdf(file = "../tex/img/Nino_reconstruct_season.pdf", width = 15, height = 8, pointsize = 20)
 plot(resid(r), ylab = "Temperature")
 lines(r1$season.year, col = "blue")
 legend("bottomright", legend = c("Detrended ts", "Annual seasonality"), col = c("black", "blue"), lty = 1)
-#dev.off()
+# dev.off()
 ```
 
 Оценим параметры остатка и добавим годовую сезонность в качестве мешающего сигнала
@@ -115,7 +117,7 @@ if (recalculate.correction) {
 }
 ```
 
-```{r}
+```{r, warning=FALSE}
 alpha.corrected <- correction(p.values_noise)
 ```
 Применим поправленный MC-SSA.
@@ -130,22 +132,22 @@ m <-
     basis = "ev",
     kind = "ev",
     G = G,
-    level.conf = 1 - alpha.corrected(0.05)
+    level.conf = 0.95
   )
 
 p <- plot.ci(m, log_ = T)
-#ggsave("../tex/img/Nino_mcssa.pdf", p,device = "pdf", width = 15, height = 8, units = "cm")
 p
 1/m$freq[m$v > m$upper]
+# ggsave("../tex/img/Nino_mcssa.pdf", p,device = "pdf", width = 15, height = 8, units = "cm")
 ```
 
 Обнаружилось 4 компоненты, легко интерпретируемые компоненты с периодом 6 -- полугодовая сезонность. Выделим ее с помощью SSA с той же длиной окна $L=40$.
 ```{r}
 s2 <- ssa(resid(r), L = 40, kind = "toeplitz-ssa")
 r2 <- reconstruct(s2, groups = list(season.semi_annual = 9:10))
-#pdf(file = "../tex/img/Nino_reconstruct_semi_annual.pdf", width = 15, height = 8, pointsize = 20)
+# pdf(file = "../tex/img/Nino_reconstruct_semi_annual.pdf", width = 15, height = 8, pointsize = 20)
 plot(resid(r), ylab = "Temperature")
 lines(r2$season.semi_annual, col = "blue")
 legend("bottomright", legend = c("Detrended ts", "Semi-annual seasonality"), col = c("black", "blue"), lty = 1)
-#dev.off()
+# dev.off()
 ```

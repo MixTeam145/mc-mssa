@@ -1,9 +1,8 @@
 *.zip
 *.html
-/r/.Rproj.user
-/r/.Rhistory
+.Rhistory
 .Rproj.user
-/r/.RData
+.RData
 *.aux
 *.bbl
 *.fdb_latexmk

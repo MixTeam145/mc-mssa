@@ -1,10 +1,10 @@
-source("mcmssa_utils.R")
-source("noise_estim.R")
-source("auto_trend_ssa.R")
 library(foreach)
 library(doSNOW)
 library(parallel)
 library(doRNG)
+
+source("R/mc-mssa.R", chdir = TRUE)
+source("research/auto_trend_ssa.R")
 
 
 N <- 100
