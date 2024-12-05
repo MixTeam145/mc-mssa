@@ -12,56 +12,61 @@ library("pracma")
 library("ggplot2")
 library("matrixStats")
 library("magic")
+library("arfima")
 
 source("toeplitz_mssa.R")
 
 type = 8
 
-# Estimation of AR(1) parameters, without signal extraction
-est.model.arima <-  function(f) {
-  param <- list()
-  ar.par <- arima(
-    f,
-    order = c(1, 0, 0),
-    include.mean = FALSE,
-    method = "CSS-ML"
+# Estimation of AR(1) or FI(d) parameters
+est_model <- function(f, model = c("ar1", "fi")) {
+  model <- match.arg(model)
+  
+  lmodel <- "n"
+  nar <- 1
+  if (identical(model, "fi")) {
+    lmodel <- 'd'
+    nar <- 0
+  }
+  
+  fit <- arfima(f,
+                c(nar, 0, 0),
+                lmodel = lmodel,
+                dmean = FALSE,
+                quiet = TRUE)$modes[[1]]
+  
+  list(
+    phi = fit$phi,
+    dfrac = fit$dfrac,
+    sigma2 = fit$sigma2,
+    N = length(f)
   )
-  param$varphi <- coef(ar.par)
-  if (sqrt(ar.par$var.coef) > abs(ar.par$coef))
-    param$varphi <- 0
-  param$delta <- sqrt(ar.par$sigma2)
-  estModel <-
-    list(varphi = param$varphi,
-         delta = param$delta,
-         N = length(f))
-  estModel
 }
-###end
 
-###Functions for Monte Carlo SSA
+### Functions for Monte Carlo SSA
 # Computes squared norms of projections to column vectors of U
-projec <- function(data, L, D, U, kind=c("ev", "fa")) {
+projec <- function(data, L, D, U, kind = c("ev", "fa")) {
   if (is.list(data)) {
     # data are given by a model
-    f <- generate(data, replicate(D, 0, simplify=F), D)
+    f <- generate(D, data)
   } else {
     # data are given by a series
     f <- data
   }
-  N <- length(f[,1]) # assert equal length in each channel
+  N <- length(f[, 1]) # assert equal length in each channel
   K <- N - L + 1
   X_res <- matrix(0, nrow = L, ncol = K*D)
   for (channel in 1:D) {
     tX <- sapply(1:L, function(i) f[i:(i + K - 1), channel])
     X_res[, (1 + (channel - 1) * K):(channel * K)] <- t(tX)
   }
-  if (kind=='fa') {
-    W <- X_res %*% U #Projection
+  if (kind == "fa") {
+    W <- X_res %*% U # Projection
   }
   else {
-    W <- t(X_res) %*% U #Projection
+    W <- t(X_res) %*% U # Projection
   }
-  colSums(W ^ 2 / N) #divide by N to weaken the dependence on t.s. length
+  colSums(W ^ 2 / N) # divide by N to weaken the dependence on t.s. length
 }
 
 # Generate vectors for projections corresponding to eigenvectors produced by t.s.
@@ -294,48 +299,49 @@ MonteCarloSSA <-
            basis = c("ev", "t"), # vectors for projection
            kind = c("ev", "fa"), # left or right vectors (if D=1 "ev" and "fa" are equal up to replacement L->N-L+1)
            toeplitz.kind = c("no", "sum", "block"), # for toeplitz mc-mssa
-           model = NULL, # AR(1) model
-           freq.range = c(0, 0.5), #
+           model = c("ar1", "fi"),
+           model0 = NULL,
+           freq.range = c(0, 0.5),
            G = 1000, # number of surrogates
            level.conf = 0.8,
            two.tailed = FALSE,
            weights = 1,
            composite = FALSE # mc-ssa with nuisance signal
   ) {
+    model <- match.arg(model)
+    kind <- match.arg(kind)
     
     if (D == 1) {
       f <- as.matrix(f)
-      if (!is.null(model))
-        model <- list(model)
-    }
-    
-    kind <- match.arg(kind)
-    
-    if (composite & D != 1)
+      if (!is.null(model0)) {
+        model0 <- list(model0)
+      }
+    } else if (composite) {
       stop("mc-ssa with nuisance signal for multivariate ts is not implemented")
-    
-    if (is.null(model)) {
-      estModel <- list()
-      for (channel in 1:D)
-        estModel[[channel]] <- est.model.arima(f[,channel])
     }
-    else
-      estModel <- model
+    
+    if (is.null(model0)) {
+      model0 <- lapply(
+        seq_len(D),
+        function(i) est_model(f[, i], model)
+      )
+    }
+    
     if (basis == "ev") {
       f.basis <- f
       # comment next 2 lines to project vectors of original series (another version of the nuisance algorithm)
       if (composite) 
-        f.basis <- f - estModel[[1]]$signal
+        f.basis <- f - model0$signal
       if (kind == 'fa')
-        basis <- basis.ev(f.basis, L, factor.v=T, toeplitz.kind = toeplitz.kind)
+        basis <- basis.ev(f.basis, L, factor.v = T, toeplitz.kind = toeplitz.kind)
       else
-        basis <- basis.ev(f.basis, L, factor.v=F, toeplitz.kind = toeplitz.kind)
+        basis <- basis.ev(f.basis, L, factor.v = F, toeplitz.kind = toeplitz.kind)
     }
     else {
       if (kind == 'fa')
-        basis <- basis.toeplitz(estModel, estModel[[1]]$N - L + 1, D, fa=T)
+        basis <- basis.toeplitz(estModel, N - L + 1, D, fa = T)
       else
-        basis <- basis.toeplitz(estModel, L, D, fa=F)
+        basis <- basis.toeplitz(estModel, L, D, fa = F)
     }
     
     plan <- list(U = basis$U,
@@ -346,7 +352,7 @@ MonteCarloSSA <-
         f,
         plan = plan,
         kind = kind,
-        model = estModel,
+        model = model0,
         level.conf = level.conf,
         L = L,
         G = G,
@@ -356,7 +362,7 @@ MonteCarloSSA <-
         composite = composite
       )
     res
-  }
+}
 
 # There is implemenatation of correction liberal/conservative criteria
 correction <- function(p.values, alphas = 0:1000 / 1000) {
@@ -396,31 +402,28 @@ signal.one.channel <- function(N, omega, A = 1) {
   signal
 }
 
-# Generates a series according to the model signal + AR(1)
-one.channel.ts <- function(model, signal) {
-  if (model$varphi == 0)
-    xi = rnorm(model$N, sd = model$delta)
-  else
-    xi <- arima.sim(
-      n = model$N,
-      list(ar = model$varphi),
-      sd = model$delta,
-      n.start = 1,
-      start.innov =
-        rnorm(1, sd = model$delta / sqrt(1 - model$varphi^2))
-    )
+# Generates a series according to the model signal + noise
+generate_channel <- function(model, signal = 0) {
+  # TODO: implement Davies and Harte algorithm
+  xi <- arfima.sim(
+    n = model$N,
+    model = list(phi = model$phi, dfrac = model$dfrac),
+    sigma2 = model$sigma2
+  )
+  xi <- xi - mean(xi)
   if (!is.null(model$signal)) # composite null hypothesis
     xi <- xi + model$signal
   f <- xi + signal
   as.vector(f)
 }
 
-# Generates a multichanel ts
-generate <- function(model, signal, D) {
-  res <- list()
-  for (channel in 1:D)
-    res[[channel]] <- one.channel.ts(model[[channel]], signal[[channel]])
-  
-  res <- matrix(unlist(res), ncol = D, nrow = model[[1]]$N)
-  res
+# Generates a multivariate ts
+generate <- function(D, model, signal = matrix(0, nrow = N, ncol = D)) {
+  N <- model[[1]]$N
+  res <- lapply(
+    seq_len(D),
+    function(i) generate_channel(model[[i]], signal[, i])
+  )
+  f <- matrix(unlist(res), ncol = D, nrow = N)
+  f
 }
