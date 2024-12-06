@@ -18,7 +18,8 @@ source("toeplitz_mssa.R")
 
 type = 8
 
-# Estimation of AR(1) or FI(d) parameters
+### Functions for Monte Carlo SSA
+# Estimate AR(1) or FI(d) parameters
 est_model <- function(f, model = c("ar1", "fi")) {
   model <- match.arg(model)
   
@@ -43,64 +44,70 @@ est_model <- function(f, model = c("ar1", "fi")) {
   )
 }
 
-### Functions for Monte Carlo SSA
-# Computes squared norms of projections to column vectors of U
-projec <- function(data, L, D, U, kind = c("ev", "fa")) {
+# Compute squared norms of projections
+projec <- function(data, L, W, kind = c("columns", "rows")) {
   if (is.list(data)) {
     # data are given by a model
+    D <- length(data)
     f <- generate(D, data)
   } else {
     # data are given by a series
     f <- data
+    D <- dim(f)[2]
   }
   N <- length(f[, 1]) # assert equal length in each channel
   K <- N - L + 1
-  X_res <- matrix(0, nrow = L, ncol = K*D)
+  X_res <- matrix(0, nrow = L, ncol = K * D)
   for (channel in 1:D) {
     tX <- sapply(1:L, function(i) f[i:(i + K - 1), channel])
     X_res[, (1 + (channel - 1) * K):(channel * K)] <- t(tX)
   }
-  if (kind == "fa") {
-    W <- X_res %*% U # Projection
+  if (kind == "rows") {
+    p <- X_res %*% W # Projection on rows
   }
   else {
-    W <- t(X_res) %*% U # Projection
+    p <- t(X_res) %*% W # Projection on columns
   }
-  colSums(W ^ 2 / N) # divide by N to weaken the dependence on t.s. length
+  colSums(p ^ 2 / N) # divide by N to weaken the dependence on t.s. length
 }
 
-# Generate vectors for projections corresponding to eigenvectors produced by t.s.
-basis.ev <- function(ts, L, factor.v = T, toeplitz.kind) {
+# Estimate vector main frequency by ESPRIT
+est_freq <- function(v) {
+  s <- ssa(v)
+  p <- parestimate(s, list(1:2))
+  freq <- p$frequencies[[1]]
+  freq
+}
+
+# Generate projection vectors corresponding to eigenvectors produced by ts
+basis.ev <- function(ts, L, toeplitz.kind, factor.v = FALSE) {
   D <- dim(ts)[2]
   neig <- min(L, D * (length(ts[,1]) - L + 1))
+  
   if (D == 1)
-    s <- ssa(ts, L = L, neig = neig, kind = "toeplitz-ssa")
+    s <- ssa(ts, L, neig, kind = "toeplitz-ssa")
   else
-    if (identical(toeplitz.kind, "sum") || identical(toeplitz.kind, "block"))
-      s <- toeplitz.mssa(ts, L = L, D = D, method = toeplitz.kind, neig =  neig)
+    if (identical(toeplitz.method, "sum") || identical(toeplitz.method, "block"))
+      s <- toeplitz.mssa(ts, L, D, toeplitz.method, neig)
   else
-    s <- ssa(ts, L = L, neig = neig, kind = "mssa")
-  freq <- numeric(0)
-  for (i in 1:nu(s)){
-    #ss <- ssa(s$U[,i], kind = "toeplitz-ssa")
-    ss <- ssa(s$U[,i], kind = "1d-ssa")
-    #estimation of the main frequency by ESPRIT
-    p <- parestimate(ss, groups = list(1:2))
-    freq[i] <- p$frequencies[[1]]
-  }
-  if (factor.v) {
-    return(list(U = s$V, freq = freq))
-  }
-  else {
-    return(list(U = s$U, freq = freq))
-  }
+    s <- ssa(ts, L, neig, kind = "mssa")
+  
+  freq <- apply(s$U, 2, est_freq)
+  basis <- list(freq = freq)
+  
+  if (factor.v)
+    basis$U <- s$V
+  else
+    basis$U <- s$U
+  
+  basis
 }
 
-# Generate vectors for projections corresponding to eigenvectors teoretical matrix 
 matrix.toeplitz <- function(phi, L) {
   toeplitz(phi ^ (0:(L - 1)))
 }
 
+# Generate vectors for projections corresponding to eigenvectors of theoretical autocovariance matrix 
 basis.toeplitz <- function(model, L, D, fa = F) {
   if (fa) {
     # here we assume that L param represents K = N - L + 1
@@ -133,241 +140,206 @@ basis.toeplitz <- function(model, L, D, fa = F) {
   }
   list(U = U, freq = freq)
 }
-###end
+### end
 
 what.reject <- function(res){
   rej <- (res$v[res$idx] < res$lower | res$v[res$idx] > res$upper) & res$idx[res$idx]
   print(res$freq[res$idx][rej==TRUE])
 }
 
-###Main functions for multiple Monte Carlo SSA
+### Main functions for multiple Monte Carlo SSA
 # Make multiple test
-do.ci <-
-  function(f,
-           plan, 
-           kind=c("ev", "fa"),
-           model,
-           level.conf,
-           L,
-           G,
-           D,
-           two.tailed = FALSE,
-           composite,
-           transf = function(x) {
-             return(x)
-           },
-           inv.transf = function(x) {
-             return(x)
-           },
-           weights = 1) {
-    P <- replicate(G, projec(data = model, L = L, D = D, U = plan$U, kind=kind))
-    v <- projec(data = f, L = L, D = D, U = plan$U, kind=kind)
-    
-    idx <- plan$freq >=  plan$range[1] & plan$freq <= plan$range[2]
-    if (!(TRUE %in% idx))
-      warning("no vectors with given frequency range")
-    X <- transf(P[idx, , drop = FALSE])
-    x <- transf(v[idx, drop = FALSE])
-    
-    if (is.vector(X))
-      dim(X) <- c(length(X), 1)
-    
-    res <- list()
-    
-    res$freq <- plan$freq[idx]
-    
-    ci <- list()
-    ci$means <- apply(X, 1, mean)
-    
-    ci$sds <- apply(X, 1, sd)
-    
-    if (weights[1] == "equal")
-      weights <- ci$sds
-    ci$sds[weights == 0] <- 1000 # something large
-    ci$sds[weights != 0] <- ci$sds[weights != 0] / weights[weights != 0]
-    
-    stats.max <-
-      apply(X, 2, function(vv)
-        max((vv - ci$means) / ci$sds))
-    stats.max.abs <-
-      apply(X, 2, function(vv)
-        max(abs(vv - ci$means) / ci$sds))
-    
-    if (!is.null(level.conf)) {
-      if (two.tailed == FALSE) {
-        ci$q.upper <- quantile(stats.max, probs = level.conf, type = type)
-        ci$q.lower <- 0
-      } else {
-        ci$q.upper <-
-          quantile(stats.max.abs, probs = level.conf, type = type)
-        ci$q.lower <- -ci$q.upper
-      }
-      
-      stat.v.max <- max((x - ci$means) / ci$sds)
-      if (two.tailed == TRUE)
-        stat.v.max <- max(abs(x - ci$means) / ci$sds)
-      if (two.tailed == TRUE)
-        res$reject <-
-        as.logical(stat.v.max > ci$q.upper | stat.v.max < ci$q.lower)
-      if (two.tailed == FALSE)
-        res$reject <- as.logical(stat.v.max > ci$q.upper)
-      res$freq.max <- NA
-      if (res$reject == TRUE)
-        res$freq.max <-
-        plan$freq[idx][which.max((x - ci$means) / ci$sds)]
-      
-      res$upper <- inv.transf(ci$means + ci$q.upper * ci$sds)
-      res$lower <- 0
-      if (two.tailed == TRUE)
-        res$lower <- inv.transf(ci$means + ci$q.lower * ci$sds)
-      
-      res$plan <- plan
-      res$v <- x
-      res$f <- f
-      res$idx <- idx
-    }
-    if (two.tailed == FALSE) {
-      stat.v.max <- max((x - ci$means) / ci$sds)
-      F_ <- ecdf(stats.max)
-      res$p.value <- 1 - F_(stat.v.max)
-      res
-    }
-    else {
-      stat.v.max <- max(abs(x - ci$means) / ci$sds)
-      F_ <- ecdf(stats.max)
-      res$p.value <- 1 - F_(stat.v.max)
-      res
-    }
+do.test <- function(x,
+                  projection_vectors,
+                  conf.level,
+                  G,
+                  two.tailed = FALSE,
+                  composite) {
+  D <- dim(x$series)[2]
+  P <- replicate(G, projec(x$model, x$L, projection_vectors$W, x$kind))
+  v <- projec(x$series, x$L, projection_vectors$W, x$kind)
+  
+  x$contributions <- v
+  x$freq <- projection_vectors$freq
+  
+  means <- apply(P, 1, mean)
+  sds <- apply(P, 1, sd)
+  
+  if (!two.tailed) {
+    eta <- apply(P, 2, function(p)
+      max((p - means) / sds))
+    t <- max((v - means) / sds)
   }
+  else {
+    eta <- apply(P, 2, function(p)
+      max(abs(p - means) / sds))
+    t <- max(abs(v - means) / sds)
+  }
+  
+  if (!is.null(conf.level)) {
+    q.upper <- quantile(eta, probs = conf.level, type = type)
+    q.lower <- 0
+    if (two.tailed)
+      q.lower <- -q.upper
+    
+    x$reject <- as.logical(t > q.upper | t < q.lower)
+    
+    x$predint <- list()
+    x$predint$upper <- means + q.upper * sds
+    x$predint$lower <- 0
+    if (two.tailed)
+      x$predint$lower <- means + q.lower * sds
+    
+    x$conf.level <- conf.level
+  }
+  x$p.value <- 1 - ecdf(eta)(t)
+  
+  x
+}
 
-#plot by dominant frequency
-plot.ci <- function(res, log_ = FALSE) {
+#' The wrapped function for Multiple Monte Carlo SSA
+#' 
+#' @param f Time series
+#' @param L Window length
+#' @param basis Type of vectors for projection
+#' @param kind Projection on columns or rows of trajectory matrix
+#' @param toeplitz.method Toeplitz MSSA decomposition method
+#' @param model Noise model to be fitted (will be omitted, if model0 is specified)
+#' @param model0 Exact noise model
+#' @param freq.range Potential signal frequency range
+#' @param G Number of surrogates
+#' @param conf.level Confidence level
+#' @param two.tailed If TRUE performs two-tailed test
+#' @param composite If TRUE performs test with composite null hypothesis (noise + nuisance signal)
+mcssa <- function(f,
+                  L,
+                  basis = c("ev", "t"),
+                  kind = c("columns", "rows"),
+                  toeplitz.method = c("no", "sum", "block"),
+                  model = c("ar1", "fi"),
+                  model0 = list(phi = NA, dfrac = NA, sigma2 = NA, N = NA),
+                  freq.range = c(0, 0.5),
+                  G = 1000,
+                  conf.level = 0.8,
+                  two.tailed = FALSE,
+                  composite = FALSE) {
+  if (is.vector(f)) {
+    f <- as.matrix(f)
+    if (!missing(model0)) {
+      model0 <- list(model0)
+    }
+  } else if (composite) {
+    stop("mc-ssa with nuisance signal for multivariate ts is not implemented")
+  }
+  
+  model <- match.arg(model)
+  kind <- match.arg(kind)
+  toeplitz.method <- match.arg(toeplitz.method)
+  
+  D <- dim(f)[2]
+  
+  if (missing(model0)) {
+    model0 <- lapply(seq_len(D), function(i)
+      est_model(f[, i], model))
+  }
+  
+  this <- list(
+    series = f,
+    L = L,
+    model = model0,
+    basis = basis,
+    kind = kind
+  )
+  class(this) <- "mcssa"
+  
+  if (basis == "ev") {
+    f.basis <- f
+    # comment next 2 lines to project vectors of original series (another version of the nuisance algorithm)
+    if (composite)
+      f.basis <- f - model0$signal
+    if (kind == 'fa')
+      basis <- basis.ev(f.basis, L, toeplitz.method, factor.v = TRUE)
+    else
+      basis <- basis.ev(f.basis, L, toeplitz.method)
+  }
+  else {
+    if (kind == 'fa')
+      basis <- basis.toeplitz(estModel, N - L + 1, D, factor.v = TRUE)
+    else
+      basis <- basis.toeplitz(estModel, L, D)
+  }
+  
+  idx <- basis$freq >=  freq.range[1] &
+    basis$freq <= freq.range[2]
+  if (!(TRUE %in% idx))
+    stop("No vectors with given frequency range, aborting")
+  
+  projection_vectors <- list(W = basis$U[idx, , drop = FALSE])
+  projection_vectors$freq <- basis$freq[idx]
+  projection_vectors$freq.range <- freq.range
+  
+  this <- do.test(
+    this,
+    projection_vectors,
+    conf.level,
+    G,
+    two.tailed,
+    composite
+  )
+  this
+}
+
+
+plot.mcssa <- function(x, by.order = FALSE) {
   df <-
     data.frame(
-      frequency = res$freq,
-      contribution = res$v,
-      ci.lower = res$lower,
-      ci.upper = res$upper
+      frequency = x$freq,
+      contribution = x$contributions,
+      lower = x$predint$lower,
+      upper = x$predint$upper
     )
-  df_reject <- df |> filter(contribution < ci.lower |
-                              contribution > ci.upper)
-  p <-
-    ggplot(df, aes(frequency, contribution)) +
+  df <- df |>
+    mutate(reject = contribution < lower | contribution > upper)
+
+  if (by.order) {
+    df <- df |> arrange(desc(contribution))
+    df$index <- 1:length(x$freq)
+    p <- ggplot(df, aes(index, contribution, color = reject))
+  } else {
+    p <- ggplot(df, aes(frequency, contribution, color = reject))
+  }
+  
+  p <- p +
     geom_point() +
-    geom_point(data = df_reject,
-               aes(x = frequency, y = contribution),
-               color = "red") +
-    geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), color = "blue") +
-    theme_bw()
-  if (log_)
-    p <- p + scale_y_log10()
+    geom_errorbar(aes(ymin = lower, ymax = upper), color = "blue") +
+    scale_color_manual(values = c("blue", "red")) +
+    theme(legend.position = "none") 
   p
 }
 
-#plot by dominant contribution (the projection norm)
-plot.ci.by.order <- function(res, log_ = FALSE) {
-  df <-
-    data.frame(
-      contribution = res$v,
-      ci.lower = res$lower,
-      ci.upper = res$upper
-    ) |> arrange(desc(contribution))
-  
-  df$num <- 1:length(res$freq)
-  
-  df_reject <- df |> filter(contribution < ci.lower |
-                              contribution > ci.upper)
-  
-  p <-
-    ggplot(df, aes(num, contribution)) +
-    geom_point() +
-    geom_point(data = df_reject,
-               aes(x = num, y = contribution),
-               color = "red") +
-    geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), color = "blue") +
-    theme_bw()
-  if (log_)
-    p <- p + scale_y_log10()
-  p
+print.mcssa <- function(x) {
+  N <- length(x$series[, 1])
+  D <- dim(x$series)[2]
+  cat("Series length:", rep(N, D))
+  cat("\nWindow length:", x$L)
+  cat("\nProjection vectors:")
+  if (x$basis == "ev")
+    cat("based on series (liberal test)")
+  else
+    cat("eigenvectors of theoretical autocovariance matrix (exact test)")
+  cat("\nType of projection: on", x$kind, "of trajectory matrix")
+  cat("\nNumber of projection vectors:", length(x$freq))
+  cat("\np-value:", x$p.value)
+  if (!is.null(x$conf.level))
+    cat("\nNull hypothesis is", if ((1 - x$conf.level) < x$p.value) "not", "rejected")
+  invisible(x)
 }
 
-# The wrapped function for Multiple Monte Carlo SSA
-MonteCarloSSA <-
-  function(f, # time series
-           L, # window length
-           D = 1, # number of channels
-           basis = c("ev", "t"), # vectors for projection
-           kind = c("ev", "fa"), # left or right vectors (if D=1 "ev" and "fa" are equal up to replacement L->N-L+1)
-           toeplitz.kind = c("no", "sum", "block"), # for toeplitz mc-mssa
-           model = c("ar1", "fi"),
-           model0 = NULL,
-           freq.range = c(0, 0.5),
-           G = 1000, # number of surrogates
-           level.conf = 0.8,
-           two.tailed = FALSE,
-           weights = 1,
-           composite = FALSE # mc-ssa with nuisance signal
-  ) {
-    model <- match.arg(model)
-    kind <- match.arg(kind)
-    
-    if (D == 1) {
-      f <- as.matrix(f)
-      if (!is.null(model0)) {
-        model0 <- list(model0)
-      }
-    } else if (composite) {
-      stop("mc-ssa with nuisance signal for multivariate ts is not implemented")
-    }
-    
-    if (is.null(model0)) {
-      model0 <- lapply(
-        seq_len(D),
-        function(i) est_model(f[, i], model)
-      )
-    }
-    
-    if (basis == "ev") {
-      f.basis <- f
-      # comment next 2 lines to project vectors of original series (another version of the nuisance algorithm)
-      if (composite) 
-        f.basis <- f - model0$signal
-      if (kind == 'fa')
-        basis <- basis.ev(f.basis, L, factor.v = T, toeplitz.kind = toeplitz.kind)
-      else
-        basis <- basis.ev(f.basis, L, factor.v = F, toeplitz.kind = toeplitz.kind)
-    }
-    else {
-      if (kind == 'fa')
-        basis <- basis.toeplitz(estModel, N - L + 1, D, fa = T)
-      else
-        basis <- basis.toeplitz(estModel, L, D, fa = F)
-    }
-    
-    plan <- list(U = basis$U,
-                 freq = basis$freq,
-                 range = freq.range)
-    res <-
-      do.ci(
-        f,
-        plan = plan,
-        kind = kind,
-        model = model0,
-        level.conf = level.conf,
-        L = L,
-        G = G,
-        D = D,
-        two.tailed = two.tailed,
-        weights = weights,
-        composite = composite
-      )
-    res
-}
 
 # There is implemenatation of correction liberal/conservative criteria
 correction <- function(p.values, alphas = 0:1000 / 1000) {
   alphaI <- sapply(alphas, function(a) mean(p.values < a))
-  alphas.fun <- approxfun(alphaI, alphas, rule=2)
+  alphas.fun <- approxfun(alphaI, alphas, rule = 2)
   alphas.fun
 }
 
@@ -390,7 +362,7 @@ conf.interval <- function(p.values, alpha) {
   c(left, right)
 }
 
-# TS Generation
+###  Time series generation
 
 # Generates sinusoidal signal with specified frequency
 signal.one.channel <- function(N, omega, A = 1) {
@@ -402,7 +374,7 @@ signal.one.channel <- function(N, omega, A = 1) {
   signal
 }
 
-# Generates a series according to the model signal + noise
+# Generates a time series according to the model signal + noise
 generate_channel <- function(model, signal = 0) {
   # TODO: implement Davies and Harte algorithm
   xi <- arfima.sim(
