@@ -80,27 +80,27 @@ est_freq <- function(v) {
 }
 
 # Generate projection vectors corresponding to eigenvectors produced by ts
-basis.ev <- function(ts, L, toeplitz.kind, factor.v = FALSE) {
+basis.ev <- function(ts, L, toeplitz.method, factor.v = FALSE) {
   D <- dim(ts)[2]
   neig <- min(L, D * (length(ts[,1]) - L + 1))
   
-  if (D == 1)
+  if (D == 1) {
     s <- ssa(ts, L, neig, kind = "toeplitz-ssa")
-  else
-    if (identical(toeplitz.method, "sum") || identical(toeplitz.method, "block"))
-      s <- toeplitz.mssa(ts, L, D, toeplitz.method, neig)
-  else
+  } else if (identical(toeplitz.method, "sum") || identical(toeplitz.method, "block")) {
+    s <- toeplitz.mssa(ts, L, D, toeplitz.method, neig)
+  } else {
     s <- ssa(ts, L, neig, kind = "mssa")
+  }
   
-  freq <- apply(s$U, 2, est_freq)
-  basis <- list(freq = freq)
+  #freq <- apply(s$U, 2, est_freq)
+  #basis <- list(freq = freq)
   
-  if (factor.v)
-    basis$U <- s$V
-  else
-    basis$U <- s$U
-  
-  basis
+  if (factor.v) {
+    s$V
+  }
+  else {
+    s$U
+  }
 }
 
 matrix.toeplitz <- function(phi, L) {
@@ -150,50 +150,61 @@ what.reject <- function(res){
 ### Main functions for multiple Monte Carlo SSA
 # Make multiple test
 do.test <- function(x,
-                  projection_vectors,
-                  conf.level,
-                  G,
-                  two.tailed = FALSE,
-                  composite) {
-  D <- dim(x$series)[2]
-  P <- replicate(G, projec(x$model, x$L, projection_vectors$W, x$kind))
-  v <- projec(x$series, x$L, projection_vectors$W, x$kind)
+                    projec_vectors,
+                    conf.level,
+                    G,
+                    two.tailed = FALSE,
+                    freq.range = c(0, 0.5)) {
+  freq <- apply(projec_vectors, 2, est_freq)
+  idx <- freq >=  freq.range[1] & freq <= freq.range[2]
+  if (!any(idx))
+    stop("No vectors with given frequency range, aborting")
   
-  x$contributions <- v
-  x$freq <- projection_vectors$freq
+  projec_vectors <- projec_vectors[, idx, drop = FALSE]
+  
+  P <- replicate(G, projec(x$model, x$L, projec_vectors, x$kind))
+  v <- projec(x$series, x$L, projec_vectors, x$kind)
+  
+  if (is.vector(P))
+    P <- rbind(P)
+  
+  x$projec_vectors <- list(
+    W = projec_vectors,
+    freq = freq[idx],
+    contribution = v
+  )
+  x$freq.range <- freq.range
   
   means <- apply(P, 1, mean)
   sds <- apply(P, 1, sd)
   
   if (!two.tailed) {
-    eta <- apply(P, 2, function(p)
-      max((p - means) / sds))
+    eta <- apply(P, 2, function(p) max((p - means) / sds))
     t <- max((v - means) / sds)
   }
   else {
-    eta <- apply(P, 2, function(p)
-      max(abs(p - means) / sds))
+    eta <- apply(P, 2, function(p) max(abs(p - means) / sds))
     t <- max(abs(v - means) / sds)
   }
   
   if (!is.null(conf.level)) {
     q.upper <- quantile(eta, probs = conf.level, type = type)
-    q.lower <- 0
-    if (two.tailed)
-      q.lower <- -q.upper
-    
-    x$reject <- as.logical(t > q.upper | t < q.lower)
-    
     x$predint <- list()
     x$predint$upper <- means + q.upper * sds
-    x$predint$lower <- 0
-    if (two.tailed)
+    if (!two.tailed) {
+      q.lower <- 0
+      x$predint$lower <- 0
+      x$reject <- as.logical(t > q.upper)
+    }
+    else {
+      q.lower <- -q.upper
       x$predint$lower <- means + q.lower * sds
-    
+      x$reject <- as.logical(t > q.upper | t < q.lower)
+    }
     x$conf.level <- conf.level
   }
   x$p.value <- 1 - ecdf(eta)(t)
-  
+
   x
 }
 
@@ -258,33 +269,24 @@ mcssa <- function(f,
     if (composite)
       f.basis <- f - model0$signal
     if (kind == 'fa')
-      basis <- basis.ev(f.basis, L, toeplitz.method, factor.v = TRUE)
+      projec_vectors <- basis.ev(f.basis, L, toeplitz.method, factor.v = TRUE)
     else
-      basis <- basis.ev(f.basis, L, toeplitz.method)
+      projec_vectors <- basis.ev(f.basis, L, toeplitz.method)
   }
   else {
     if (kind == 'fa')
-      basis <- basis.toeplitz(estModel, N - L + 1, D, factor.v = TRUE)
+      projec_vectors <- basis.toeplitz(estModel, N - L + 1, D, factor.v = TRUE)
     else
-      basis <- basis.toeplitz(estModel, L, D)
+      projec_vectors <- basis.toeplitz(estModel, L, D)
   }
-  
-  idx <- basis$freq >=  freq.range[1] &
-    basis$freq <= freq.range[2]
-  if (!(TRUE %in% idx))
-    stop("No vectors with given frequency range, aborting")
-  
-  projection_vectors <- list(W = basis$U[idx, , drop = FALSE])
-  projection_vectors$freq <- basis$freq[idx]
-  projection_vectors$freq.range <- freq.range
   
   this <- do.test(
     this,
-    projection_vectors,
+    projec_vectors,
     conf.level,
     G,
     two.tailed,
-    composite
+    freq.range
   )
   this
 }
@@ -293,8 +295,8 @@ mcssa <- function(f,
 plot.mcssa <- function(x, by.order = FALSE) {
   df <-
     data.frame(
-      frequency = x$freq,
-      contribution = x$contributions,
+      frequency = x$projec_vectors$freq,
+      contribution = x$projec_vectors$contribution,
       lower = x$predint$lower,
       upper = x$predint$upper
     )
@@ -303,7 +305,7 @@ plot.mcssa <- function(x, by.order = FALSE) {
 
   if (by.order) {
     df <- df |> arrange(desc(contribution))
-    df$index <- 1:length(x$freq)
+    df$index <- 1:length(df$frequency)
     p <- ggplot(df, aes(index, contribution, color = reject))
   } else {
     p <- ggplot(df, aes(frequency, contribution, color = reject))
@@ -322,16 +324,16 @@ print.mcssa <- function(x) {
   D <- dim(x$series)[2]
   cat("Series length:", rep(N, D))
   cat("\nWindow length:", x$L)
-  cat("\nProjection vectors:")
+  cat("\nProjection vectors: ")
   if (x$basis == "ev")
     cat("based on series (liberal test)")
   else
     cat("eigenvectors of theoretical autocovariance matrix (exact test)")
   cat("\nType of projection: on", x$kind, "of trajectory matrix")
-  cat("\nNumber of projection vectors:", length(x$freq))
+  cat("\nNumber of projection vectors:", length(x$projec_vectors$freq))
   cat("\np-value:", x$p.value)
   if (!is.null(x$conf.level))
-    cat("\nNull hypothesis is", if ((1 - x$conf.level) < x$p.value) "not", "rejected")
+    cat("\nNull hypothesis is", if (!x$reject) "not", "rejected")
   invisible(x)
 }
 
