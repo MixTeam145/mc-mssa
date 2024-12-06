@@ -1,0 +1,234 @@
+\documentclass[specialist,
+substylefile = spbu_report.rtx,
+subf,href,colorlinks=true, 12pt]{disser}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english,russian]{babel}
+
+\usepackage[a4paper,
+mag=1000, includefoot,
+left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
+
+\usepackage{graphicx,subcaption,ragged2e}
+
+\usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hhline}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{bbm}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Определение}[section]
+\newtheorem{algorithm}{Алгоритм}
+\newtheorem{remark}{Замечание}[section]
+\newtheorem{example}{Пример}[section]
+\newtheorem{assumption}{Предположение}[section]
+\newtheorem{statement}{Утверждение}
+\newtheorem{proposition}{Предложение}[section]
+\newtheorem{corollary}{Следствие}[section]
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\const}{\mathrm{const}}
+\newcommand{\bfxi}{\boldsymbol{\xi}}
+\newcommand{\im}{\mathrm{i}}
+
+\usepackage{float}
+
+\input{letters_series_mathbb.tex}
+
+\setcounter{tocdepth}{2}
+
+\begin{document}
+\section{Вспомогательные определения}
+В данном разделе введем некоторые обозначения, которые будем использовать в дальнейшем.
+\begin{definition}\label{def:stationary}
+	Случайный процесс $\{Y_t:t\in\Z\}$ называют стационарным (в широком смысле), если
+	\begin{enumerate}
+		\item $\mathsf{E}Y_t\equiv\const$ (среднее постоянно по времени);
+		\item $\mathsf{cov}(Y_t,Y_{t+h})=\gamma(h)$ (ковариация зависит только от лага $h$).
+	\end{enumerate}
+\end{definition}
+\begin{remark}
+	Поскольку $\gamma(0)=\mathsf{cov}(Y_t,Y_t)=\mathsf{D}Y_t$, то дисперсия также не меняется со временем.
+\end{remark}
+\begin{remark}
+	Далее под стационарностью будет подразумеваться именно стационарность в широком смысле.
+\end{remark}
+\begin{definition}
+	Случайный процесс $\{\varepsilon_t\}$ называют белым шумом $\mathrm{WN}(0, \sigma^2)$, если он стационарный, $\mathsf{E}\varepsilon_t=0$, $\gamma(h)=0$ $\forall h\ne 0$ и $\mathsf{D}\varepsilon_t=\sigma^2$.
+\end{definition}
+\begin{definition}
+	Спектральной плотностью стационарного процесса называется такая функция $f(\omega)$, что
+	\[
+		\gamma(h)=2\int_{0}^{1/2} e^{2\pi h\omega\im}f(\omega)d\omega.
+	\]
+\end{definition}
+\begin{definition}
+	Пусть $\{Y_t\}$ --- cтационарный процесс. Функцию
+	\[
+		I(\omega)=\frac1n\left|\sum_{j=1}^{n} Y_je^{-2\pi \omega j\mathrm{i}}\right|^2
+	\]
+	называют периодограммой выборки размера $n$ процесса $\{Y_t\}$.
+\end{definition}
+
+\section{Процессы с длинной памятью}
+
+\begin{definition}\label{def:longmemory}
+	Говорят, что стационарный процесс $\{Y_t\}$ обладает длинной памятью, если
+	\[
+		\sum_{h=0}^H|\gamma(h)|\to\infty,
+	\]
+	при $H\to\infty$. Иначе говорят, что $\{Y_t\}$ обладает короткой памятью:
+	\[
+		\sum_{h=0}^\infty|\gamma(h)|<\infty.
+	\]
+\end{definition}
+Существуют и альтернативные определения процессов с длинной памятью, которые можно найти в~\cite[Section 3.1]{Palma2006}. Там же показано, что они согласованы с определением~\ref{def:longmemory}.
+% \begin{enumerate}
+%     \item Процесс с длинной памятью можно определить как процесс с гиперболическим затуханием автоковариационной функции:
+%     \[
+%     \gamma(h)\sim h^{2d-1}\ell_1(h),
+%     \]
+%     при $h\to \infty$, где $d$ так называемый параметр длинной памяти и $\ell_1(\cdot)$ --- медленно меняющаяся на бесконечности функция.
+%     \item Также его можно определить поведением спектральной плотности в окрестности нуля:
+%     \[
+%     f(\lambda)\sim|\lambda|^{-2d}\ell_2(1/|\lambda|),
+%     \]
+%     при $\lambda\to0$, где $\ell_2(\cdot)$ --- медленно меняющаяся на бесконечности функция.
+% \end{enumerate}
+\begin{example}
+	Процессом с короткой памятью является, например, модель $\mathrm{ARMA}(p, q)$, поскольку $|\gamma(h)|\leqslant CR^h$, где $C>0$ и $0<R<1$~\cite{BoxJenkins2016}.
+\end{example}
+Примером стационарного процесса с длинной памятью является дробно интегрированный процесс. Для его определения необходимо ввести понятие дробного интегрирования $(1-L)^d$, где $L$ --- оператор сдвига. Например, для $d=1$ имеем $(1-L)Y_t=Y_t-Y_{t-1}$, для $d=2$ --- $(1-L)^2Y_t=Y_t-2Y_{t-1}+Y_{t-2}$, и так далее. Обобщим этот оператор для нецелых $d$ с помощью разложения в ряд Тейлора функции $(1-x)^d$ в нуле:
+\[
+	\begin{aligned}
+		(1-x)^d & =1-dx-\frac{d(1-d)}{2}x^2-\frac{d(1-d)(2-d)}{3!}x^3-\ldots             \\
+		        & =\sum_{j=0}^\infty \pi_j(d)x^j=\sum_{j=0}^\infty\binom{d}{j}(-1)^jx^j,
+	\end{aligned}
+\]
+где $\binom{d}{j}$ --- биномиальный коэффициент. Коэффиенты $\pi_j(d)$ удовлетворяют соотношению
+\begin{equation}\label{eq:pi_j}
+	\pi_j(d)=(-1)^j\binom{d}{j}=\frac{j-1-d}{j}\pi_{j-1}(d)=\frac{\Gamma(j-d)}{\Gamma(j+1)\Gamma(-d)},
+\end{equation}
+где $\Gamma(x)$ --- гамма функция. Заметим, что второе равенство в формуле~\eqref{eq:pi_j} верно для любых $d$, третье же верно только для $d\not\in\bbN\cup\{0\}$, поскольку гамма функция не определена для неположительных целых чисел.
+\begin{assumption}\label{as1}
+	Пусть $\{X_t\}$ представляет собой $\mathrm{MA}(\infty)$ процесс,
+	\[
+		X_t=\sum_{j=0}^\infty c_j\varepsilon_{t-j},\quad \{\varepsilon_t\}\sim \mathrm{WN}(0, \sigma^2),
+	\]
+	который абсолютно суммируемый, $\sum_{j=0}^\infty |c_j|<\infty$, и $\sum_{j=0}^\infty c_j\ne0$.
+\end{assumption}
+% \begin{remark}
+%     Данное условие равносильно тому, что $0<f_X(0)<\infty$.
+% \end{remark}
+\begin{definition}\label{def:FI}
+	Пусть процесс $\{Y_t\}$ определен соотношением
+	\[
+		\begin{aligned}
+			Y_t=(1-L)^{-d}X_t=\sum_{k=0}^\infty \pi_k(-d)X_{t-k}
+		\end{aligned},\quad d<\frac{1}{2},
+	\]
+	где $\pi_k(-d)$ из формулы~\eqref{eq:pi_j}, $\{X_t\}$ уловлетворяет предположению~\ref{as1} и существует такое $s>1-d$, что
+	\[
+		\sum_{j=0}^\infty j^s|c_j|<\infty.
+	\]
+	Процесс $\{Y_t\}$ называют дробно интегрированным процессом порядка $d$ ($\mathrm{FI}(d)$).
+\end{definition}
+\begin{proposition}\label{prop1}
+	Процесс $\{Y_t\}$ из определения~\ref{def:FI} является стационарным с $\mathsf{E}Y_t=0$ при $d<1/2$. Его спектральная плотность определяется выражением
+	\begin{equation}\label{eq:spec_long}
+		\begin{aligned}
+			f_Y(\omega) & =4^{-d}\sin^{-2d}\left(\pi\omega\right)f_X(\omega),\quad\omega>0 \\
+			            & \sim\omega^{-2d}f_X(0),\quad \omega\to0,
+		\end{aligned}
+	\end{equation}
+	где $f_X(\omega)$ --- спектральная плотность $\{X_t\}$.
+\end{proposition}
+\begin{proof}
+	См.~\cite[Proposition 6.1]{Hassler2018}.
+\end{proof}
+\begin{remark}
+	Из формулы~\eqref{eq:spec_long} видно, что спектральная плотность дробно интегрированного процесса монотонно убывает (возрастает) тогда и только тогда, когда монотонно убывает (возрастает) спектральная плотность процесса $\{X_t\}$.
+\end{remark}
+\begin{corollary}\label{corollary1}
+	В условиях предложения~\ref{prop1} при $0<d<1/2$
+	\[
+		\gamma_Y(h)\sim C_{\gamma,d}h^{2d-1},\quad h\to\infty,
+	\]
+	где
+	\[
+		C_{\gamma,d}=f_X(0)\frac{\Gamma(1-2d)}{\Gamma(d)\Gamma(1-d)}.
+	\]
+\end{corollary}
+\begin{proof}
+	См.~\cite[Corollary 6.1]{Hassler2018}.
+\end{proof}
+Из следствия~\ref{corollary1} сразу следует, что процесс $\mathrm{FI}(d)$ с $d\in(0, 1/2)$ обладает длинной памятью. При $d\leqslant 0$ процесс обладает короткой памятью~\cite[Section 6.2]{Hassler2018}.
+\begin{example}
+	Если $\{X_t\}$ является белым шумом $\mathrm{WN}(0, \sigma^2)$, то $\{Y_t\}$ называют дробно интегрированным шумом ($\mathrm{FIN}$). Его спектральная плотность имеет вид
+	\[
+		f_Y(\omega)=\sigma^2 4^{-d}\sin^{-2d}\left(\pi\omega\right).
+	\]
+	Отсюда следует, что дробно интегрированный шум всегда обладает монотонной спектральной плотностью.
+\end{example}
+\begin{example}
+	Стационарный и обратимый $\mathrm{ARMA}$ процесс удовлетворяют предположениям о $\{X_t\}$ в определении~\ref{def:FI}~\cite[Proposition 3.5]{Hassler2018}. Процесс $\{Y_t\}$ в таком случае называют дробно интегрированным $\mathrm{ARMA}$ процессом или коротко $\mathrm{ARFIMA}(p, d, q)$. Его спектральная плотность имеет вид
+	\[
+		f_Y(\omega)=\sigma^2 4^{-d}\sin^{-2d}\left(\pi\omega\right)\frac{\left|\theta(e^{-2\pi \omega\im})\right|^2}{\left|\phi(e^{-2\pi\omega\im})\right|^2},
+	\]
+	где $\phi$ и $\theta$ --- характеристические полиномы $\mathrm{AR}$ и $\mathrm{MA}$ частей $\mathrm{ARMA}$ соответственно.
+\end{example}
+
+\subsection{Возникновение процессов с длинной памятью}
+Нас интересуют процессы с монотонной спектральной плотностью, поскольку они довольно распространены в реальном мире. Такими процессами являются процессы со степенной спектральной плотностью $f(\omega)\sim \omega^{-\alpha}$, имеющие большое применение в различных областях, например, в физике, биологии, астрофизике, геофизике и экономике.
+
+Процессы с длинной памятью, являющиеся частным случаем процессов со степенной спектральной плотностью, довольно распространены. Например, в работе~\cite{Hipel1994} обнаружена длинная память в таких среднегодовых гидрологических временных рядах, как количество осадков, температура и данных о речном стоке. В работе~\cite{Haslett1989} на наличие длинной памяти исследовалась скорость ветра в Ирландии, в работе~\cite{Mariani2020} исследовался эффект длинной памяти у сейсмических данных. Помимо геофизики, длинная память встречается также в финансах~\cite{Barkoulas1997,Guglielmo2019}.
+
+\section{Оценка параметров}
+Будем считать, что $\{X_t\}$ из определения~\ref{def:FI}  представляет собой $\mathrm{ARMA}(p, q)$ процесс с гауссовским белым шумом $\{\varepsilon_t\}$.  Тогда $f_X(\omega)=f_X(\omega; \boldsymbol{\psi}, \sigma)$, где
+$$\boldsymbol{\psi}=(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q)^\rmT.$$ Поставим задачу оценить вектор параметров $\boldsymbol{\varphi}=(d, \boldsymbol{\psi}, \sigma)^\rmT$.
+
+\subsection{Maximum likelihood estimation (MLE)}
+Пусть $\{Y_t\}$ --- стационарный дробно интегрированный процесс. Тогда вектор
+\[
+	Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\boldsymbol{0}, \Sigma_Y),
+\]
+где $\Sigma_Y=(\gamma_Y(|i-j|))_{i,j=1}^n$ --- ковариационная матрица $Y$. Совместная плотность распределения $Y$ равна
+\[
+	(2\pi)^{-n/2}|\Sigma_Y|^{-1/2}\exp\left\{-\frac12Y^\rmT\Sigma^{-1}Y\right\}.
+\]
+Рассмотрим логарифм функции правдоподобия. Отбрасывая аддитивные константы, получаем
+\[
+	\ell(Y;\boldsymbol{\varphi}):=-\frac12\ln|\Sigma_Y|-\frac12 Y^\rmT \Sigma^{-1}_Y Y.
+\]
+Тогда $\widehat{\boldsymbol{\varphi}}_\mathrm{ML}=\operatorname{argmax}\ell(Y;\boldsymbol{\varphi}).$
+
+\subsection{Whittle estimation}
+При больших $n$ вычисление ковариационной матрицы $\Sigma_Y$ может быть трудоемким. Поэтому вместо логарифма функции правдоподобия можно рассматривать ее оценку (с точностью до константы)~\cite{Whittle1953}:
+\[
+	\ell_W(Y, \boldsymbol{\varphi}):=-\frac1m\sum_{j=1}^m\left(\ln f_Y(\omega_j; \boldsymbol{\varphi}) + \frac{I_Y(\omega_j)}{f_Y(\omega_j; \boldsymbol{\varphi})}\right),
+\]
+где $m=\lfloor(n-1)/2\rfloor$, $\omega_j = j / n$, $j=1,2,\ldots,m$. Заметим, что $f_Y(\omega; \boldsymbol{\varphi})=\sigma^2 g_Y(\omega; d, \boldsymbol{\psi})$. Тогда
+\[
+	\ell_W(Y; \boldsymbol{\varphi})=-\ln\sigma^2 - \frac1m \sum_{j=1}^m\ln g_Y(\omega_j; d, \boldsymbol{\psi}) - \frac1m\sigma^{-2} \sum_{j=1}^m\frac{I_Y(\omega_j)}{g_Y(\omega_j; d, \boldsymbol{\psi})}.
+\]
+Таким образом, решая уравнение $\frac{d}{d \sigma}\ell_W(Y, \boldsymbol{\varphi})=0$, получаем
+\[
+	\widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I_Y(\omega_j)}{g_Y(\omega_j; d, \boldsymbol{\psi})}.
+\]
+Остальные параметры находятся, подставляя $\widehat\sigma^2_W$ в $\ell_W(Y, \boldsymbol{\varphi})$ и максимизируя полученную функцию.
+%   \subsection{Реализация на языке $\tR$}
+%   Рассмотрим наиболее распространенные пакеты для оценка вектора параметров $\boldsymbol{\varphi}$ методом максимального правдоподобия:
+%   \begin{enumerate}
+%   	\item В пакете $\mathsf{fracdiff}$ реализована апроксимация MLE, описанная в работе~\cite{Haslett1989}. Помимо упомянутой апроксимации, создатели пакета используют другие апроксимации и эвристики, что делает вычисление оценки очень быстрой, но из-за этого страдает ее точность.
+%   	\item Пакет $\mathsf{arfima}$ предлагает точную оценку вектора параметров, используя алгоритм Левинсона-Дурбина и алгоритм Trench для вычисления $\Sigma_Y^{-1}$ и ее определителя~\cite[Algorithm 4.7.3]{Golub2013}. Создатель пакета рекомендует использовать именно его реализацию MLE вместо реализации в пакете $\mathsf{fracdiff}$~\cite{Veenstra2012}.
+%   \end{enumerate}  
+
+\bibliographystyle{ugost2008}
+\bibliography{report}
+
+\end{document}
