@@ -1,0 +1,220 @@
+---
+title: " FI(d) and AR(1) comparison"
+output: html_document
+---
+
+```{r, message=FALSE}
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+load("data/fi_ar1_comparison.RData")
+```
+
+Пусть дисперсия белого шума равна $\sigma^2$. Тогда дисперсия процесса $\mathrm{FI}(d)$ равна
+$$
+\sigma^2_{\mathrm{FI}} = \sigma^2\frac{\Gamma(1 - 2d)}{\Gamma(1 - d)^2}.
+$$
+Дисперсия $\mathrm{AR}(1)$ процесса, в свою очередь, равна
+$$
+\sigma^2_{\mathrm{AR}}=\frac{\sigma^2}{1 - \varphi^2}.
+$$
+
+Процессы $\mathrm{FI}(d)$ и $\mathrm{AR}(1)$ имеют одинаковую дисперсию тогда и только тогда, когда
+$$
+\sigma^2\frac{\Gamma(1 - 2d)}{\Gamma(1 - d)^2} = \frac{\sigma^2}{1 - \varphi^2}\iff \varphi = \pm\sqrt{1- \frac{\Gamma(1 - d)^2}{\Gamma(1 - 2d)}}.
+$$
+Сравним мощность критерев MC-SSA с $\mathrm{FI(d)}$ и с $\mathrm{AR(1)}$, причем выберем паретр $\varphi$ так, чтобы дисперсия процессов была одинаковая. Таким образом, соотношение сигнал-шум будет одинаковым. 
+```{r}
+sigma2 <- 1
+N <- 100
+
+dfrac <- 0.4
+gamma0 <- gamma(1 - 2 * dfrac) / gamma(1 - dfrac)^2
+phi <- sqrt(1 - 1 / gamma0)
+
+model_fi <- list(dfrac = dfrac, sigma2 = sigma2, N = N)
+model_ar1 <- list(phi = phi, sigma2 = sigma2, N = N) 
+```
+
+```{r}
+spectral_density <- function(w, dfrac = 0, phi = 0, sigma2 = 1) {
+  sigma2 * (2 * sin(pi * w))^(-2 * dfrac)  / abs(1 - phi * exp(-2 * pi * w))^2
+}
+```
+
+```{r}
+w <- seq(0, 0.5, 0.002)
+plot(w, spectral_density(w, dfrac = dfrac), type = "l", col = "red", ylab = "f")
+lines(w, spectral_density(w, phi = phi), col = "blue")
+abline(v = 0.075, lty = 2)
+legend("topright", c("FI(d)", "AR(1)"), col = c("red", "blue"), lty = 1, bty = "n")
+```
+
+Как видно на графике, график $\mathrm{AR}(1)$ процесса выше $\mathrm{FI}(d)$ везде, кроме маленьких частот, поэтому ожидается повышение мощности MC-SSA, если частота сигнала будет не слишком маленькой.
+Например, возьмем $\omega=0.075$.
+```{r}
+omega <- 0.075
+signal <- cos(2 * pi * 1:N * omega)
+```
+
+```{r eval=FALSE, include=FALSE}
+M <- 100
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+
+functions <- c("Norm", "rowQuantiles")
+packages <- c("Rssa", "arfima")
+```
+
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_fi <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = "c",
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_fi)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, conf.level = NULL)
+    res$p.value
+  }
+  p.values_noise_fi[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_ar1 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = "c",
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_ar1)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, conf.level = NULL)
+    res$p.value
+  }
+  p.values_noise_ar1[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_fi <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = "c",
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_fi, signal)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal_fi[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal_ar1 <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = "c",
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_ar1, signal)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal_ar1[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+
+```{r}
+Ls <- c(10, 20, 50, 80, 90)
+alphas <- 0:1000 / 1000
+clrs <- c("black", "red", "green", "orange", "purple")
+lwds <- c(2, 1, 1, 1, 1)
+
+alphaI_fi <-
+  lapply(p.values_noise_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_ar1 <-
+  lapply(p.values_noise_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+
+beta_fi <-
+  lapply(p.values_signal_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_ar1 <-
+  lapply(p.values_signal_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+```
+
+Ошибка первого рода:
+```{r, fig.width=12}
+par(mfrow = c(1, 2))
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "FI(d)")
+for (i in seq_along(Ls))
+  lines(alphas, alphaI_fi[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "AR(1)")
+for (i in seq_along(Ls))
+  lines(alphas, alphaI_ar1[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+ROC-кривая:
+```{r, fig.width=12}
+par(mfrow = c(1, 2))
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "FI(d)")
+for (i in seq_along(Ls))
+  lines(alphaI_fi[[i]][-1], beta_fi[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "AR(1)")
+for (i in seq_along(Ls))
+  lines(alphaI_ar1[[i]][-1], beta_ar1[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+Как и ожидалось, MC-SSA с $\mathrm{FI}(d)$ дает более мощный критерий. Заметим, что такой критерий более радикальный.
