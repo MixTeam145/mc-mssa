@@ -57,11 +57,13 @@ projec <- function(data, L, W, kind = c("columns", "rows")) {
   }
   N <- length(f[, 1]) # assert equal length in each channel
   K <- N - L + 1
+  
   X_res <- matrix(0, nrow = L, ncol = K * D)
-  for (channel in 1:D) {
+  for (channel in seq_len(D)) {
     tX <- sapply(1:L, function(i) f[i:(i + K - 1), channel])
     X_res[, (1 + (channel - 1) * K):(channel * K)] <- t(tX)
   }
+  
   if (kind == "rows") {
     p <- X_res %*% W # Projection on rows
   }
@@ -73,7 +75,7 @@ projec <- function(data, L, W, kind = c("columns", "rows")) {
 
 # Estimate vector main frequency by ESPRIT
 est_freq <- function(v) {
-  s <- ssa(v)
+  s <- ssa(v, neig = 2, svd.method = "propack")
   p <- parestimate(s, list(1:2))
   freq <- p$frequencies[[1]]
   freq
@@ -91,9 +93,6 @@ basis.ev <- function(ts, L, toeplitz.method, factor.v = FALSE) {
   } else {
     s <- ssa(ts, L, neig, kind = "mssa")
   }
-  
-  #freq <- apply(s$U, 2, est_freq)
-  #basis <- list(freq = freq)
   
   if (factor.v) {
     s$V
@@ -162,11 +161,13 @@ do.test <- function(x,
   
   projec_vectors <- projec_vectors[, idx, drop = FALSE]
   
-  P <- replicate(G, projec(x$model, x$L, projec_vectors, x$kind))
+  P <- replicate(
+    G,
+    projec(x$model, x$L, projec_vectors, x$kind),
+    simplify = FALSE
+  )
+  P <- do.call(cbind, P)
   v <- projec(x$series, x$L, projec_vectors, x$kind)
-  
-  if (is.vector(P))
-    P <- rbind(P)
   
   x$projec_vectors <- list(
     W = projec_vectors,
@@ -250,8 +251,10 @@ mcssa <- function(f,
   D <- dim(f)[2]
   
   if (missing(model0)) {
-    model0 <- lapply(seq_len(D), function(i)
-      est_model(f[, i], model))
+    model0 <- vector("list", D)
+    for (channel in seq_len(D)) {
+      model0[[channel]] <- est_model(f[, i], model)
+    }
   }
   
   this <- list(
@@ -394,10 +397,10 @@ generate_channel <- function(model, signal = 0) {
 # Generates a multivariate ts
 generate <- function(D, model, signal = matrix(0, nrow = N, ncol = D)) {
   N <- model[[1]]$N
-  res <- lapply(
-    seq_len(D),
-    function(i) generate_channel(model[[i]], signal[, i])
-  )
-  f <- matrix(unlist(res), ncol = D, nrow = N)
+  res <- vector("list", D)
+  for (channel in seq_len(D)) {
+    res[[channel]] <- generate_channel(model[[channel]], signal[, channel])
+  }
+  f <- do.call(cbind, res)
   f
 }
