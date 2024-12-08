@@ -19,6 +19,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \usepackage{xcolor}
 \usepackage{array}
 \usepackage{bbm}
+\usepackage{bm}
 
 \theoremstyle{definition}
 \newtheorem{definition}{Определение}[section]
@@ -33,7 +34,6 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\Z}{\mathbb{Z}}
 \newcommand{\const}{\mathrm{const}}
-\newcommand{\bfxi}{\boldsymbol{\xi}}
 \newcommand{\im}{\mathrm{i}}
 
 \usepackage{float}
@@ -189,38 +189,38 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 Процессы с длинной памятью, являющиеся частным случаем процессов со степенной спектральной плотностью, довольно распространены. Например, в работе~\cite{Hipel1994} обнаружена длинная память в таких среднегодовых гидрологических временных рядах, как количество осадков, температура и данных о речном стоке. В работе~\cite{Haslett1989} на наличие длинной памяти исследовалась скорость ветра в Ирландии, в работе~\cite{Mariani2020} исследовался эффект длинной памяти у сейсмических данных. Помимо геофизики, длинная память встречается также в финансах~\cite{Barkoulas1997,Guglielmo2019}.
 
 \section{Оценка параметров}
-Будем считать, что $\{X_t\}$ из определения~\ref{def:FI}  представляет собой $\mathrm{ARMA}(p, q)$ процесс с гауссовским белым шумом $\{\varepsilon_t\}$.  Тогда $f_X(\omega)=f_X(\omega; \boldsymbol{\psi}, \sigma)$, где
-$$\boldsymbol{\psi}=(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q)^\rmT.$$ Поставим задачу оценить вектор параметров $\boldsymbol{\varphi}=(d, \boldsymbol{\psi}, \sigma)^\rmT$.
+Будем считать, что $\{X_t\}$ из определения~\ref{def:FI}  представляет собой $\mathrm{ARMA}(p, q)$ процесс с гауссовским белым шумом $\{\varepsilon_t\}$.  Тогда $f_X(\omega)=f_X(\omega; \bm\psi, \sigma)$, где
+$$\bm\psi=(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q)^\rmT.$$ Поставим задачу оценить вектор параметров $\bm\varphi=(d, \bm\psi, \sigma)^\rmT$.
 
 \subsection{Maximum likelihood estimation (MLE)}
 Пусть $\{Y_t\}$ --- стационарный дробно интегрированный процесс. Тогда вектор
 \[
-	Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\boldsymbol{0}, \Sigma_Y),
+	Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\bm0, \bm\Sigma_Y),
 \]
 где $\Sigma_Y=(\gamma_Y(|i-j|))_{i,j=1}^n$ --- ковариационная матрица $Y$. Совместная плотность распределения $Y$ равна
 \[
-	(2\pi)^{-n/2}|\Sigma_Y|^{-1/2}\exp\left\{-\frac12Y^\rmT\Sigma^{-1}Y\right\}.
+	(2\pi)^{-n/2}|\bm\Sigma_Y|^{-1/2}\exp\left\{-\frac12Y^\rmT\bm\Sigma^{-1}Y\right\}.
 \]
 Рассмотрим логарифм функции правдоподобия. Отбрасывая аддитивные константы, получаем
 \[
-	\ell(Y;\boldsymbol{\varphi}):=-\frac12\ln|\Sigma_Y|-\frac12 Y^\rmT \Sigma^{-1}_Y Y.
+	\ell(Y;\bm\varphi):=-\frac12\ln|\bm\Sigma_Y|-\frac12 Y^\rmT \bm\Sigma^{-1}_Y Y.
 \]
-Тогда $\widehat{\boldsymbol{\varphi}}_\mathrm{ML}=\operatorname{argmax}\ell(Y;\boldsymbol{\varphi}).$
+Тогда $\widehat{\bm\varphi}_\mathrm{ML}=\operatorname{argmax}\ell(Y;\bm\varphi).$
 
 \subsection{Whittle estimation}
 При больших $n$ вычисление ковариационной матрицы $\Sigma_Y$ может быть трудоемким. Поэтому вместо логарифма функции правдоподобия можно рассматривать ее оценку (с точностью до константы)~\cite{Whittle1953}:
 \[
-	\ell_W(Y, \boldsymbol{\varphi}):=-\frac1m\sum_{j=1}^m\left(\ln f_Y(\omega_j; \boldsymbol{\varphi}) + \frac{I_Y(\omega_j)}{f_Y(\omega_j; \boldsymbol{\varphi})}\right),
+	\ell_W(Y, \bm\varphi):=-\frac1m\sum_{j=1}^m\left(\ln f_Y(\omega_j; \bm\varphi) + \frac{I_Y(\omega_j)}{f_Y(\omega_j; \bm\varphi)}\right),
 \]
-где $m=\lfloor(n-1)/2\rfloor$, $\omega_j = j / n$, $j=1,2,\ldots,m$. Заметим, что $f_Y(\omega; \boldsymbol{\varphi})=\sigma^2 g_Y(\omega; d, \boldsymbol{\psi})$. Тогда
+где $m=\lfloor(n-1)/2\rfloor$, $\omega_j = j / n$, $j=1,2,\ldots,m$. Заметим, что $f_Y(\omega; \bm\varphi)=\sigma^2 g_Y(\omega; d, \bm\psi)$. Тогда
 \[
-	\ell_W(Y; \boldsymbol{\varphi})=-\ln\sigma^2 - \frac1m \sum_{j=1}^m\ln g_Y(\omega_j; d, \boldsymbol{\psi}) - \frac1m\sigma^{-2} \sum_{j=1}^m\frac{I_Y(\omega_j)}{g_Y(\omega_j; d, \boldsymbol{\psi})}.
+	\ell_W(Y; \bm\varphi)=-\ln\sigma^2 - \frac1m \sum_{j=1}^m\ln g_Y(\omega_j; d, \bm\psi) - \frac1m\sigma^{-2} \sum_{j=1}^m\frac{I_Y(\omega_j)}{g_Y(\omega_j; d, \bm\psi)}.
 \]
-Таким образом, решая уравнение $\frac{d}{d \sigma}\ell_W(Y, \boldsymbol{\varphi})=0$, получаем
+Таким образом, решая уравнение $\frac{d}{d \sigma}\ell_W(Y, \bm\varphi)=0$, получаем
 \[
-	\widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I_Y(\omega_j)}{g_Y(\omega_j; d, \boldsymbol{\psi})}.
+	\widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I_Y(\omega_j)}{g_Y(\omega_j; d, \bm\psi)}.
 \]
-Остальные параметры находятся, подставляя $\widehat\sigma^2_W$ в $\ell_W(Y, \boldsymbol{\varphi})$ и максимизируя полученную функцию.
+Остальные параметры находятся, подставляя $\widehat\sigma^2_W$ в $\ell_W(Y, \bm\varphi)$ и максимизируя полученную функцию.
 %   \subsection{Реализация на языке $\tR$}
 %   Рассмотрим наиболее распространенные пакеты для оценка вектора параметров $\boldsymbol{\varphi}$ методом максимального правдоподобия:
 %   \begin{enumerate}
