@@ -1,0 +1,225 @@
+---
+title: "Fractional differencing parameter estimation"
+output: html_document
+---
+
+```{r, message=FALSE}
+library(arfima)
+library(longmemo)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+load("data/dfrac_estimation.RData")
+```
+
+```{r include=FALSE}
+M <- 1000
+d <- seq(0.05, 0.45, 0.05)
+seed <- 1
+```
+Сгенерируем $X\sim\mathrm{FI}(d)$ с нулевым средним, $d=0.05,0.1,\ldots,0.45$ и оценим его параметры тремя способами: MLE с истинным значением $\mu=0$, MLE с $\mu=\overline X$ и Whittle (который инвариантен относительно константы).
+
+```{r}
+mse <- function(x, x_true) {
+  mean((x - x_true) ^ 2)
+}
+
+bias <- function(x, x_true) {
+  mean(x) - x_true
+}
+```
+
+1. $N=50$
+```{r eval=FALSE, include=FALSE}
+N <- 50
+
+mle50 <- list()
+mle_dmean50 <- list()
+mle_with_mean50 <- list()
+whittle50 <- list()
+for (k in seq_along(d)) {
+  v1 <- v2 <- v3 <- v4 <- numeric(M)
+  set.seed(seed)
+  for (i in 1:M) {
+    f <- generate_channel(list(dfrac = d[k], sigma2 = 1, N = N))
+    v1[i] <- arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
+    v2[i] <- arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
+    v3[i] <- arfima(f, quiet = TRUE)$modes[[1]]$dfrac
+    v4[i] <- WhittleEst(f, model = "fARIMA")$coefficients[1] - 0.5
+  }
+  mle50[[k]] <- v1
+  mle_dmean50[[k]] <- v2
+  mle_with_mean50[[k]] <- v3
+  whittle50[[k]] <- v4
+}
+```
+
+```{r echo=FALSE, fig.width=12}
+legend <- c("MLE", "MLE with demeaning", "Whittle", "MLE with mean")
+cols <- c("black", "blue", "red", "brown")
+
+par(mfrow = c(1, 3))
+
+plot(d, rep(0, length(d)), ylab = "mse", main = "MSE", ylim = c(0, 0.03), type = "l", lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(seq_along(d), function(i) mse(mle50[[i]], d[i])), col = cols[1], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(mle_dmean50[[i]], d[i])), col = cols[2], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(whittle50[[i]], d[i])), col = cols[3], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(mle_with_mean50[[i]], d[i])), col = cols[4], type = "b")
+
+legend("bottomleft", legend = legend, col = cols, lty = 1)
+
+plot(d, rep(0, length(d)), ylab = "bias", main = "Bias", ylim = c(-0.2, 0), type = "l", lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(seq_along(d), function(i) bias(mle50[[i]], d[i])), col = cols[1], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(mle_dmean50[[i]], d[i])), col = cols[2], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(whittle50[[i]], d[i])), col = cols[3], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(mle_with_mean50[[i]], d[i])), col = cols[4], type = "b")
+
+legend("bottomleft", legend = legend, col = cols, lty = 1)
+
+plot(d, rep(0, length(d)), ylab = "variance", main = "Variance", ylim = c(0, 0.03), type = "l", lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(mle50, var), col = cols[1], type = "b")
+lines(d, sapply(mle_dmean50, var), col = cols[2], type = "b")
+lines(d, sapply(whittle50, var), col = cols[3], type = "b")
+lines(d, sapply(mle_with_mean50, var), col = cols[4], type = "b")
+
+legend("bottomleft", legend = legend, col = cols, lty = 1)
+```
+
+2. $N=100$
+
+```{r eval=FALSE, include=FALSE}
+N <- 100
+
+mle100 <- list()
+mle_dmean100 <- list()
+mle_with_mean100 <- list()
+whittle100 <- list()
+for (k in seq_along(d)) {
+  v1 <- v2 <- v3 <- v4 <- numeric(M)
+  set.seed(seed)
+  for (i in 1:M) {
+    f <- generate_channel(list(dfrac = d[k], sigma2 = 1, N = N))
+    v1[i] <- arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
+    v2[i] <- arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
+    v3[i] <- arfima(f, quiet = TRUE)$modes[[1]]$dfrac
+    v4[i] <- WhittleEst(f, model = "fARIMA")$coefficients[1] - 0.5
+  }
+  mle100[[k]] <- v1
+  mle_dmean100[[k]] <- v2
+  mle_with_mean100[[k]] <- v3
+  whittle100[[k]] <- v4
+}
+```
+
+```{r echo=FALSE, fig.width=12}
+par(mfrow = c(1, 3))
+
+plot(d, rep(0, length(d)), ylab = "mse", main = "MSE", ylim = c(0, 0.03), type = "l", lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(seq_along(d), function(i) mse(mle100[[i]], d[i])), col = cols[1], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(mle_dmean100[[i]], d[i])), col = cols[2], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(whittle100[[i]], d[i])), col = cols[3], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(mle_with_mean100[[i]], d[i])), col = cols[4], type = "b")
+
+legend("bottomleft", legend = legend, col = cols, lty = 1)
+
+plot(d, rep(0, length(d)), ylab = "bias", main = "Bias", ylim = c(-0.2, 0), type = "l", lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(seq_along(d), function(i) bias(mle100[[i]], d[i])), col = cols[1], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(mle_dmean100[[i]], d[i])), col = cols[2], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(whittle100[[i]], d[i])), col = cols[3], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(mle_with_mean100[[i]], d[i])), col = cols[4], type = "b")
+
+legend("bottomleft", legend = legend, col = cols, lty = 1)
+
+plot(d, rep(0, length(d)), ylab = "variance", main = "Variance", ylim = c(0, 0.03), type = "l", lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(mle100, var), col = cols[1], type = "b")
+lines(d, sapply(mle_dmean100, var), col = cols[2], type = "b")
+lines(d, sapply(whittle100, var), col = cols[3], type = "b")
+lines(d, sapply(mle_with_mean100, var), col = cols[4], type = "b")
+
+legend("bottomleft", legend = legend, col = cols, lty = 1)
+```
+
+3. $N=300$
+
+```{r eval=FALSE, include=FALSE}
+N <- 300
+
+mle300 <- list()
+mle_dmean300 <- list()
+whittle300 <- list()
+mle_with_mean300 <- list()
+for (k in seq_along(d)) {
+  v1 <- v2 <- v3 <- v4 <- numeric(M)
+  set.seed(seed)
+  for (i in 1:M) {
+    f <- generate_channel(list(dfrac = d[k], sigma2 = 1, N = N))
+    v1[i] <- arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
+    v2[i] <- arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
+    v3[i] <- arfima(f, quiet = TRUE)$modes[[1]]$dfrac
+    v4[i] <- WhittleEst(f, model = "fARIMA")$coefficients[1] - 0.5
+  }
+  mle300[[k]] <- v1
+  mle_dmean300[[k]] <- v2
+  mle_with_mean300[[k]] <- v3
+  whittle300[[k]] <- v4
+}
+```
+
+```{r echo=FALSE, fig.width=12}
+par(mfrow = c(1, 3))
+
+plot(d, rep(0, length(d)), ylab = "mse", main = "MSE", ylim = c(0, 0.03), type = 'l', lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(seq_along(d), function(i) mse(mle300[[i]], d[i])), col = cols[1], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(mle_dmean300[[i]], d[i])), col = cols[2], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(whittle300[[i]], d[i])), col = cols[3], type = "b")
+lines(d, sapply(seq_along(d), function(i) mse(mle_with_mean300[[i]], d[i])), col = cols[4], type = "b")
+
+legend("topleft", legend = legend, col = cols, lty = 1)
+
+plot(d, rep(0, length(d)), ylab = "bias", main = "Bias", ylim = c(-0.2, 0), type = 'l', lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(seq_along(d), function(i) bias(mle300[[i]], d[i])), col = cols[1], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(mle_dmean300[[i]], d[i])), col = cols[2], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(whittle300[[i]], d[i])), col = cols[3], type = "b")
+lines(d, sapply(seq_along(d), function(i) bias(mle_with_mean300[[i]], d[i])), col = cols[4], type = "b")
+
+legend("bottomleft", legend = legend, col = cols, lty = 1)
+
+plot(d, rep(0, length(d)), ylab = "variance", main = "Variance", ylim = c(0, 0.03), type = 'l', lty = 2, xaxt = "n")
+axis(1, d)
+lines(d, sapply(mle300, var), col = cols[1], type = "b")
+lines(d, sapply(mle_dmean300, var), col = cols[2], type = "b")
+lines(d, sapply(whittle300, var), col = cols[3], type = "b")
+lines(d, sapply(mle_with_mean300, var), col = cols[4], type = "b")
+
+legend("topleft", legend = legend, col = cols, lty = 1)
+```
+
+```{r}
+spectral_density <- function(w, dfrac = 0, phi = 0, sigma2 = 1) {
+  sigma2 * (2 * sin(pi * w))^(-2 * dfrac)  / abs(1 - phi * exp(-2 * pi * w))^2
+}
+```
+
+Периодограмма при $N=100$:
+```{r, fig.width=12}
+set.seed(123)
+f1 <- generate_channel(list(dfrac = 0.1, sigma2 = 1, N = 100))
+f2 <- generate_channel(list(dfrac = 0.4, sigma2 = 1, N = 100))
+
+w <- seq(0, 0.5, 0.001)
+par(mfrow = c(1, 2))
+spec.pgram(f1, taper = 0, detrend = FALSE, log = "no")
+lines(w, spectral_density(w, 0.1), col = "blue")
+spec.pgram(f2, taper = 0, detrend = FALSE, log = "no")
+lines(w, spectral_density(w, 0.4), col = "blue")
+```
+
+
+
