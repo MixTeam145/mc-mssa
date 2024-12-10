@@ -30,7 +30,7 @@ est_model <- function(f, model = c("ar1", "fi")) {
     nar <- 0
   }
   
-  fit <- arfima(f,
+  fit <- arfima::arfima(f,
                 c(nar, 0, 0),
                 lmodel = lmodel,
                 dmean = FALSE,
@@ -141,9 +141,10 @@ basis.toeplitz <- function(model, L, D, fa = F) {
 }
 ### end
 
-what.reject <- function(res){
-  rej <- (res$v[res$idx] < res$lower | res$v[res$idx] > res$upper) & res$idx[res$idx]
-  print(res$freq[res$idx][rej==TRUE])
+what.reject <- function(x) {
+  rej <- x$projec_vectors$contribution < x$predint$lower |
+    x$projec_vectors$contribution > x$predint$upper
+  x$projec_vectors$freq[rej]
 }
 
 ### Main functions for multiple Monte Carlo SSA
@@ -253,7 +254,7 @@ mcssa <- function(f,
   if (missing(model0)) {
     model0 <- vector("list", D)
     for (channel in seq_len(D)) {
-      model0[[channel]] <- est_model(f[, i], model)
+      model0[[channel]] <- est_model(f[, channel], model)
     }
   }
   
@@ -369,6 +370,48 @@ conf.interval <- function(p.values, alpha) {
 
 ###  Time series generation
 
+# Davies-Harte algorithm to simulate Gaussian process with given autocovariance function
+DH.sim <- function(n, acvf, ...) {
+  # Next power of two greater than 'n'
+  N <- nextn(n, 2)
+  
+  # Autocovariance sequence
+  acvs <- acvf(N, ...)
+  
+  ak <- Re(fft(c(acvs, acvs[N:2])))
+  
+  if (any(ak < 0))
+    stop("Davies-Harte nonnegativity condition is not fulfilled")
+  
+  # Gaussian white noise
+  eps <- rnorm(2 * N)
+  
+  ks <- 2:N
+  
+  y0 <- sqrt(ak[1]) * eps[1]
+  yN <- sqrt(ak[N + 1]) * eps[2 * N]
+  yk <- sqrt(0.5 * ak[ks]) *
+    complex(real = eps[2 * ks - 2], imaginary = eps[2 * ks - 1])
+  
+  yk <- c(y0, yk, yN, Conj(rev(yk)))
+  
+  x <- Re(fft(yk, inverse = TRUE)) / sqrt(N)
+  
+  # Truncate the resulted series
+  x[1:n]
+}
+
+# Theoretical autocovariance function for FD(d) process
+tacvfFD <- function(lag.max, d, sigma2 = 1) {
+  acv0 <- sigma2 * gamma(1 - 2 * d) / gamma(1 - d) ^ 2
+  acvs <- c(acv0)
+  if (lag.max > 0) {
+    ks <- 1:lag.max
+    acvs <- cumprod(c(acv0, (ks - 1 + d) / (ks - d)))
+  }
+  acvs
+}
+
 # Generates sinusoidal signal with specified frequency
 signal.one.channel <- function(N, omega, A = 1) {
   num <- 1:N
@@ -381,13 +424,18 @@ signal.one.channel <- function(N, omega, A = 1) {
 
 # Generates a time series according to the model signal + noise
 generate_channel <- function(model, signal = 0) {
-  # TODO: implement Davies and Harte algorithm
-  xi <- arfima.sim(
-    n = model$N,
-    model = list(phi = model$phi, dfrac = model$dfrac),
-    sigma2 = model$sigma2
-  )
-  xi <- xi - mean(xi)
+  if (length(model$dfrac) > 0) {
+    innov <- DH.sim(
+      model$N,
+      tacvfFD,
+      d = model$dfrac,
+      sigma2 = model$sigma2
+    )
+  }
+  else {
+    innov = rnorm(model$N, sd = sqrt(model$sigma2))
+  }
+  xi <- arima.sim(list(ar = model$phi), model$N, innov = innov)
   if (!is.null(model$signal)) # composite null hypothesis
     xi <- xi + model$signal
   f <- xi + signal
