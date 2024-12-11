@@ -41,9 +41,9 @@ for (k in seq_along(d)) {
   set.seed(seed)
   for (i in 1:M) {
     f <- generate_channel(list(dfrac = d[k], sigma2 = 1, N = N))
-    v1[i] <- arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
-    v2[i] <- arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
-    v3[i] <- arfima(f, quiet = TRUE)$modes[[1]]$dfrac
+    v1[i] <- arfima::arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
+    v2[i] <- arfima::arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
+    v3[i] <- arfima::arfima(f, quiet = TRUE)$modes[[1]]$dfrac
     v4[i] <- WhittleEst(f, model = "fARIMA")$coefficients[1] - 0.5
   }
   mle50[[k]] <- v1
@@ -101,9 +101,9 @@ for (k in seq_along(d)) {
   set.seed(seed)
   for (i in 1:M) {
     f <- generate_channel(list(dfrac = d[k], sigma2 = 1, N = N))
-    v1[i] <- arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
-    v2[i] <- arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
-    v3[i] <- arfima(f, quiet = TRUE)$modes[[1]]$dfrac
+    v1[i] <- arfima::arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
+    v2[i] <- arfima::arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
+    v3[i] <- arfima::arfima(f, quiet = TRUE)$modes[[1]]$dfrac
     v4[i] <- WhittleEst(f, model = "fARIMA")$coefficients[1] - 0.5
   }
   mle100[[k]] <- v1
@@ -158,9 +158,9 @@ for (k in seq_along(d)) {
   set.seed(seed)
   for (i in 1:M) {
     f <- generate_channel(list(dfrac = d[k], sigma2 = 1, N = N))
-    v1[i] <- arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
-    v2[i] <- arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
-    v3[i] <- arfima(f, quiet = TRUE)$modes[[1]]$dfrac
+    v1[i] <- arfima::arfima(f, dmean = .Machine$double.eps, quiet = TRUE)$modes[[1]]$dfrac
+    v2[i] <- arfima::arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]$dfrac
+    v3[i] <- arfima::arfima(f, quiet = TRUE)$modes[[1]]$dfrac
     v4[i] <- WhittleEst(f, model = "fARIMA")$coefficients[1] - 0.5
   }
   mle300[[k]] <- v1
