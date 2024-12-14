@@ -1,0 +1,472 @@
+---
+title: "Fractional differencing and autoregressive parameter estimation"
+output: html_document
+---
+
+```{r include=FALSE}
+library(arfima)
+library(longmemo)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+
+M <- 500
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+load("data/param_estimation.RData")
+```
+
+Оценим параметры $d$ и $\phi$.
+
+# FI(d)
+Начнем с параметра дробного дифференцирования $d$. Оценим его с помощью функции `arfima` (MLE со средним $\mu=0$ и $\mu=\overline X$), `fracdiff` (апроксимация MLE c $\mu=\overline X$) и Whittle (самописный). 
+```{r}
+ds <- seq(0.1, 0.4, 0.1)
+Ns <- c(100, 500, 1000)
+
+names_ds <- c()
+for (i in seq_along(ds)) {
+  names_ds[i] <- paste0("d = ", ds[i])
+}
+```
+
+```{r}
+mse <- function(x, x_true) {
+  mean((x - x_true) ^ 2)
+}
+
+bias <- function(x, x_true) {
+  mean(x) - x_true
+}
+```
+
+```{r}
+Whittle <- function(x, fixed = NULL) {
+  n <- length(x)
+  m <- (n - 1) %/% 2
+  
+  # Periodogram
+  per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
+  freq <- 1:m / n
+  
+  # ARFI(1, d) spectrum
+  spec <- function(par) {
+    phi <- par[1]
+    d <- par[2]
+    (2 * sin(pi * freq)) ^ (-2 * d) /
+      abs(1 - phi * exp(-2i * pi * freq)) ^ 2
+  }
+  
+  if (is.null(fixed))
+    fixed <- rep(NA, 2)
+  
+  mask <- is.na(fixed)
+  
+  # Whittle loglikelihood
+  objective <- function(p) {
+    par <- fixed
+    par[mask] <- p
+    g <- spec(par)
+    sigma2 <- mean(per / g)
+    loglike <- -log(sigma2) - mean(log(g)) - 1
+    - loglike
+  }
+  
+  init <- c(phi = 0, d = 0)
+  lower <- c(-1, -0.5) + 1e-4
+  upper <- c(1, 0.5) - 1e-4
+  
+  opt <- optim(init[mask], objective, method = "L-BFGS-B", lower = lower[mask], upper = upper[mask])
+  opt
+}
+```
+
+```{r}
+fi_est <- function(d, N) {
+  model <- list(dfrac = d, sigma2 = 1, N = N)
+  
+  cores <- detectCores()
+  cl <- makeCluster(min(10, cores - 1))
+  registerDoSNOW(cl)
+  registerDoRNG(seed = 1, once = FALSE)
+  r <- foreach (
+    i = 1:M,
+    .export = "Whittle",
+    .options.snow = opts
+  ) %dopar% {
+    source("../R/mc-mssa.R", chdir = TRUE, local = TRUE)
+    f <- generate_channel(model)
+    v1 <- arfima::arfima(f, dmean = 1e-20, quiet = TRUE)$modes[[1]]
+    v2 <- arfima::arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]
+    v3 <- fracdiff::fracdiff(f)
+    v4 <- Whittle(f, fixed = c(0, NA))
+    c(v1$dfrac, v2$dfrac, v3$d, v4$par)
+  }
+  stopCluster(cl)
+  
+  r <- do.call(rbind, r) |> data.frame()
+  colnames(r) <- c("arfima0", "arfima_centered", "fracdiff", "whittle")
+  row.names(r) <- NULL
+  r
+}
+```
+
+```{r, eval=FALSE}
+res_fi <- list()
+for (i in seq_along(Ns)) {
+  r <- lapply(ds, function(d) fi_est(d, Ns[i]))
+  names(r) <- names_ds
+  res_fi[[paste0("N = ", Ns[i])]] <- r
+}
+```
+
+```{r}
+plot_fi <- function(x) {
+  par(mfrow = c(1, 3))
+  
+  legend <- c("arfima", "arfima with centering", "fracdiff", "Whittle")
+  cols <- c("black", "blue", "red", "orange")
+  
+  mse_arfima0 <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima0, ds[i]))
+  mse_arfima_centered <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered, ds[i]))
+  mse_fracdiff <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff, ds[i]))
+  mse_whittle <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle, ds[i]))
+  mse_max <- max(mse_arfima0, mse_arfima_centered, mse_fracdiff, mse_whittle)
+  
+  plot(ds, rep(0, length(ds)), ylab = "mse", main = "MSE (d)", ylim = c(0, 2 * mse_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, mse_arfima0, col = cols[1], type = "b")
+  lines(ds, mse_arfima_centered, col = cols[2], type = "b")
+  lines(ds, mse_fracdiff, col = cols[3], type = "b")
+  lines(ds, mse_whittle, col = cols[4], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+  
+  bias_arfima0 <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima0, ds[i]))
+  bias_arfima_centered <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered, ds[i]))
+  bias_fracdiff <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff, ds[i]))
+  bias_whittle <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle, ds[i]))
+  bias_max <- max(abs(c(bias_arfima0, bias_arfima_centered, bias_fracdiff, bias_whittle)))
+  
+  plot(ds, rep(0, length(ds)), ylab = "bias", main = "Bias (d)", ylim = c(-bias_max, bias_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, bias_arfima0, col = cols[1], type = "b")
+  lines(ds, bias_arfima_centered, col = cols[2], type = "b")
+  lines(ds, bias_fracdiff, col = cols[3], type = "b")
+  lines(ds, bias_whittle, col = cols[4], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+
+  var_arfima0 <- sapply(x, function(xx) var(xx$arfima0))
+  var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered))
+  var_fracdiff <- sapply(x, function(xx) var(xx$fracdiff))
+  var_whittle <- sapply(x, function(xx) var(xx$whittle))
+  var_max <- max(var_arfima0, var_arfima_centered, var_whittle, var_fracdiff)
+  
+  plot(ds, rep(0, length(ds)), ylab = "variance", main = "Variance (d)", ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, var_arfima0, col = cols[1], type = "b")
+  lines(ds, var_arfima_centered, col = cols[2], type = "b")
+  lines(ds, var_fracdiff, col = cols[3], type = "b")
+  lines(ds, var_whittle, col = cols[4], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+}
+```
+
+```{r, fig.width=12, fig.height=4}
+plot_fi(res_fi$`N = 100`)
+plot_fi(res_fi$`N = 500`)
+plot_fi(res_fi$`N = 1000`)
+```
+
+# AR(1)
+Теперь оценим парамеметр авторегрессии $\phi$ с помощью функций `arima` (с центрированием ряда и без) и Whittle.
+```{r}
+phis <- seq(0.1, 0.9, 0.1)
+
+names_phis <- c()
+for (i in seq_along(phis)) {
+  names_phis[i] <- paste0("phi = ", phis[i])
+}
+```
+
+```{r}
+ar1_est <- function(phi, N) {
+  model <- list(phi = phi, sigma2 = 1, N = N)
+  
+  cores <- detectCores()
+  cl <- makeCluster(min(4, cores - 1))
+  registerDoSNOW(cl)
+  registerDoRNG(seed = 1, once = FALSE)
+  r <- foreach (
+    i = 1:M,
+    .export = "Whittle",
+    .options.snow = opts
+  ) %dopar% {
+    source("../R/mc-mssa.R", chdir = TRUE, local = TRUE)
+    f <- generate_channel(model)
+    v1 <- arima(f, c(1, 0, 0), include.mean = FALSE)$coef
+    v2 <- arima(f - mean(f), c(1, 0, 0), include.mean = FALSE)$coef
+    v3 <- Whittle(f, fixed = c(NA, 0))$par
+    c(v1, v2, v3)
+  }
+  stopCluster(cl)
+  
+  r <- do.call(rbind, r) |> data.frame()
+  colnames(r) <- c("arima", "arima_centered", "whittle")
+  row.names(r) <- NULL
+  r
+}
+```
+
+```{r eval=FALSE}
+res_ar1 <- list()
+for (i in seq_along(Ns)) {
+  r <- lapply(phis, function(phi) ar1_est(phi, Ns[i]))
+  names(r) <- names_phis
+  res_ar1[[paste0("N = ", Ns[i])]] <- r
+}
+```
+
+```{r}
+plot_ar1 <- function(x) {
+  legend <- c("arima", "arima with centering", "Whittle")
+  cols <- c("black", "blue", "red")
+  
+  par(mfrow = c(1, 3))
+  
+  mse_arima <- sapply(seq_along(phis), function(i) mse(x[[i]]$arima, phis[i]))
+  mse_arima_centered <- sapply(seq_along(phis), function(i) mse(x[[i]]$arima_centered, phis[i]))
+  mse_whittle <- sapply(seq_along(phis), function(i) mse(x[[i]]$whittle, phis[i]))
+  mse_max <- max(mse_arima, mse_arima_centered, mse_whittle)
+  
+  plot(phis, rep(0, length(phis)), ylab = "mse", main = "MSE (phi)", ylim = c(0, 2 * mse_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, phis)
+  lines(phis, mse_arima, col = cols[1], type = "b")
+  lines(phis, mse_arima_centered, col = cols[2], type = "b")
+  lines(phis, mse_whittle, col = cols[3], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+  
+  bias_arima <- sapply(seq_along(phis), function(i) bias(x[[i]]$arima, phis[i]))
+  bias_arima_centered <- sapply(seq_along(phis), function(i) bias(x[[i]]$arima_centered, phis[i]))
+  bias_whittle <- sapply(seq_along(phis), function(i) bias(x[[i]]$whittle, phis[i]))
+  bias_max <- max(abs(c(bias_arima, bias_arima_centered, bias_whittle)))
+  
+  plot(phis, rep(0, length(phis)), ylab = "bias", main = "Bias (phi)", ylim = c(-bias_max, bias_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, phis)
+  lines(phis, bias_arima, col = cols[1], type = "b")
+  lines(phis, bias_arima_centered, col = cols[2], type = "b")
+  lines(phis, bias_whittle, col = cols[3], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+
+  var_arima <- sapply(x, function(xx) var(xx$arima))
+  var_arima_centered <- sapply(x, function(xx) var(xx$arima_centered))
+  var_whittle <- sapply(x, function(xx) var(xx$whittle))
+  var_max <- max(var_arima, var_arima_centered, var_whittle)
+  
+  plot(phis, rep(0, length(phis)), ylab = "variance", main = "Variance (phi)", ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, phis)
+  lines(phis, var_arima, col = cols[1], type = "b")
+  lines(phis, var_arima_centered, col = cols[2], type = "b")
+  lines(phis, var_whittle, col = cols[3], type = "b")
+
+  legend("topleft", legend = legend, col = cols, lty = 1)
+}
+```
+
+```{r, fig.width=12, fig.height=4}
+plot_ar1(res_ar1$`N = 100`)
+plot_ar1(res_ar1$`N = 500`)
+plot_ar1(res_ar1$`N = 1000`)
+```
+
+# ARFI(1, d)
+Зафиксируем $\phi$, будет варьировать $d$ и смотреть на оценки обоих параметров.
+```{r}
+arfi_est <- function(phi, d, N) {
+  model <- list(phi = phi, dfrac = d, sigma2 = 1, N = N)
+  
+  cores <- detectCores()
+  cl <- makeCluster(min(10, cores - 1))
+  registerDoSNOW(cl)
+  registerDoRNG(seed = 1, once = FALSE)
+  r <- foreach (
+    i = 1:M,
+    .export = "Whittle",
+    .options.snow = opts
+  ) %dopar% {
+    source("../R/mc-mssa.R", chdir = TRUE, local = TRUE)
+    f <- generate_channel(model)
+    v1 <- arfima::arfima(f, c(1, 0, 0), dmean = 1e-20, quiet = TRUE)$modes[[1]]
+    v2 <- arfima::arfima(f, c(1, 0, 0), dmean = FALSE, quiet = TRUE)$modes[[1]]
+    v3 <- fracdiff::fracdiff(f, nar = 1)
+    v4 <- Whittle(f)$par
+    c(v1$phi, v1$dfrac, v2$phi, v2$dfrac, v3$ar, v3$d, v4)
+  }
+  stopCluster(cl)
+  
+  r <- do.call(rbind, r) |> data.frame()
+  colnames(r) <- c(
+    "arfima.phi", "arfima.d",
+    "arfima_centered.phi", "arfima_centered.d",
+    "fracdiff.phi", "fracdiff.d",
+    "whittle.phi", "whittle.d"
+  )
+  row.names(r) <- NULL
+  r
+}
+```
+
+1. $\phi=0.1$
+```{r}
+phi <- 0.1
+```
+
+```{r, eval=FALSE}
+res_arfi1 <- list()
+for (i in seq_along(Ns)) {
+  r <- lapply(ds, function(d) arfi_est(phi, d, Ns[i]))
+  names(r) <- names_ds
+  res_arfi1[[paste0("N = ", Ns[i])]] <- r
+}
+```
+
+```{r}
+plot_arfi <- function(x, phi) {
+  legend <- c("arfima", "arfima centered", "fracdiff", "Whittle")
+  cols <- c("black", "blue", "red", "orange")
+  
+  par(mfrow = c(2, 3))
+  
+  mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.d, ds[i]))
+  mse_arfima_centered <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.d, ds[i]))
+  mse_fracdiff <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.d, ds[i]))
+  mse_whittle <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.d, ds[i]))
+  mse_max <- max(mse_arfima, mse_arfima_centered, mse_fracdiff, mse_whittle)
+  
+  plot(ds, rep(0, length(ds)), ylab = "mse", main = "MSE (d)", ylim = c(0, 2 * mse_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, mse_arfima, col = cols[1], type = "b")
+  lines(ds, mse_arfima_centered, col = cols[2], type = "b")
+  lines(ds, mse_fracdiff, col = cols[3], type = "b")
+  lines(ds, mse_whittle, col = cols[4], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+  
+  bias_arfima <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.d, ds[i]))
+  bias_arfima_centered <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered.d, ds[i]))
+  bias_fracdiff <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff.d, ds[i]))
+  bias_whittle <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle.d, ds[i]))
+  bias_max <- max(abs(c(bias_arfima, bias_arfima_centered, bias_fracdiff, bias_whittle)))
+  
+  plot(ds, rep(0, length(ds)), ylab = "bias", main = "Bias (d)", ylim = c(-bias_max, bias_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, bias_arfima, col = cols[1], type = "b")
+  lines(ds, bias_arfima_centered, col = cols[2], type = "b")
+  lines(ds, bias_fracdiff, col = cols[3], type = "b")
+  lines(ds, bias_whittle, col = cols[4], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+
+  var_arfima <- sapply(x, function(xx) var(xx$arfima.d))
+  var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered.d))
+  var_fracdiff <- sapply(x, function(xx) var(xx$fracdiff.d))
+  var_whittle <- sapply(x, function(xx) var(xx$whittle.d))
+  var_max <- max(var_arfima, var_arfima_centered, var_fracdiff, var_whittle)
+  
+  plot(ds, rep(0, length(ds)), ylab = "variance", main = "Variance (d)", ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, var_arfima, col = cols[1], type = "b")
+  lines(ds, var_arfima_centered, col = cols[2], type = "b")
+  lines(ds, var_fracdiff, col = cols[3], type = "b")
+  lines(ds, var_whittle, col = cols[4], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+   
+  mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.phi, phi))
+  mse_arfima_centered <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.phi, phi))
+  mse_fracdiff <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.phi, phi))
+  mse_whittle <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.phi, phi))
+  mse_max <- max(mse_arfima, mse_arfima_centered, mse_fracdiff, mse_whittle)
+  
+  plot(ds, rep(0, length(ds)), ylab = "mse", main = "MSE (phi)", ylim = c(0, 2 * mse_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, mse_arfima, col = cols[1], type = "b")
+  lines(ds, mse_arfima_centered, col = cols[2], type = "b")
+  lines(ds, mse_fracdiff, col = cols[3], type = "b")
+  lines(ds, mse_whittle, col = cols[4], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+  
+  bias_arfima <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.phi, phi))
+  bias_arfima_centered <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered.phi, phi))
+  bias_fracdiff <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff.phi, phi))
+  bias_whittle <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle.phi, phi))
+  bias_max <- max(abs(c(bias_arfima, bias_arfima_centered, bias_fracdiff, bias_whittle)))
+  
+  plot(ds, rep(0, length(ds)), ylab = "bias", main = "Bias (phi)", ylim = c(-bias_max, bias_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, bias_arfima, col = cols[1], type = "b")
+  lines(ds, bias_arfima_centered, col = cols[2], type = "b")
+  lines(ds, bias_fracdiff, col = cols[3], type = "b")
+  lines(ds, bias_whittle, col = cols[4], type = "b")
+  legend("bottomleft", legend = legend, col = cols, lty = 1)
+  
+  var_arfima <- sapply(x, function(xx) var(xx$arfima.phi))
+  var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered.phi))
+  var_fracdiff <- sapply(x, function(xx) var(xx$fracdiff.phi))
+  var_whittle <- sapply(x, function(xx) var(xx$whittle.phi))
+  var_max <- max(var_arfima, var_arfima_centered, var_whittle)
+  
+  plot(ds, rep(0, length(ds)), ylab = "variance", main = "Variance (phi)", ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
+  axis(1, ds)
+  lines(ds, var_arfima, col = cols[1], type = "b")
+  lines(ds, var_arfima_centered, col = cols[2], type = "b")
+  lines(ds, var_fracdiff, col = cols[3], type = "b")
+  lines(ds, var_whittle, col = cols[4], type = "b")
+  legend("topleft", legend = legend, col = cols, lty = 1)
+}
+```
+
+```{r, fig.width=12, fig.height=8}
+plot_arfi(res_arfi1$`N = 100`, phi)
+plot_arfi(res_arfi1$`N = 500`, phi)
+plot_arfi(res_arfi1$`N = 1000`, phi)
+```
+
+2. $\varphi=0.5$
+```{r}
+phi <- 0.5
+```
+
+```{r eval=FALSE}
+res_arfi2 <- list()
+for (i in seq_along(Ns)) {
+  r <- lapply(ds, function(d) arfi_est(phi, d, Ns[i]))
+  names(r) <- names_ds
+  res_arfi2[[paste0("N = ", Ns[i])]] <- r
+}
+```
+
+```{r, fig.width=12, fig.height=8}
+plot_arfi(res_arfi2$`N = 100`, phi)
+plot_arfi(res_arfi2$`N = 500`, phi)
+plot_arfi(res_arfi2$`N = 1000`, phi)
+```
+
+3. $\phi=0.9$
+```{r}
+phi <- 0.9
+```
+
+```{r, eval=FALSE}
+res_arfi3 <- list()
+for (i in seq_along(Ns)) {
+  r <- lapply(ds, function(d) arfi_est(phi, d, Ns[i]))
+  names(r) <- names_ds
+  res_arfi3[[paste0("N = ", Ns[i])]] <- r
+}
+```
+
+```{r, fig.width=12, fig.height=8}
+plot_arfi(res_arfi3$`N = 100`, phi)
+plot_arfi(res_arfi3$`N = 500`, phi)
+plot_arfi(res_arfi3$`N = 1000`, phi)
+```

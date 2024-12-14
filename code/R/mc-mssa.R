@@ -376,7 +376,7 @@ DH.sim <- function(n, acvf, ...) {
   N <- nextn(n, 2)
   
   # Autocovariance sequence
-  acvs <- acvf(N, ...)
+  acvs <- acvf(maxlag = N, ...)
   
   ak <- Re(fft(c(acvs, acvs[N:2])))
   
@@ -424,18 +424,24 @@ signal.one.channel <- function(N, omega, A = 1) {
 
 # Generates a time series according to the model signal + noise
 generate_channel <- function(model, signal = 0) {
-  if (length(model$dfrac) > 0) {
-    innov <- DH.sim(
-      model$N,
-      tacvfFD,
-      d = model$dfrac,
-      sigma2 = model$sigma2
-    )
-  }
-  else {
-    innov = rnorm(model$N, sd = sqrt(model$sigma2))
-  }
-  xi <- arima.sim(list(ar = model$phi), model$N, innov = innov)
+  # if (length(model$dfrac) > 0) {
+  #   innov <- DH.sim(
+  #     model$N,
+  #     tacvfFD,
+  #     d = model$dfrac,
+  #     sigma2 = model$sigma2
+  #   )
+  # }
+  # else {
+  #   innov = rnorm(model$N, sd = sqrt(model$sigma2))
+  # }
+  # xi <- arima.sim(list(ar = model$phi), model$N, innov = innov)
+  xi <- DH.sim(
+    model$N,
+    tacvfARFIMA, phi = model$phi, dfrac = model$dfrac, sigma2 = model$sigma2
+  )
+  # xi <- arfima.sim(model$N, list(phi = model$phi, dfrac = model$dfrac), sigma2 = model$sigma2)
+  
   if (!is.null(model$signal)) # composite null hypothesis
     xi <- xi + model$signal
   f <- xi + signal
