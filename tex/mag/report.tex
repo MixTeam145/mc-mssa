@@ -145,9 +145,9 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\]
 	где $\pi_k(-d)$ из формулы~\eqref{eq:pi_j}, $\{X_t\}$ --- стационарная и обратимая модель $\mathrm{ARMA}(p, d)$. Процесс $\{Y_t\}$ называют дробно интегрированной моделью $\mathrm{ARMA}$ или $\mathrm{ARFIMA}(p, d, q)$.
 \end{definition}
-\begin{remark}
-	При $p=q=0$ процесс $\{X_t\}$ из определения~\ref{def:arfima} является белым шумом. В таком случае процесс $\{Y_t\}$ называют дробно интегрированным шумом или $\mathrm{FIN}(d)$.
-\end{remark}
+% \begin{remark}
+% 	При $p=q=0$ процесс $\{X_t\}$ из определения~\ref{def:arfima} является белым шумом. В таком случае процесс $\{Y_t\}$ называют дробно интегрированным шумом или $\mathrm{FIN}(d)$.
+% \end{remark}
 
 \begin{proposition}\label{prop1}
 	$\mathrm{ARFIMA}(p, d, q)$ является стационарным процессом с нулевым средним при $d<1/2$. Его спектральная плотность определяется выражением
@@ -225,10 +225,16 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \ell_c(\bm\varphi)=-\frac{n}{2}\ln\left(S(\bm\varphi) / n\right) - \frac{1}{2}\ln g_n(\bm\varphi),
 \] 
 где $S(\bm\varphi)=\bm Y^\rmT \bm\Gamma_n\bm Y$, $g_n(\bm\varphi)=\left|\bm\Gamma_n\right|$.
-Тогда $\widehat{\bm\varphi}_\mathrm{ML}=\operatorname*{argmax}\limits_{\bm\varphi}\ell_c(\bm\varphi)$ и $\widehat\sigma^2_\mathrm{ML} = S(\widehat{\bm\varphi}_\mathrm{ML})$.
+Тогда
+\[
+\widehat{\bm\varphi}_\mathrm{ML}=\operatorname*{argmax}\limits_{\bm\varphi}\ell_c(\bm\varphi),\quad \widehat\sigma^2_\mathrm{ML} = S(\widehat{\bm\varphi}_\mathrm{ML}).
+\]
 
 \begin{remark}
-	В случае ненулевого матожидания $\mathsf{E}Y_t=\mu$, для получения оценок максимального правдоподобия нужно вместо $\bm Y$ рассматривать $\bm Z=\bm Y-\mu$. 
+	В случае ненулевого матожидания $\mathsf{E}Y_t=\mu$, для получения оценок максимального правдоподобия нужно вместо $\bm Y$ рассматривать $\bm Y-\mu$. 
+\end{remark}
+\begin{remark}
+	Для вычисления $\ell_c$ можно использовать алгоритм Левинсона-Дурбина, имеющий временную трудоемкость $O(n^2)$. 
 \end{remark}
 \subsection{Whittle estimation}
 Метод максимального правдоподобия применим, когда известно матожидание $\mu$. Можно вместо истинного среднего использовать его оценку $\overline{\bm Y}$, однако, помимо этого, существует проблема вычислительной сложности метода при больших $n$.
@@ -245,12 +251,27 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \[
 	Q(\bm\varphi)=-\ln\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \bm\varphi)} - \frac1m \sum_{j=1}^m\ln g(\omega_j; \bm\varphi).
 \]
-%   \subsection{Реализация на языке $\tR$}
-%   Рассмотрим наиболее распространенные пакеты для оценка вектора параметров $\boldsymbol{\varphi}$ методом максимального правдоподобия:
-%   \begin{enumerate}
-%   	\item В пакете $\mathsf{fracdiff}$ реализована апроксимация MLE, описанная в работе~\cite{Haslett1989}. Помимо упомянутой апроксимации, создатели пакета используют другие апроксимации и эвристики, что делает вычисление оценки очень быстрой, но из-за этого страдает ее точность.
-%   	\item Пакет $\mathsf{arfima}$ предлагает точную оценку вектора параметров, используя алгоритм Левинсона-Дурбина и алгоритм Trench для вычисления $\Sigma_Y^{-1}$ и ее определителя~\cite[Algorithm 4.7.3]{Golub2013}. Создатель пакета рекомендует использовать именно его реализацию MLE вместо реализации в пакете $\mathsf{fracdiff}$~\cite{Veenstra2012}.
-%   \end{enumerate}  
+\begin{remark}
+	Такой метод оценки параметров можно использовать при неизвестном среднем, поскольку при ее вычислении не используется значение периодограммы в нуле.
+\end{remark}
+\begin{remark}
+	Периодограмму временного ряда можно вычислить за $O(n\log n)$ с помощью быстрого преобразования Фурье (FFT), что делает этот метод значительно быстрее MLE для больших $n$.
+\end{remark}
+\subsection{Численное сравнение методов оценки параметров} 
+Сравним качество оценки параметров следующих моделей:
+\begin{enumerate}
+	\item $d=q=0$, $p=1$ --- модель $\mathrm{AR}(1)$;
+	\item $p=q=0$ --- модель $\mathrm{ARFIMA(0, d, 0)}$.
+	\item $p=1$, $q=0$ --- модель $\mathrm{ARFI}(1, d)$.
+\end{enumerate}
+Будем оценивать параметры этих моделей методами, реализация которых есть на языке программирования $\mathsf{R}$~\cite{R}:
+\begin{enumerate}
+	\item Функция $\mathsf{arima}$ из пакета $\mathsf{stats}$, соответствующая MLE модели $\mathsf{ARMA}$;
+	\item Функция $\mathsf{arfima}$ из пакета $\mathsf{arfima}$~\cite{arfima}, соответствующая MLE модели $\mathrm{ARFIMA}$;
+	\item Функция $\mathsf{fracdiff}$ из пакета $\mathsf{fracdiff}$~\cite{Maechler1999}, соответствующая апроксимации MLE модели $\mathrm{ARFIMA}$, описанной в работе~\cite{Haslett1989}.
+\end{enumerate}
+Качественная реализации оценки Уиттла не была найдена, поэтому для сравнения с MLE был реализован метод Whittle. Поскольку для реальных временных рядов его матожидание $\mu$ неизвестно, будем рассматривать MLE с настоящим средним и с его оценкой (выборочным средним). Не умаляя общности, пусть $\mu=0$.
+
 
 \bibliographystyle{ugost2008}
 \bibliography{report}
