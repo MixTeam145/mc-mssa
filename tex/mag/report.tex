@@ -210,7 +210,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \subsection{Maximum likelihood estimation (MLE)}
 Поскольку $\{\varepsilon_t\}$ --- гауссовский белый шум, вектор
 \[
-	\bm Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\bm0, \bm\Sigma),
+	\bm Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\bm0, \bm\Sigma_n),
 \]
 где $\bm\Sigma_n=(\gamma(|i-j|))_{i,j=1}^n$ --- ковариационная матрица $\bm Y$. Совместная плотность распределения $\bm Y$ равна
 \[
@@ -227,8 +227,13 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 где $S(\bm\varphi)=\bm Y^\rmT \bm\Gamma_n\bm Y$, $g_n(\bm\varphi)=\left|\bm\Gamma_n\right|$.
 Тогда $\widehat{\bm\varphi}_\mathrm{ML}=\operatorname*{argmax}\limits_{\bm\varphi}\ell_c(\bm\varphi)$ и $\widehat\sigma^2_\mathrm{ML} = S(\widehat{\bm\varphi}_\mathrm{ML})$.
 
+\begin{remark}
+	В случае ненулевого матожидания $\mathsf{E}Y_t=\mu$, для получения оценок максимального правдоподобия нужно вместо $\bm Y$ рассматривать $\bm Z=\bm Y-\mu$. 
+\end{remark}
 \subsection{Whittle estimation}
-При больших $n$ вычисление ковариационной матрицы $\bm\Sigma$ может быть трудоемким. Поэтому вместо логарифма функции правдоподобия можно рассматривать ее оценку (с точностью до константы)~\cite{Whittle1953}: пусть $f(\omega, \bm\varphi, \sigma^2)$ --- спектральная плотность $\{Y_t\}$, $I(\omega)$ --- периодограмма $\bm Y$, тогда
+Метод максимального правдоподобия применим, когда известно матожидание $\mu$. Можно вместо истинного среднего использовать его оценку $\overline{\bm Y}$, однако, помимо этого, существует проблема вычислительной сложности метода при больших $n$.
+
+Обе эти проблемы можно решить, используя оценку Уиттла (Whittle): вместо логарифма функции правдоподобия рассматривается ее оценка (с точностью до константы)~\cite{Whittle1953}. Пусть $f(\omega, \bm\varphi, \sigma^2)$ --- спектральная плотность $\{Y_t\}$, $I(\omega)$ --- периодограмма $\bm Y$, тогда
 \[
 	\ell_W(\bm\varphi, \sigma^2)=-\frac1m\sum_{j=1}^m\left(\ln f(\omega_j; \bm\varphi, \sigma^2) + \frac{I(\omega_j)}{f(\omega_j; \bm\varphi, \sigma^2)}\right),
 \]
