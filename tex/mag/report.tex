@@ -201,41 +201,45 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 Процессы с длинной памятью, являющиеся частным случаем процессов со степенной спектральной плотностью, довольно распространены. Например, в работе~\cite{Hipel1994} обнаружена длинная память в таких среднегодовых гидрологических временных рядах, как количество осадков, температура и данных о речном стоке. В работе~\cite{Haslett1989} на наличие длинной памяти исследовалась скорость ветра в Ирландии, в работе~\cite{Mariani2020} исследовался эффект длинной памяти у сейсмических данных. Помимо геофизики, длинная память встречается также в финансах~\cite{Barkoulas1997,Guglielmo2019}.
 
 \section{Оценка параметров}
-Будем считать, что $\{X_t\}$ из определения~\ref{def:arfima} представляет собой модель $\mathrm{ARMA}(p, q)$ с нормально распределенным белым шумом $\{\varepsilon_t\}$. Тогда его спектральная плотность $f_X(\omega)=f_X(\omega; \bm\psi, \sigma)$, где
+Пусть $Y_t=(1-L)^{-d}X_t$, $d<1/2$. Будем считать, что $\{X_t\}$ представляет собой модель $\mathrm{ARMA}(p, q)$ с нормально распределенным белым шумом $\{\varepsilon_t\}$. Тогда его спектральная плотность $f_X(\omega)=f_X(\omega; \bm\psi, \sigma)$, где
 \[
 \bm\psi=(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q)^\rmT.
 \]
-Поставим задачу оценить вектор параметров $\bm\varphi=(d, \bm\psi, \sigma)^\rmT$.
+Поставим задачу оценить параметры $\bm\varphi^\rmT=\left(d, \bm\psi^\rmT\right)$ и $\sigma^2$.
 
 \subsection{Maximum likelihood estimation (MLE)}
-Пусть $\{Y_t\}$ --- стационарный дробно интегрированный процесс. Тогда вектор
+Поскольку $\{\varepsilon_t\}$ --- гауссовский белый шум, вектор
 \[
-	Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\bm0, \bm\Sigma_Y),
+	\bm Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\bm0, \bm\Sigma),
 \]
-где $\Sigma_Y=(\gamma_Y(|i-j|))_{i,j=1}^n$ --- ковариационная матрица $Y$. Совместная плотность распределения $Y$ равна
+где $\bm\Sigma_n=(\gamma(|i-j|))_{i,j=1}^n$ --- ковариационная матрица $\bm Y$. Совместная плотность распределения $\bm Y$ равна
 \[
-	(2\pi)^{-n/2}|\bm\Sigma_Y|^{-1/2}\exp\left\{-\frac12Y^\rmT\bm\Sigma^{-1}Y\right\}.
+	(2\pi)^{-n/2}\left|\bm\Sigma_n\right|^{-1/2}\exp\left\{-\frac12Y^\rmT\bm\Sigma_n^{-1}Y\right\}.
 \]
 Рассмотрим логарифм функции правдоподобия. Отбрасывая аддитивные константы, получаем
 \[
-	\ell(Y;\bm\varphi):=-\frac12\ln|\bm\Sigma_Y|-\frac12 Y^\rmT \bm\Sigma^{-1}_Y Y.
+	\ell(\bm\varphi, \sigma^2)=-\frac12\ln\left|\bm\Sigma_n\right|-\frac12 Y^\rmT \bm\Sigma_n^{-1} Y.
 \]
-Тогда $\widehat{\bm\varphi}_\mathrm{ML}=\operatorname{argmax}\ell(Y;\bm\varphi).$
+Положим $\bm\Gamma_n=\bm\Sigma_n / \sigma^2$ и, максимизируя $\ell$ по $\sigma^2$, получаем
+\[
+\ell_c(\bm\varphi)=-\frac{n}{2}\ln\left(S(\bm\varphi) / n\right) - \frac{1}{2}\ln g_n(\bm\varphi),
+\] 
+где $S(\bm\varphi)=\bm Y^\rmT \bm\Gamma_n\bm Y$, $g_n(\bm\varphi)=\left|\bm\Gamma_n\right|$.
+Тогда $\widehat{\bm\varphi}_\mathrm{ML}=\operatorname*{argmax}\limits_{\bm\varphi}\ell_c(\bm\varphi)$ и $\widehat\sigma^2_\mathrm{ML} = S(\widehat{\bm\varphi}_\mathrm{ML})$.
 
 \subsection{Whittle estimation}
-При больших $n$ вычисление ковариационной матрицы $\Sigma_Y$ может быть трудоемким. Поэтому вместо логарифма функции правдоподобия можно рассматривать ее оценку (с точностью до константы)~\cite{Whittle1953}:
+При больших $n$ вычисление ковариационной матрицы $\bm\Sigma$ может быть трудоемким. Поэтому вместо логарифма функции правдоподобия можно рассматривать ее оценку (с точностью до константы)~\cite{Whittle1953}: пусть $f(\omega, \bm\varphi, \sigma^2)$ --- спектральная плотность $\{Y_t\}$, $I(\omega)$ --- периодограмма $\bm Y$, тогда
 \[
-	\ell_W(Y, \bm\varphi):=-\frac1m\sum_{j=1}^m\left(\ln f_Y(\omega_j; \bm\varphi) + \frac{I_Y(\omega_j)}{f_Y(\omega_j; \bm\varphi)}\right),
+	\ell_W(\bm\varphi, \sigma^2)=-\frac1m\sum_{j=1}^m\left(\ln f(\omega_j; \bm\varphi, \sigma^2) + \frac{I(\omega_j)}{f(\omega_j; \bm\varphi, \sigma^2)}\right),
 \]
-где $m=\lfloor(n-1)/2\rfloor$, $\omega_j = j / n$, $j=1,2,\ldots,m$. Заметим, что $f_Y(\omega; \bm\varphi)=\sigma^2 g_Y(\omega; d, \bm\psi)$. Тогда
+где $m=\lfloor(n-1)/2\rfloor$, $\omega_j = j / n$, $j=1,2,\ldots,m$. Заметим, что $f(\omega; \bm\varphi, \sigma^2)=\sigma^2 g(\omega; \bm\varphi)$. Тогда, максимизируя $\ell_W$ по $\sigma^2$, получаем
 \[
-	\ell_W(Y; \bm\varphi)=-\ln\sigma^2 - \frac1m \sum_{j=1}^m\ln g_Y(\omega_j; d, \bm\psi) - \frac1m\sigma^{-2} \sum_{j=1}^m\frac{I_Y(\omega_j)}{g_Y(\omega_j; d, \bm\psi)}.
+\widehat{\bm\varphi}_W = \operatorname*{argmax}_{\bm\varphi}Q(\varphi),\quad \widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \widehat{\bm\varphi}_W)},
 \]
-Таким образом, решая уравнение $\frac{d}{d \sigma}\ell_W(Y, \bm\varphi)=0$, получаем
+где
 \[
-	\widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I_Y(\omega_j)}{g_Y(\omega_j; d, \bm\psi)}.
+	Q(\bm\varphi)=-\ln\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \bm\varphi)} - \frac1m \sum_{j=1}^m\ln g(\omega_j; \bm\varphi).
 \]
-Остальные параметры находятся, подставляя $\widehat\sigma^2_W$ в $\ell_W(Y, \bm\varphi)$ и максимизируя полученную функцию.
 %   \subsection{Реализация на языке $\tR$}
 %   Рассмотрим наиболее распространенные пакеты для оценка вектора параметров $\boldsymbol{\varphi}$ методом максимального правдоподобия:
 %   \begin{enumerate}
