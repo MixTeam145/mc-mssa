@@ -12,6 +12,8 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 \usepackage{graphicx,subcaption,ragged2e}
 
+\usepackage{booktabs}
+
 \usepackage{amsthm}
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -37,6 +39,8 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \newcommand{\im}{\mathrm{i}}
 
 \usepackage{float}
+
+\usepackage{rotating}
 
 \input{letters_series_mathbb.tex}
 
@@ -237,7 +241,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	Для вычисления $\ell_c$ можно использовать алгоритм Левинсона-Дурбина, имеющий временную трудоемкость $O(n^2)$. 
 \end{remark}
 \subsection{Whittle estimation}
-Метод максимального правдоподобия применим, когда известно матожидание $\mu$. Можно вместо истинного среднего использовать его оценку $\overline{\bm Y}$, однако, помимо этого, существует проблема вычислительной сложности метода при больших $n$.
+Метод максимального правдоподобия применим, когда известно матожидание $\mu$. При неизвестном $\mu$ можно использовать его оценку $\overline{\bm Y}$, однако, помимо этого, существует проблема вычислительной сложности метода при больших $n$.
 
 Обе эти проблемы можно решить, используя оценку Уиттла (Whittle): вместо логарифма функции правдоподобия рассматривается ее оценка (с точностью до константы)~\cite{Whittle1953}. Пусть $f(\omega, \bm\varphi, \sigma^2)$ --- спектральная плотность $\{Y_t\}$, $I(\omega)$ --- периодограмма $\bm Y$, тогда
 \[
@@ -262,16 +266,96 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \begin{enumerate}
 	\item $d=q=0$, $p=1$ --- модель $\mathrm{AR}(1)$;
 	\item $p=q=0$ --- модель $\mathrm{ARFIMA(0, d, 0)}$.
-	\item $p=1$, $q=0$ --- модель $\mathrm{ARFI}(1, d)$.
+	\item $p=1$, $q=0$ --- модель $\mathrm{ARFIMA}(1, d, 0)$.
 \end{enumerate}
 Будем оценивать параметры этих моделей методами, реализация которых есть на языке программирования $\mathsf{R}$~\cite{R}:
 \begin{enumerate}
 	\item Функция $\mathsf{arima}$ из пакета $\mathsf{stats}$, соответствующая MLE модели $\mathsf{ARMA}$;
-	\item Функция $\mathsf{arfima}$ из пакета $\mathsf{arfima}$~\cite{arfima}, соответствующая MLE модели $\mathrm{ARFIMA}$;
-	\item Функция $\mathsf{fracdiff}$ из пакета $\mathsf{fracdiff}$~\cite{Maechler1999}, соответствующая апроксимации MLE модели $\mathrm{ARFIMA}$, описанной в работе~\cite{Haslett1989}.
+	\item Функция $\mathsf{arfima}$ из пакета $\mathsf{arfima}$~\cite{Veenstra2012}, соответствующая MLE модели $\mathrm{ARFIMA}$;
+	\item Функция $\mathsf{fracdiff}$ из пакета $\mathsf{fracdiff}$~\cite{Maechler1999}, соответствующая апроксимации MLE модели $\mathrm{ARFIMA}$, описанной в работе~\cite{Haslett1989} (обозначим за H\&R).
 \end{enumerate}
-Качественная реализации оценки Уиттла не была найдена, поэтому для сравнения с MLE был реализован метод Whittle. Поскольку для реальных временных рядов его матожидание $\mu$ неизвестно, будем рассматривать MLE с настоящим средним и с его оценкой (выборочным средним). Не умаляя общности, пусть $\mu=0$.
+Качественная реализации оценки Уиттла не была найдена, поэтому для сравнения с MLE она была реализована самостоятельно. Поскольку для реальных временных рядов матожидание $\mu$ неизвестно, будем рассматривать MLE с известным средним и с его оценкой --- выборочным средним (будем обозначать их $\mathrm{MLE}(\mu)$ и $\mathrm{MLE}(\bar x)$ соответственно). Не умаляя общности, пусть $\mu=0$.
 
+\begin{figure}[h!]
+	\centering
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/ar1_est_N100.pdf}
+		\caption{$n=100$}
+	\end{subfigure}
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/ar1_est_N1000.pdf}
+		\caption{$n=1000$}
+	\end{subfigure}
+	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $\phi$ модели $\mathrm{AR}(1)$ ($500$ повторений)}
+	\label{tab:ar1_est}
+\end{figure}
+\begin{figure}[h!]
+	\centering
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/fi_est_N100.pdf}
+		\caption{$n=100$}
+	\end{subfigure}
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/fi_est_N1000.pdf}
+		\caption{$n=1000$}
+	\end{subfigure}
+	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $d$ модели $\mathrm{ARFIMA}(0, d, 0)$ ($500$ повторений)}
+	\label{tab:fi_est}
+\end{figure}
+
+На рис.~\ref{tab:ar1_est} и~\ref{tab:fi_est} изображены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ моделей $\mathrm{AR}(1)$ и $\mathrm{ARFIMA}(0, d, 0)$. Отметим, что все оценки имеют в большинстве своем отрицательное смещение и отличаются между собой в основном степенью смещения. Как и ожидалось, оценка параметров методом максимального правдоподобия с известным средним дает оценку с наименьшим $\mathsf{MSE}$. С другой стороны, если использовать вместо известного среднего выборочное сренее, оценки становятся сильно смещенными. Whittle же, в свою очередь, дает менее смещенную оценку, чем $\mathrm{MLE}(\bar x)$, а в случае оценки $d$ имеет смещение даже меньше, чем у $\mathrm{MLE}(\mu)$. Однако оценки Whittle обладают наибольшей дисперсией среди всех рассмотренных методов, но разница не такая значительная, как в случае смещения.
+
+\begin{sidewaystable}
+	\centering
+	\caption{Смещение и среднеквадратичное отклонение оценок параметров $d$ и $\phi$ модели $\mathrm{ARFIMA}(1, d, 0)$ ($n=100$, $500$ повторений)}
+	\label{tab:arfi_est}
+	\scalebox{0.9}{
+	\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.5cm}cccccccc}
+		\hline
+		& & \multicolumn{8}{c}{$\mathsf{MSE}$} & & \multicolumn{8}{c}{$\mathsf{Bias}$} \\
+		\cline{3-10} \cline{12-19}
+		& & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R} & \multicolumn{2}{c}{Whittle} & & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R} & \multicolumn{2}{c}{Whittle} \\
+		$d$ &  $\phi$ & $\hat d$ & $\hat\phi$ & $\hat d$ & $\hat\phi$ & $\hat d$ & $\hat\phi$ & $\hat d$ & $\hat\phi$ & & $\hat d$ & $\hat\phi$ & $\hat d$ & $\hat\phi$ & $\hat d$ & $\hat\phi$ & $\hat d$ & $\hat\phi$\\ \hline
+		0.1 & 0.1 & 0.071 & 0.075 & 0.205 & 0.179 & \textcolor{blue}{0.009} & \textcolor{red}{0.018} & 0.069 & 0.067 & & -0.096 & 0.083 & -0.301 & 0.26 & \textcolor{blue}{-0.054} & \textcolor{red}{0.035} & -0.086 & 0.068 \\ 
+		0.2 & 0.1 & 0.064 & 0.07 & 0.224 & 0.201 & \textcolor{blue}{0.025} & \textcolor{red}{0.032} & 0.077 & 0.073 & & -0.095 & 0.083 & -0.336 & 0.296 & -0.119 & 0.099 & \textcolor{blue}{-0.094} & \textcolor{red}{0.074} \\ 
+		0.3 & 0.1 & 0.081 & 0.086 & 0.303 & 0.272 & \textcolor{blue}{0.049} & \textcolor{red}{0.055} & 0.084 & 0.081 & & -0.12 & 0.108 & -0.427 & 0.386 & -0.179 & 0.161 & \textcolor{blue}{-0.109} & \textcolor{red}{0.09} \\ 
+		0.4 & 0.1 & \textcolor{blue}{0.072} & \textcolor{red}{0.08} & 0.367 & 0.328 & 0.081 & 0.089 & 0.179 & 0.194 & & \textcolor{blue}{-0.119} & \textcolor{red}{0.111} & -0.499 & 0.456 & -0.243 & 0.23 & -0.26 & 0.241 \\
+		\hline
+		0.1 & 0.5 & 0.057 & 0.048 & 0.099 & 0.059 & \textcolor{blue}{0.01} & \textcolor{red}{0.015} & 0.057 & 0.054 & & -0.102 & 0.065 & -0.258 & 0.185 & -0.07 & 0.033 & \textcolor{blue}{-0.066} & \textcolor{red}{0.024} \\ 
+		0.2 & 0.5 & 0.055 & 0.045 & 0.107 & 0.062 & \textcolor{blue}{0.031} & \textcolor{red}{0.025} & 0.074 & 0.058 & & \textcolor{blue}{-0.108} & \textcolor{red}{0.071} & -0.277 & 0.201 & -0.154 & 0.108 & -0.153 & 0.107 \\ 
+		0.3 & 0.5 & \textcolor{blue}{0.051} & \textcolor{red}{0.041} & 0.119 & 0.068 & 0.063 & 0.043 & 0.098 & 0.062 & & \textcolor{blue}{-0.114} & \textcolor{red}{0.079} & -0.304 & 0.225 & -0.232 & 0.174 & -0.209 & 0.161 \\ 
+		0.4 & 0.5 & \textcolor{blue}{0.052} & \textcolor{red}{0.043} & 0.129 & 0.074 & 0.104 & 0.065 & 0.104 & 0.066 & & \textcolor{blue}{-0.131} & \textcolor{red}{0.098} & -0.326 & 0.244 & -0.306 & 0.235 & -0.228 & 0.177 \\ 
+		\hline
+		0.1 & 0.9 & 0.029 & 0.028 & 0.013 & 0.008 & \textcolor{blue}{0.007} & \textcolor{red}{0.007} & 0.034 & 0.025 & & 0.07 & -0.085 & 0.003 & -0.044 & \textcolor{blue}{0.001} & \textcolor{red}{-0.043} & 0.049 & -0.069 \\ 
+		0.2 & 0.9 & 0.019 & 0.021 & 0.011 & 0.006 & \textcolor{blue}{0.009} & \textcolor{red}{0.004} & 0.026 & 0.019 & & 0.038 & -0.063 & \textcolor{blue}{-0.013} & -0.034 & -0.037 & \textcolor{red}{-0.026} & 0.02 & -0.056 \\ 
+		0.3 & 0.9 & 0.013 & 0.016 & \textcolor{blue}{0.009} & 0.004 & 0.014 & \textcolor{red}{0.003} & 0.022 & 0.015 & & \textcolor{blue}{0.007} & -0.043 & -0.033 & -0.022 & -0.076 & \textcolor{red}{-0.011} & -0.024 & -0.039 \\ 
+		0.4 & 0.9 & \textcolor{blue}{0.009} & 0.018 & \textcolor{blue}{0.009} & 0.004 & 0.025 & \textcolor{red}{0.002} & 0.028 & 0.01 & & \textcolor{blue}{-0.019} & -0.036 & -0.059 & -0.011 & -0.121 & \textcolor{red}{0.003} & -0.095 & -0.016 \\ 
+		\hline
+	\end{tabular}
+	}
+\end{sidewaystable}
+
+В таблице~\ref{tab:arfi_est} представлены значения среднеквадратичной ошибки и смещения оценок параметров $d$ и $\phi$ модели $\mathrm{ARFIMA}(1, d)$. Заметим, что в оценках присутствует смещение, и оно уменьшается с увеличением $\phi$. Также для $\phi=0.1$ и $\phi=0.5$ оценки $d$ имеют отрицательное смещение, а оценки $\phi$, наоборот, положительное. Также в таблице синим цветом выделена лучшая по строке оценка $d$, а красным --- лучшая оценка $\phi$. Видно, что метод H\&R в большинстве случаев дает оценки с наименьшим $\mathsf{MSE}$, однако оценки имеют большое смещение при $\phi=0.1$ и $\phi=0.5$. Наиболее смещенные оценки получаются в методе $\mathrm{MLE}(\bar x)$, причем это перестает быть таковым только при $\phi=0.9$. Оценки методом Whittle по смещению находятся посередине, однако имеют наибольшую дисперсию среди остальных. 
+% \begin{table}[h!]
+% 	\centering
+% 	\caption{Смещение и среднеквадратичное отклонение оценок параметра $\phi$ модели $\mathrm{AR}(1)$ ($n=100$, $500$ повторений)}
+% 	\begin{tabular}{m{1cm}cccm{0.5cm}ccc}
+% 		\hline
+% 		& \multicolumn{3}{c}{$\mathsf{bias}\cdot 100$} & & \multicolumn{3}{c}{$\mathsf{MSE}\cdot 100$} \\
+% 		\cline{2-4} \cline{6-8}
+% 		$\phi$ & $\mathrm{MLE}(\mu)$ & $\mathrm{MLE}(\bar x)$ & Whittle & & $\mathrm{MLE}(\mu)$ & $\mathrm{MLE}(\bar x)$ & Whittle \\ \hline
+% 		0.1 & 0.197  & -1.029 &  0.025 & & 0.856 & 0.874 & 0.889\\
+% 		0.2 & -0.023 & -1.362 & -0.298 & & 0.826 & 0.859 & 0.865\\
+% 		0.3 & -0.252 & -1.707 & -0.635 & & 0.785 & 0.834 & 0.834\\
+% 		0.4 & -0.487 & -2.061 & -0.981 & & 0.733 & 0.802 & 0.796\\
+% 		0.5 & -0.725 & -2.423 & -1.337 & & 0.670 & 0.762 & 0.75\\
+% 		0.6 & -0.965 & -2.796 & -1.704 & & 0.594 & 0.712 & 0.697\\
+% 		0.7 & -1.205 & -3.183 & -2.084 & & 0.502 & 0.652 & 0.636\\
+% 		0.8 & -1.427 & -3.59  & -2.478 & & 0.389 & 0.577 & 0.566\\
+% 		0.9 & -1.560 & -4.016 & -2.777 & & 0.248 & 0.483 & 0.5\\
+% 		\hline
+% 	\end{tabular}
+% \end{table}
 
 \bibliographystyle{ugost2008}
 \bibliography{report}
