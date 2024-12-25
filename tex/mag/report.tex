@@ -357,6 +357,46 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 % 	\end{tabular}
 % \end{table}
 
+\section{Сравнение Monte Carlo SSA при разных моделях шума}
+Пусть $\{X_t\}$ --- модель $\mathrm{AR}(1)$, а $\{Y_t\}$ --- модель $\mathrm{ARFIMA}(0, d, 0)$. Будем считать дисперсию белого шума одинаковой для обоих процессов и равной $\sigma^2$. Дисперсии $\{X_t\}$ и $\{Y_t\}$ соответственно равны
+\[
+\mathsf{D}X_t = \frac{\sigma^2}{1 - \phi^2}, \quad \mathsf{D}Y_t = \sigma^2\frac{\Gamma(1 - 2d)}{\Gamma(1-d)^2}.
+\]
+Тогда дисперсии процессов равны тогда и только тогда, когда
+\[
+\phi=\pm\sqrt{1-\frac{\Gamma(1-d)^2}{\Gamma(1-2d)}}.
+\]
+
+\begin{figure}
+	\includegraphics[width=\textwidth]{img/spectrum.pdf}
+	\caption{Спектральная плотность процессов с одинаковой дисперсией}
+	\label{fig:spectrum}
+\end{figure}
+
+Пусть $d=0.4$. Тогда при $\phi\approx0.719$ процессы $\{X_t\}$ и $\{Y_t\}$ имеют одинаковую дисперсию. На рис.~\ref{fig:spectrum} изображены спектральные плотности процессов. На нем видно, что процесс $\{Y_t\}$ имеет меньшее значение плотности для всех значений $\omega$, за исключением близких к нулю.
+
+Предполагается, что если рассмотреть сигнал с частотой $\omega:f_Y(\omega) < f_X(\omega)$, то критерий MC-SSA с суррогатными реализациями модели $\mathrm{ARFIMA}(0, d, 0)$ даст мощность больше, чем тот же критерий с суррогатными реализациями модели $\mathrm{AR}(1)$. Убедимся в этом. Пусть длина ряда $N=100$ и
+\[
+\tS = \{A\cos(2 \pi n \omega)\}_{n=1}^N,\quad A=1,\ \omega=0.075.
+\]
+Тогда $H_0:\tS=0$ и $H_0:\tS\ne0$.
+
+\begin{figure}[h!]
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/alphaI_comp.pdf}
+		\caption{Ошибка первого рода}
+		\label{fig:ar1_vs_fi_alphaI}
+	\end{subfigure}
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/roc_comp.pdf}
+		\caption{ROC-кривая}
+		\label{fig:ar1_vs_fi_roc}
+	\end{subfigure}
+	\caption{Сравнение мошностей MC-SSA}
+	\label{fig:ar1_vs_fi}
+\end{figure}
+На рис.~\ref{fig:ar1_vs_fi} изображены график ошибок первого рода и ROC-кривые критериев MC-SSA для разных длин окна $L$. По рис.~\ref{fig:ar1_vs_fi_roc} видно, что, действительно, замена модели $\mathrm{AR}(1)$ на $\mathrm{ARFIMA}(0, d, 0)$ увеличила мощность критерия против данной альтернативы. Также по рис.~\ref{fig:ar1_vs_fi_alphaI} заметно, что такой критерий стал более радикальным, а значит может требовать большего числа суррогатных данных $G$ для поправки критерия.
+
 \bibliographystyle{ugost2008}
 \bibliography{report}
 

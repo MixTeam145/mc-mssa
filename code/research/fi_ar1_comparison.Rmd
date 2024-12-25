@@ -37,6 +37,8 @@ phi <- sqrt(1 - 1 / gamma0)
 
 model_fi <- list(dfrac = dfrac, sigma2 = sigma2, N = N)
 model_ar1 <- list(phi = phi, sigma2 = sigma2, N = N) 
+
+Ls <- c(10, 20, 50, 80, 90)
 ```
 
 ```{r}
@@ -46,11 +48,13 @@ spectral_density <- function(w, dfrac = 0, phi = 0, sigma2 = 1) {
 ```
 
 ```{r}
-w <- seq(0, 0.5, 0.002)
-plot(w, spectral_density(w, dfrac = dfrac), type = "l", col = "red", ylab = "f")
+w <- seq(0, 0.5, 0.005)
+pdf("../../tex/mag/img/spectrum.pdf", width = 12)
+plot(w, spectral_density(w, dfrac = dfrac), type = "l", col = "red", xlab = latex2exp::TeX(r'(\omega)'), ylab = "spectrum", cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
 lines(w, spectral_density(w, phi = phi), col = "blue")
-abline(v = 0.075, lty = 2)
-legend("topright", c("FI(d)", "AR(1)"), col = c("red", "blue"), lty = 1, bty = "n")
+# abline(v = 0.075, lty = 2)
+legend("topright", c("ARFIMA(0, d, 0)", "AR(1)"), col = c("red", "blue"), lty = 1, bty = "n", cex = 2)
+dev.off()
 ```
 
 Как видно на графике, график $\mathrm{AR}(1)$ процесса выше $\mathrm{FI}(d)$ везде, кроме маленьких частот, поэтому ожидается повышение мощности MC-SSA, если частота сигнала будет не слишком маленькой.
@@ -61,7 +65,7 @@ signal <- cos(2 * pi * 1:N * omega)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-M <- 100
+M <- 1000
 pb <- txtProgressBar(max = M, style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
@@ -173,7 +177,6 @@ stopCluster(cluster)
 
 
 ```{r}
-Ls <- c(10, 20, 50, 80, 90)
 alphas <- 0:1000 / 1000
 clrs <- c("black", "red", "green", "orange", "purple")
 lwds <- c(2, 1, 1, 1, 1)
@@ -191,30 +194,38 @@ beta_ar1 <-
 
 Ошибка первого рода:
 ```{r, fig.width=12}
+pdf("../../tex/mag/img/alphaI_comp.pdf", width = 12, height = 4)
+
 par(mfrow = c(1, 2))
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "FI(d)")
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "ARFIMA(0, d, 0)")
 for (i in seq_along(Ls))
   lines(alphas, alphaI_fi[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "AR(1)")
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "AR(1)")
 for (i in seq_along(Ls))
   lines(alphas, alphaI_ar1[[i]], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+dev.off()
 ```
 
 ROC-кривая:
 ```{r, fig.width=12}
+pdf("../../tex/mag/img/roc_comp.pdf", width = 12, height = 4)
+
 par(mfrow = c(1, 2))
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "FI(d)")
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "ARFIMA(0, d, 0)")
 for (i in seq_along(Ls))
   lines(alphaI_fi[[i]][-1], beta_fi[[i]][-1], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "AR(1)")
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "AR(1)")
 for (i in seq_along(Ls))
   lines(alphaI_ar1[[i]][-1], beta_ar1[[i]][-1], lwd = lwds[i], col = clrs[i])
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+dev.off()
 ```
 
 Как и ожидалось, MC-SSA с $\mathrm{FI}(d)$ дает более мощный критерий. Заметим, что такой критерий более радикальный.
