@@ -1,0 +1,149 @@
+---
+title: "MC-SSA on real data using FI(d) model"
+output: html_document
+---
+
+```{r, message=FALSE}
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+```
+
+1. Ireland wind data, 1961-1978 (Haslett and Raftery 1989)
+```{r, message=FALSE}
+library(gstat)
+data(wind)
+pdf("../../tex/mag/img/IrelandWind_ts.pdf", width = 12, height = 5, pointsize = 20)
+par(mar = c(2.2, 2.2, 2, 1.2))
+plot(ts(wind$RPT, start = 1961, frequency = 365), type = 'l', ylab = "", xlab = "", main = "Ireland Wind")
+dev.off()
+
+f1 <- as.vector(wind$RPT - mean(wind$RPT))
+```
+
+```{r}
+model_wind_fi <- Whittle(wind$RPT, fixed = c(0, NA))
+model_wind_fi
+arfima::arfima(wind$RPT, dmean = FALSE, quiet = TRUE)
+fracdiff::fracdiff(wind$RPT)
+
+model_wind_fi <- list(
+  dfrac = model_wind_fi["d"],
+  sigma2 = model_wind_fi["sigma2"],
+  N = length(wind$RPT)
+)
+```
+
+
+```{r}
+model_wind_arfi <- Whittle(wind$RPT)
+model_wind_arfi
+arfima::arfima(wind$RPT, c(1, 0, 0), dmean = FALSE, quiet = TRUE)
+fracdiff::fracdiff(wind$RPT, nar = 1)
+
+model_wind_arfi <- list(
+  phi = model_wind_arfi["phi"],
+  dfrac = model_wind_arfi["d"],
+  sigma2 = model_wind_arfi["sigma2"],
+  N = length(wind$RPT)
+)
+```
+
+```{r}
+set.seed(1234)
+m1_fi <- mcssa(f1, 60, "ev", model0 = model_wind_fi, conf.level = 0.95)
+```
+
+```{r}
+p1_fi <- plot(m1_fi) + scale_y_continuous(trans = scales::pseudo_log_trans(base = 10)) + ylab("")
+what.reject(m1_fi)
+ggsave("../../tex/mag/img/IrelandWind_mcssa_fi.pdf", p1_fi, device = "pdf", width = 12, height = 5, units = "cm")
+```
+
+```{r}
+m1_arfi <- mcssa(f1, 60, "ev", model0 = model_wind_arfi, conf.level = 0.95)
+```
+
+```{r}
+p1_arfi <- plot(m1_arfi) + scale_y_continuous(trans = scales::pseudo_log_trans(base = 10)) + ylab("")
+ggsave("../../tex/mag/img/IrelandWind_mcssa_arfi.pdf", p1_arfi, device = "pdf", width = 12, height = 5, units = "cm")
+```
+
+# Nile River Minima, 622-1284 (Beran, 1994)
+Нерегулярные циклы или тенденции в этом временном ряду, обусловленные длинной памятью, впервые были обнаружены и обсуждены Хёрстом, британским инженером, который работал гидрологом на реке Нил.
+```{r, message=FALSE}
+library(longmemo)
+data("NileMin")
+pdf("../../tex/mag/img/NileMin_ts.pdf", width = 12, height = 5, pointsize = 20)
+par(mar = c(2.2, 2.2, 2, 1.2))
+plot(ts(NileMin / 100, start = 622), ylab = "", xlab = "", main = "Nile Minima")
+dev.off()
+f2 <- as.vector(NileMin) / 100
+```
+Автокорреляционная функция:
+```{r}
+lag <- 30
+acrs <- acf(f2, lag.max = lag, plot = FALSE)
+
+pdf("../../tex/mag/img/NileMin_acf.pdf", width = 12, height = 5, pointsize = 20)
+par(mar = c(2.2, 2.2, 2, 1.2))
+plot(acvs$lag, acvs$acf, type = "b", ylim = c(0, 1), main = "Sample autocorrelation", xlab = "lag", ylab = "ACF", col = "blue", lwd = 2, xaxt = "n")
+axis(1, 0:lag)
+dev.off()
+```
+
+```{r}
+spectral_density <- function(w, d = 0, phi = 0, sigma2 = 1) {
+  sigma2 * (2 * sin(pi * w))^(-2 * d)  / abs(1 - phi * exp(-2 * pi * w))^2
+}
+```
+
+Периодограмма временного ряда:
+```{r}
+per2 <- spec.pgram(f2, taper = 0, detrend = FALSE, fast = FALSE, log = 'no', plot = FALSE)
+pdf("../../tex/mag/img/NileMin_per.pdf", width = 12, height = 5, pointsize = 20)
+par(mar = c(4, 4, 2, 1.2))
+plot(per2$freq, per2$spec, type = "l", main = "Periodogram", xlab = "frequency", ylab = "spectrum")
+lines(per2$freq, spectral_density(per2$freq, d = 0.4054710, sigma2 = 0.4902565), col = "blue", lwd = 2)
+dev.off()
+```
+```{r}
+model_NileMin <- Whittle(f2, fixed = c(0, NA))
+model_NileMin <- list(
+  dfrac = model_NileMin["d"],
+  sigma2 = model_NileMin["sigma2"],
+  N = length(f2)
+)
+```
+
+
+Применим MC-SSA.
+```{r}
+set.seed(1234)
+m2 <- mcssa(f2-mean(f2), L = 330, "ev", model0 = model_NileMin, conf.level = 0.95)
+```
+
+```{r}
+p <- plot(m2) + scale_y_continuous(trans = scales::pseudo_log_trans(base = 10))
+ggsave("../../tex/mag/img/NileMin_mcssa.pdf", p, device = "pdf", width = 12, height = 5, units = "cm")
+```
+
+# Central England temperature
+Данные о среднемесячной температуре изучались Хоскингом. В своей работе 1984 года он предложил обобщение ARIMA на случай дробного $d$, применив эту модель на этих данных. Наименьший AIC дает $\mathrm{ARFIMA}(1, d, 1)$ и $\mathrm{ARFIMA}(1, d, 0)$, но они имеют немонотонную спектральную плотность, поэтому будем рассматривать $\mathrm{ARFIMA}(0, d, 0)$.
+```{r}
+data("tmpyr")
+plot(tmpyr)
+f3 <- as.vector(tmpyr - mean(tmpyr))
+```
+
+```{r}
+set.seed(1234)
+m3 <- mcssa(f3, 120, "ev", model = "ar1", conf.level = 0.95)
+```
+
+```{r}
+plot(m3)
+```

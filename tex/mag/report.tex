@@ -12,6 +12,11 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 \usepackage{graphicx,subcaption,ragged2e}
 
+\usepackage{caption}
+
+%\setlength{\belowcaptionskip}{-10pt}
+%\captionsetup{belowskip=0pt}
+
 \usepackage{booktabs}
 
 \usepackage{amsthm}
@@ -288,7 +293,7 @@ TODO
 \]
 где $m=\lfloor(n-1)/2\rfloor$, $\omega_j = j / n$, $j=1,2,\ldots,m$. Заметим, что $f(\omega; \bm\varphi, \sigma^2)=\sigma^2 g(\omega; \bm\varphi)$. Тогда, максимизируя $\ell_W$ по $\sigma^2$, получаем
 \[
-	\widehat{\bm\varphi}_W = \operatorname*{argmax}_{\bm\varphi}Q(\varphi),\quad \widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \widehat{\bm\varphi}_W)},
+	\widehat{\bm\varphi}_W = \operatorname*{argmax}_{\bm\varphi}Q(\bm\varphi),\quad \widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \widehat{\bm\varphi}_W)},
 \]
 где
 \[
@@ -300,7 +305,7 @@ TODO
 \begin{remark}
 	Периодограмму временного ряда можно вычислить за $O(n\log n)$ с помощью быстрого преобразования Фурье (FFT), что делает этот метод значительно быстрее MLE для больших $n$.
 \end{remark}
-\subsection{Численное сравнение методов оценки параметров}
+\subsection{Численное сравнение методов оценки параметров}\label{sect:est_param}
 Сравним качество оценки параметров следующих моделей:
 \begin{enumerate}
 	\item $d=q=0$, $p=1$ --- модель $\mathrm{AR}(1)$;
@@ -326,7 +331,7 @@ TODO
 		\caption{$n=1000$}
 	\end{subfigure}
 	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $\phi$ модели $\mathrm{AR}(1)$ ($500$ повторений)}
-	\label{tab:ar1_est}
+	\label{fig:ar1_est}
 \end{figure}
 \begin{figure}[h!]
 	\centering
@@ -339,17 +344,17 @@ TODO
 		\caption{$n=1000$}
 	\end{subfigure}
 	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $d$ модели $\mathrm{ARFIMA}(0, d, 0)$ ($500$ повторений)}
-	\label{tab:fi_est}
+	\label{fig:fi_est}
 \end{figure}
 
-На рис.~\ref{tab:ar1_est} и~\ref{tab:fi_est} изображены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ моделей $\mathrm{AR}(1)$ и $\mathrm{ARFIMA}(0, d, 0)$. Отметим, что все оценки имеют в большинстве своем отрицательное смещение и отличаются между собой в основном степенью смещения. Как и ожидалось, оценка параметров методом максимального правдоподобия с известным средним дает оценку с наименьшим $\mathsf{MSE}$. С другой стороны, если использовать вместо известного среднего выборочное сренее, оценки становятся сильно смещенными. Whittle же, в свою очередь, дает менее смещенную оценку, чем $\mathrm{MLE}(\bar x)$, а в случае оценки $d$ имеет смещение даже меньше, чем у $\mathrm{MLE}(\mu)$. Однако оценки Whittle обладают наибольшей дисперсией среди всех рассмотренных методов, но разница не такая значительная, как в случае смещения.
+На рис.~\ref{fig:ar1_est} и~\ref{fig:fi_est} изображены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ моделей $\mathrm{AR}(1)$ и $\mathrm{ARFIMA}(0, d, 0)$. Отметим, что все оценки имеют в большинстве своем отрицательное смещение и отличаются между собой в основном степенью смещения. Как и ожидалось, оценка параметров методом максимального правдоподобия с известным средним дает оценку с наименьшим $\mathsf{MSE}$. С другой стороны, если использовать вместо известного среднего выборочное сренее, оценки становятся сильно смещенными. Whittle же, в свою очередь, дает менее смещенную оценку, чем $\mathrm{MLE}(\bar x)$, а в случае оценки $d$ имеет смещение даже меньше, чем у $\mathrm{MLE}(\mu)$. Однако оценки Whittle обладают наибольшей дисперсией среди всех рассмотренных методов, но разница не такая значительная, как в случае смещения.
 
 \begin{sidewaystable}[h!]
 	\centering
 	\caption{Смещение и среднеквадратичное отклонение оценок параметров $d$ и $\phi$ модели $\mathrm{ARFIMA}(1, d, 0)$ ($n=100$, $500$ повторений)}
 	\label{tab:arfi_est}
 	\scalebox{0.9}{
-		\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.5cm}cccccccc}
+		\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.2cm}cccccccc}
 			\hline
 			    &        & \multicolumn{8}{c}{$\mathsf{MSE}$}      &                                            & \multicolumn{8}{c}{$\mathsf{Bias}$}                                                                                                                                                                                                                                                                                                                                                                                                              \\
 			\cline{3-10} \cline{12-19}
@@ -589,6 +594,92 @@ TODO
 	\label{fig:ar1_vs_fi}
 \end{figure}
 На рис.~\ref{fig:ar1_vs_fi_alphaI} изображены график ошибок первого рода критериев MC-SSA для разных длин окна $L$. По нему видно, что рассматриваемые критерии являются радикальными, поэтому сравнивать их по мощности будем с помощью ROC-кривых, которые являются графиком мощности критериев, к которым была применена поправка из раздела~\ref{sect:correction}. По рис.~\ref{fig:ar1_vs_fi_roc} видно, что, действительно, замена модели $\mathrm{AR}(1)$ на $\mathrm{ARFIMA}(0, d, 0)$ увеличила мощность критерия против данной альтернативы.
+
+
+\section{Применение MC-SSA на реальных временных рядах}
+Рассмотрим несколько примером реальных временных рядов с длинной памятью и применим к ним MC-SSA. Оценивать параметры будем теми же методами, что и в разделе~\ref{sect:est_param}.
+\subsection{Nile Minima}
+\begin{figure}[h!]
+	\centering
+	\subcaptionbox{\label{fig:NileMin_ts}}{\includegraphics[width=\textwidth]{img/NileMin_ts.pdf}}
+	\subcaptionbox{\label{fig:NileMin_acf}}{\includegraphics[width=\textwidth]{img/NileMin_acf.pdf}}
+	\caption{Ежегодный минимальный уровень воды реки Нил}
+\end{figure}
+
+На рис.~\ref{fig:NileMin_ts} изображен ежегодный минимальный уровень воды реки Нил за период с 622 по 1284 год (663 наблюдения), данные были взяты из~\cite{Beran1994}. Нерегулярные циклы или тенденции в этом временном ряду, обусловленные длинной памятью, впервые были обнаружены и обсуждены Хёрстом, британским инженером, который работал гидрологом на реке Нил. Подтверждает присутсвие длинной памяти график медленно угасающей автокорреляционной функции на рис.~\ref{fig:NileMin_acf}.
+
+\begin{table}[t]
+	\centering
+	\caption{Оценка параметров модели $\mathrm{ARFIMA}(0, d, 0)$ ряда Nile Minima}
+	\label{tab:NileMin_est}
+	\begin{tabular}{|c|c|c|}
+		\hline
+		Метод & $\hat{d}$ & $\hat{\sigma}^2$ \\
+		\hline
+		$\mathsf{arfima}$ & 0.39264 & 0.49025 \\
+		$\mathsf{fracdiff}$ & 0.39327 & 0.49017 \\
+		Whittle & 0.40547 & 0.48971 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{img/NileMin_per.pdf}
+	\caption{Периодограмма ряда Nile Minima}
+	\label{fig:NileMin_per}
+\end{figure}
+
+Оценим параметры модели $\mathrm{ARFIMA}(0, d, 0)$. В таблице~\ref{tab:NileMin_est} представлены оценки параметров $d$ и $\sigma^2$. Поскольку истинное среднее неизвестно и оценка $d$ по Whittle дает наименьшее смещение (см. рис.~\ref{fig:fi_est}), в качестве нулевой гипотезы MC-SSA выберем модель $\mathrm{ARFIMA}(0, d, 0)$ с $d=0.40547$ и $\sigma^2=0.48971$, на рис.~\ref{fig:NileMin_per} изображена периодограмма ряда вместе с оцененной спектральной плотностью.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\textwidth]{img/NileMin_mcssa.pdf}
+	\caption{Результат работы MC-SSA для ряда Nile Minima}
+	\label{fig:NileMin_mcssa}
+\end{figure}
+
+Применим MC-SSA с длиной окна $L=330\approx N / 2$. На рис.~\ref{fig:NileMin_mcssa} изображены 95\%-ные доверительные интервалы статистик $\widehat{p}_k$, $k=1,\ldots,L$ (см. алгоритм~\ref{alg:multiple_mc-ssa}). Ни одна из статистик не является значимой, это означает, что нет оснований полагать, что в этом временном ряде присутствует неслучайный сигнал.
+
+\subsection{Ireland Wind}
+На рис.~\ref{fig:IrelandWind_ts} изображены среднесуточные данные о скорости ветра (в узлах) за период с 1961 по 1978 год ($6574$ дней) на станции Roche's Point в Республике Ирландия~\cite{Haslett1989}.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{img/IrelandWind_ts.pdf}
+	\caption{Среднесуточные данные о скорости ветра в Республике Ирландия}
+	\label{fig:IrelandWind_ts}
+\end{figure}
+
+В таблице~\ref{tab:IrelandWind_est} представлены оценки параметров. Полученные оценки примерно одинаковые, но поскольу Whittle дает менее смещенную оценку (см. рис.~\ref{fig:fi_est} и таблицу~TODO), будем использовать именно ее.
+
+\begin{table}[b]
+	\centering
+	\caption{Оценка параметров ряда Ireland Wind}
+	\label{tab:IrelandWind_est}
+	\begin{tabular}{|c|c|c|c|c|c|}
+		\cline{2-6}
+		\multicolumn{1}{c|}{} & \multicolumn{2}{c|}{$\mathrm{ARFIMA}(0, d, 0)$} & \multicolumn{3}{c|}{$\mathrm{ARFIMA}(1, d, 0)$} \\
+		\hline
+		Метод & $\hat d$ & $\hat\sigma^2$ & $\hat{d}$ & $\hat\phi$ & $\hat{\sigma}^2$ \\
+		\hline
+		$\mathsf{arfima}$ & 0.37116 & 24.4029 & 0.17306 & 0.28403 & 23.7653 \\
+		$\mathsf{fracdiff}$ & 0.36891 & 24.38116 & 0.17245 & 0.28309 & 23.73458 \\
+		Whittle & 0.37287 & 24.40285 & 0.17598 & 0.28105 & 23.75983 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Поскольку ряд достаточно длинный, выберем длину окна не слишком большой, чтобы метод MC-SSA считался за адекватное время, скажем, $L=60$. На рис.~\ref{fig:IrelandWind_mcssa} представлен результат работы MC-SSA для обоих моделей. Получили следующее: если модель представляет собой чисто процесс с длинной памятью, много векторов оказывается значимыми, в то время как для модели, совмещающей в себе короткую и длинную память, значимых векторов уже нет. Но значимость векторов в первом случае может являться признаком неправильно выбранной модели. Также заметим, что критерий MC-SSA без поправки является радикальным, и значимые векторы могут на самом деле быть ложно обнаружеными. И поскольку применить поправку для такого длинного ряда не представляется возможным, интерпретировать полученный результат затруднительно. 
+
+\begin{figure}[h!]
+	\centering
+	\subcaptionbox{$\mathrm{ARFIMA}(0, d, 0)$\label{fig:IrelandWind_mcssa_fi}}{\includegraphics[width=\textwidth]{img/IrelandWind_mcssa_fi.pdf}}
+	\subcaptionbox{$\mathrm{ARFIMA}(1, d, 0)$\label{fig:IrelandWind_mcssa_arfi}}{\includegraphics[width=\textwidth]{img/IrelandWind_mcssa_arfi.pdf}}
+	\caption{Результат работы MC-SSA для ряда Ireland Wind}
+	\label{fig:IrelandWind_mcssa}
+\end{figure}
+
 
 \conclusion
 TODO
