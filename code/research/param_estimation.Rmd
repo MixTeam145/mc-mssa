@@ -9,6 +9,7 @@ library(longmemo)
 library(doSNOW)
 library(parallel)
 library(doRNG)
+library(latex2exp)
 
 M <- 500
 pb <- txtProgressBar(max = M, style = 3)
@@ -25,7 +26,7 @@ load("data/param_estimation.RData")
 Начнем с параметра дробного дифференцирования $d$. Оценим его с помощью функции `arfima` (MLE со средним $\mu=0$ и $\mu=\overline X$), `fracdiff` (апроксимация MLE c $\mu=\overline X$) и Whittle (самописный). 
 ```{r}
 ds <- seq(0.1, 0.4, 0.1)
-Ns <- c(100, 500, 1000)
+Ns <- c(100, 1000)
 
 names_ds <- c()
 for (i in seq_along(ds)) {
@@ -75,12 +76,23 @@ Whittle <- function(x, fixed = NULL) {
     - loglike
   }
   
-  init <- c(phi = 0, d = 0)
+  init <- c(0, 0)
   lower <- c(-1, -0.5) + 1e-4
   upper <- c(1, 0.5) - 1e-4
   
-  opt <- optim(init[mask], objective, method = "L-BFGS-B", lower = lower[mask], upper = upper[mask])
-  opt
+  opt <- optim(
+    init[mask],
+    objective,
+    method = "L-BFGS-B",
+    lower = lower[mask],
+    upper = upper[mask]
+  )
+  
+  coef <- fixed
+  coef[mask] <- opt$par
+  names(coef) <- c("phi", "d")
+  
+  c(coef, sigma2 = mean(per / spec(coef)))
 }
 ```
 
@@ -175,13 +187,11 @@ plot_fi <- function(x) {
 ```
 
 ```{r, fig.width=12, fig.height=4}
-pdf(file = "../../tex/mag/img/fi_est_N100.pdf", width = 12, height = 4)
+pdf(file = "../../tex/mag/img/fi_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_fi(res_fi$`N = 100`)
 dev.off()
 
-# plot_fi(res_fi$`N = 500`)
-
-pdf(file = "../../tex/mag/img/fi_est_N1000.pdf", width = 12, height = 4)
+pdf(file = "../../tex/mag/img/fi_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_fi(res_fi$`N = 1000`)
 dev.off()
 ```
@@ -282,13 +292,13 @@ plot_ar1 <- function(x) {
 ```
 
 ```{r, fig.width=12, fig.height=4}
-pdf(file = "../../tex/mag/img/ar1_est_N100.pdf", width = 12, height = 4)
+pdf(file = "../../tex/mag/img/ar1_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_ar1(res_ar1$`N = 100`)
 dev.off()
 
 # plot_ar1(res_ar1$`N = 500`)
 
-pdf(file = "../../tex/mag/img/ar1_est_N1000.pdf", width = 12, height = 4)
+pdf(file = "../../tex/mag/img/ar1_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_ar1(res_ar1$`N = 1000`)
 dev.off()
 ```
@@ -352,7 +362,6 @@ plot_arfi <- function(x, phi) {
   par(mfrow = c(2, 3))
   
   mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.d, ds[i]))
-  print(mse_arfima)
   mse_arfima_centered <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.d, ds[i]))
   mse_fracdiff <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.d, ds[i]))
   mse_whittle <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.d, ds[i]))
@@ -440,7 +449,6 @@ plot_arfi <- function(x, phi) {
 
 ```{r, fig.width=12, fig.height=8}
 plot_arfi(res_arfi1$`N = 100`, phi)
-plot_arfi(res_arfi1$`N = 500`, phi)
 plot_arfi(res_arfi1$`N = 1000`, phi)
 ```
 
@@ -460,7 +468,6 @@ for (i in seq_along(Ns)) {
 
 ```{r, fig.width=12, fig.height=8}
 plot_arfi(res_arfi2$`N = 100`, phi)
-plot_arfi(res_arfi2$`N = 500`, phi)
 plot_arfi(res_arfi2$`N = 1000`, phi)
 ```
 
@@ -468,13 +475,6 @@ plot_arfi(res_arfi2$`N = 1000`, phi)
 ```{r}
 phi <- 0.9
 ```
-
-```{r}
-r <- lapply(ds, function(d) arfi_est(phi, d, 5000))
-names(r) <- names_ds
-res_arfi3[["N = 5000"]] <- r
-```
-
 
 ```{r, eval=FALSE}
 res_arfi3 <- list()
@@ -487,9 +487,7 @@ for (i in seq_along(Ns)) {
 
 ```{r, fig.width=12, fig.height=8}
 plot_arfi(res_arfi3$`N = 100`, phi)
-plot_arfi(res_arfi3$`N = 500`, phi)
 plot_arfi(res_arfi3$`N = 1000`, phi)
-plot_arfi(res_arfi3$`N = 5000`, phi)
 ```
 
 
@@ -527,7 +525,6 @@ xtable::xtable(
     mse_arfima_centered_d, mse_arfima_centered_phi,
     mse_fracdiff_d, mse_fracdiff_phi,
     mse_whittle_d, mse_whittle_phi,
-    
     bias_arfima_d, bias_arfima_phi,
     bias_arfima_centered_d, bias_arfima_centered_phi,
     bias_fracdiff_d, bias_fracdiff_phi,
