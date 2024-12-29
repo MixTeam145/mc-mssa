@@ -50,6 +50,7 @@ projec <- function(data, L, W, kind = c("columns", "rows")) {
     # data are given by a model
     D <- length(data)
     f <- generate(D, data)
+    f <- f - colMeans(f)
   } else {
     # data are given by a series
     f <- data
@@ -319,6 +320,7 @@ plot.mcssa <- function(x, by.order = FALSE) {
     geom_point() +
     geom_errorbar(aes(ymin = lower, ymax = upper), color = "blue") +
     scale_color_manual(values = c("blue", "red")) +
+    theme_bw() +
     theme(legend.position = "none") 
   p
 }
@@ -395,7 +397,7 @@ DH.sim <- function(n, acvf, ...) {
   
   yk <- c(y0, yk, yN, Conj(rev(yk)))
   
-  x <- Re(fft(yk, inverse = TRUE)) / sqrt(N)
+  x <- Re(fft(yk, inverse = TRUE)) / sqrt(2 * N)
   
   # Truncate the resulted series
   x[1:n]
@@ -424,24 +426,15 @@ signal.one.channel <- function(N, omega, A = 1) {
 
 # Generates a time series according to the model signal + noise
 generate_channel <- function(model, signal = 0) {
-  # if (length(model$dfrac) > 0) {
-  #   innov <- DH.sim(
-  #     model$N,
-  #     tacvfFD,
-  #     d = model$dfrac,
-  #     sigma2 = model$sigma2
-  #   )
-  # }
-  # else {
-  #   innov = rnorm(model$N, sd = sqrt(model$sigma2))
-  # }
-  # xi <- arima.sim(list(ar = model$phi), model$N, innov = innov)
+  # r <- tacvfARFIMA(phi = model$phi, dfrac = model$dfrac, sigma2 = model$sigma2, maxlag = model$N - 1)
+  # xi <- ltsa::DLSimulate(model$N, r)
   xi <- DH.sim(
-    model$N,
-    tacvfARFIMA, phi = model$phi, dfrac = model$dfrac, sigma2 = model$sigma2
-  )
-  # xi <- arfima.sim(model$N, list(phi = model$phi, dfrac = model$dfrac), sigma2 = model$sigma2)
-  
+     model$N,
+     tacvfARFIMA,
+     phi = model$phi,
+     dfrac = model$dfrac,
+     sigma2 = model$sigma2
+   )
   if (!is.null(model$signal)) # composite null hypothesis
     xi <- xi + model$signal
   f <- xi + signal
