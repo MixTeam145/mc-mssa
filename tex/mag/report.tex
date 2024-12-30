@@ -320,6 +320,9 @@ TODO
 	% \item Функция $\mathsf{arfima}$ из пакета $\mathsf{arfima}$~\cite{Veenstra2012}, соответствующая MLE модели $\mathrm{ARFIMA}$;
 	\item Функция \textsf{fracdiff} из пакета \textsf{fracdiff}~\cite{Maechler1999}, соответствующая апроксимации MLE модели ARFIMA, описанной в работе~\cite{Haslett1989} (обозначим за H\&R).
 \end{enumerate}
+\begin{remark}
+	Помимо вышеперечисленных функций, существует функция \textsf{arfima} из пакета \textsf{arfima}, которая соответствует MLE модели ARFIMA. Но данная реализация MLE в некоторых случаях дает оценки хуже, чем \textsf{arfima\_mle}. Сравнение оценок обоих реализаций можно найти в разделе~\ref{sect:mle_comparison}.
+\end{remark}
 Поскольку для реальных временных рядов матожидание $\mu$ неизвестно, будем рассматривать MLE с известным средним и с его оценкой~--- выборочным средним (будем обозначать их $\mathrm{MLE}(\mu)$ и $\mathrm{MLE}(\bar x)$ соответственно). Не умаляя общности, пусть $\mu=0$.
 
 \begin{figure}[h]
@@ -718,5 +721,31 @@ TODO
 
 \bibliographystyle{ugost2008}
 \bibliography{report}
+
+\appendix
+\chapter{Графики}
+\section{Сравнение \textsf{arfima\_mle} и \textsf{arfima}}\label{sect:mle_comparison}
+На рис.~\ref{fig:mle_comparison_phi1},~\ref{fig:mle_comparison_phi5} и~\ref{fig:mle_comparison_phi9} представлены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ модели $\mathrm{ARFIMA}(1, d, 0)$. По ним, видно, что при $\phi=0.1$ на рис.~\ref{fig:mle_comparison_phi1} оценки функцией \textsf{arfima} имеют скачок в $d=0.4$, что может говорить о некоторой вычислительной неустойчивости функции для больших $d$. Функция \textsf{arfima\_mle} не только не имеет подобной проблемы, но и дает более точные оценки, например, при $\phi=0.5$ на рис.~\ref{fig:mle_comparison_phi5}.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{img/arfi_est_phi1.pdf}
+	\caption{Сравнение \textsf{arfima\_mle} и \textsf{arfima} при $\phi=0.1$ ($n=1000$, $500$ повторений)}
+	\label{fig:mle_comparison_phi1}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{img/arfi_est_phi5.pdf}
+	\caption{Сравнение \textsf{arfima\_mle} и \textsf{arfima} при $\phi=0.5$ ($n=1000$, $500$ повторений)}
+	\label{fig:mle_comparison_phi5}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{img/arfi_est_phi9.pdf}
+	\caption{Сравнение \textsf{arfima\_mle} и \textsf{arfima} при $\phi=0.9$ ($n=1000$, $500$ повторений)}
+	\label{fig:mle_comparison_phi9}
+\end{figure}
 
 \end{document}
