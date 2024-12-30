@@ -241,6 +241,9 @@ dev.off()
 pdf(file = "../../tex/mag/img/fi_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_fi(res_fi$`N = 1000`)
 dev.off()
+
+knitr::plot_crop("../../tex/mag/img/fi_est_N100.pdf")
+knitr::plot_crop("../../tex/mag/img/fi_est_N1000.pdf")
 ```
 
 # AR(1)
@@ -342,15 +345,16 @@ plot_ar1 <- function(x) {
 ```
 
 ```{r, fig.width=12, fig.height=4}
-#pdf(file = "../../tex/mag/img/ar1_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
+pdf(file = "../../tex/mag/img/ar1_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_ar1(res_ar1$`N = 100`)
-#dev.off()
+dev.off()
 
-# plot_ar1(res_ar1$`N = 500`)
-
-#pdf(file = "../../tex/mag/img/ar1_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
+pdf(file = "../../tex/mag/img/ar1_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_ar1(res_ar1$`N = 1000`)
-#dev.off()
+dev.off()
+
+knitr::plot_crop("../../tex/mag/img/ar1_est_N100.pdf")
+knitr::plot_crop("../../tex/mag/img/ar1_est_N1000.pdf")
 ```
 
 # ARFI(1, d)
@@ -456,11 +460,11 @@ plot_arfi <- function(x, phi) {
   # lines(ds, bias_arfima_centered, col = cols[2], type = "b")
   # lines(ds, bias_fracdiff, col = cols[3], type = "b")
   # lines(ds, bias_whittle, col = cols[4], type = "b")
-  legend("topleft", legend = legend, col = cols, lty = 1)
+  # legend("topleft", legend = legend, col = cols, lty = 1)
   
   lines(ds, bias_arfima, col = cols[2], type = "b")
   lines(ds, bias_mle, col = cols[1], type = "b")
-  # legend("bottomleft", legend = legend, col = cols, lty = 1)
+  legend("bottomleft", legend = legend, col = cols, lty = 1)
 
   # var_arfima <- sapply(x, function(xx) var(xx$arfima.d))
   # var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered.d))
@@ -522,11 +526,11 @@ plot_arfi <- function(x, phi) {
   # lines(ds, bias_arfima_centered, col = cols[2], type = "b", lwd = 2)
   # lines(ds, bias_fracdiff, col = cols[3], type = "b")
   # lines(ds, bias_whittle, col = cols[4], type = "b", lwd = 2)
-  legend("bottomleft", legend = legend, col = cols, lty = 1)
+  # legend("bottomleft", legend = legend, col = cols, lty = 1)
   
   lines(ds, bias_arfima, col = cols[2], type = "b")
   lines(ds, bias_mle, col = cols[1], type = "b")
-  # legend("topleft", legend = legend, col = cols, lty = 1)
+  legend("topleft", legend = legend, col = cols, lty = 1)
   
   # var_arfima <- sapply(x, function(xx) var(xx$arfima.phi))
   # var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered.phi))
@@ -554,13 +558,11 @@ plot_arfi <- function(x, phi) {
 ```
 
 ```{r, fig.width=12, fig.height=8}
-#pdf(file = "../../tex/mag/img/arfi_est_phi1.pdf", width = 12, height = 3.5, pointsize = 15)
-#plot_arfi(res_arfi1$`N = 100`, phi)
-#dev.off()
-
-pdf(file = "../../tex/mag/img/arfi_est_phi1.pdf", width = 12, height = 6, pointsize = 15)
+pdf(file = "../../tex/mag/img/arfi_est_phi1.pdf", width = 12, height = 7, pointsize = 15)
 plot_arfi(res_arfi1$`N = 1000`, phi)
 dev.off()
+
+knitr::plot_crop("../../tex/mag/img/arfi_est_phi1.pdf")
 ```
 
 2. $\varphi=0.5$
@@ -578,11 +580,11 @@ for (i in seq_along(Ns)) {
 ```
 
 ```{r, fig.width=12, fig.height=8}
-# plot_arfi(res_arfi2$`N = 100`, phi)
-
-pdf(file = "../../tex/mag/img/arfi_est_phi5.pdf", width = 12, height = 6, pointsize = 15)
+pdf(file = "../../tex/mag/img/arfi_est_phi5.pdf", width = 12, height = 7, pointsize = 15)
 plot_arfi(res_arfi2$`N = 1000`, phi)
 dev.off()
+
+knitr::plot_crop("../../tex/mag/img/arfi_est_phi5.pdf")
 ```
 
 3. $\phi=0.9$
@@ -600,11 +602,11 @@ for (i in seq_along(Ns)) {
 ```
 
 ```{r, fig.width=12, fig.height=8}
-# plot_arfi(res_arfi3$`N = 100`, phi)
-
-pdf(file = "../../tex/mag/img/arfi_est_phi9.pdf", width = 12, height = 6, pointsize = 15)
+pdf(file = "../../tex/mag/img/arfi_est_phi9.pdf", width = 12, height = 7, pointsize = 15)
 plot_arfi(res_arfi3$`N = 1000`, phi)
 dev.off()
+
+knitr::plot_crop("../../tex/mag/img/arfi_est_phi9.pdf")
 ```
 
 
@@ -636,7 +638,7 @@ table_res_arfi <- function(x, phi, coef = 1) {
 
   xtable::xtable(
     coef * data.frame(
-      ds, rep(phi, length(ds)),
+      ds / coef, rep(phi, length(ds)) / coef,
       mse_arfima_d, mse_arfima_phi,
       mse_arfima_centered_d, mse_arfima_centered_phi,
       mse_fracdiff_d, mse_fracdiff_phi,
@@ -650,49 +652,3 @@ table_res_arfi <- function(x, phi, coef = 1) {
   )
 } 
 ```
-
-
-```{r}
-phi <- 0.9
-
-mse_arfima_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$arfima.d, ds[i]))
-mse_arfima_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$arfima.phi, phi))
-
-mse_arfima_centered_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$arfima_centered.d, ds[i]))
-mse_arfima_centered_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$arfima_centered.phi, phi))
-
-mse_fracdiff_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$fracdiff.d, ds[i]))
-mse_fracdiff_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$fracdiff.phi, phi))
-
-mse_whittle_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$whittle.d, ds[i]))
-mse_whittle_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$whittle.phi, phi))
-
-bias_arfima_d <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 1000`[[i]]$arfima.d, ds[i]))
-bias_arfima_phi <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 1000`[[i]]$arfima.phi, phi))
-
-bias_arfima_centered_d <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$arfima_centered.d, ds[i]))
-bias_arfima_centered_phi <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$arfima_centered.phi, phi))
-
-bias_fracdiff_d <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$fracdiff.d, ds[i]))
-bias_fracdiff_phi <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$fracdiff.phi, phi))
-
-bias_whittle_d <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$whittle.d, ds[i]))
-bias_whittle_phi <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$whittle.phi, phi))
-
-xtable::xtable(
-  data.frame(
-    ds, rep(phi, length(ds)),
-    mse_arfima_d, mse_arfima_phi,
-    mse_arfima_centered_d, mse_arfima_centered_phi,
-    mse_fracdiff_d, mse_fracdiff_phi,
-    mse_whittle_d, mse_whittle_phi,
-    bias_arfima_d, bias_arfima_phi,
-    bias_arfima_centered_d, bias_arfima_centered_phi,
-    bias_fracdiff_d, bias_fracdiff_phi,
-    bias_whittle_d, bias_whittle_phi
-  ),
-  digits = 5
-)
-```
-
-
