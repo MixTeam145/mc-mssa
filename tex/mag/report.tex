@@ -438,6 +438,75 @@ TODO
 % 	\end{tabular}
 % \end{table}
 
+\subsection{Сходимость оценок к истинным значениям}
+Известно~\cite[Theorem 8.1]{Hassler2018}, что
+\begin{equation}\label{eq:mle_distribution}
+	\sqrt{n}(\widehat{\bm\varphi}_\mathrm{ML} - \bm\varphi_0)\overset{d}{\longrightarrow} \mathcal{N}_{k+1}(0, \mathcal{I}^{-1}(\bm{\varphi}_0)),
+\end{equation}
+где $\bm\varphi_0$~--- истинный вектор параметров, $\mathcal{I}(\bm\varphi)$~--- информационная матрица Фишера. Поскольку Whittle является апроксимацией MLE, Также известно~\cite[Proposition 8.3]{Hassler2018}, что вектор $\widehat{\bm\varphi}_W$ имеет такое же асимптотическое распределение, что и $\widehat{\bm\varphi}_\mathrm{ML}$.
+
+Покажем, что методы MLE и Whittle реализованы корректно, посмотрев на дисперсию оценок для $n=10000$. В таблице~\ref{tab:variance} представлены оценки дисперсий $\hat d$ и $\hat \phi$, в скобках указана настоящая дисперсия. Как видим, для разных значений параметров значение дисперсий оценок близки к теоретическим.
+
+\begin{table}[h]
+	\centering
+	\subfloat[$d=0.2$, $\varphi=0.1$]{
+		\begin{tabular}{c|cc}
+			Метод & $n\mathsf{D} \hat d$ (1.83167) & $n\mathsf{D}\hat \phi$ (2.98284) \\
+			\hline
+			MLE & 1.72733 & 2.92604 \\
+			Whittle & 1.78350 & 2.94929 \\
+			\hline
+		\end{tabular}
+	}\hspace{0.2em}
+	\subfloat[$d=0.4$, $\varphi=0.1$]{
+			\begin{tabular}{c|cc}
+				Метод & $n\mathsf{D} \hat d$ (1.83167) & $n\mathsf{D}\hat \phi$ (2.98284) \\
+				\hline
+				MLE & 1.69348 & 2.90374 \\
+				Whittle & 1.84265 & 2.96828 \\
+				\hline
+			\end{tabular}
+	}\vspace{2em}
+	\subfloat[$d=0.2$, $\varphi=0.5$]{
+		\begin{tabular}{c|cc}
+			Метод & $n\mathsf{D} \hat d$ (4.91219) & $n\mathsf{D}\hat \phi$ (6.06018) \\
+			\hline
+			MLE & 5.00869 & 6.305 \\
+			Whittle & 5.08405 & 6.35985 \\
+			\hline
+		\end{tabular}
+	}\hspace{0.2em}
+	\subfloat[$d=0.4$, $\varphi=0.5$]{
+		\begin{tabular}{c|cc}
+			Метод & $n\mathsf{D} \hat d$ (4.91219) & $n\mathsf{D}\hat \phi$ (6.06018) \\
+			\hline
+			MLE & 4.75975 & 6.06711 \\
+			Whittle & 5.28104 & 6.4936 \\
+			\hline
+		\end{tabular}
+	}\vspace{2em}
+	\subfloat[$d=0.2$, $\varphi=0.9$]{
+		\begin{tabular}{c|cc}
+			Метод & $n \mathsf{D} \hat d$ (2.49203) & $n\mathsf{D}\hat \phi$ (0.77885) \\
+			\hline
+			MLE & 2.42011 & 0.78209 \\
+			Whittle & 2.44394 & 0.77549 \\
+			\hline
+		\end{tabular}
+	}\hspace{0.2em}
+	\subfloat[$d=0.4$, $\varphi=0.9$]{
+		\begin{tabular}{c|cc}
+			Метод & $n \mathsf{D} \hat d$ (2.49203) & $n\mathsf{D}\hat \phi$ (0.77885) \\
+			\hline
+			MLE & 2.26718 & 0.749318  \\
+			Whittle & 2.57117 & 0.77311 \\
+			\hline
+		\end{tabular}
+	}
+	\caption{Дисперсия оценок $\hat d$ и $\hat \phi$, $n=10000$, $100$ повторений}
+	\label{tab:variance}
+\end{table}
+
 \chapter{Метод Monte Carlo SSA}
 
 \section{Проверка статистических гипотез}
