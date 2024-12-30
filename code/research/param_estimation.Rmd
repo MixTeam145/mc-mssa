@@ -45,7 +45,7 @@ bias <- function(x, x_true) {
 ```
 
 ```{r}
-Whittle <- function(x, fixed = NULL) {
+arfima_whittle <- function(x, fixed = NULL) {
   n <- length(x)
   m <- (n - 1) %/% 2
   
@@ -76,6 +76,10 @@ Whittle <- function(x, fixed = NULL) {
     - loglike
   }
   
+  #d <- LongMemoryTS::local.W(x, m = n^0.8, int = c(-0.499, 0.499))$d
+  #y <- fracdiff::diffseries(x, d)
+  #phi <- arima(y, c(1, 0, 0), include.mean = FALSE)$coef
+  
   init <- c(0, 0)
   lower <- c(-1, -0.5) + 1e-4
   upper <- c(1, 0.5) - 1e-4
@@ -97,6 +101,47 @@ Whittle <- function(x, fixed = NULL) {
 ```
 
 ```{r}
+arfima_mle <- function(x, fixed = NULL) {
+  n <- length(x)
+  
+  if (is.null(fixed))
+    fixed <- rep(NA, 2)
+  
+  mask <- is.na(fixed)
+  
+  objective <- function(p) {
+    par <- fixed
+    par[mask] <- p
+    r <- tacvfARFIMA(phi = par[1], dfrac = par[2], maxlag = n - 1)
+    -ltsa::DLLoglikelihood(r, x)
+  }
+  
+  init <- c(0, 0)
+  lower <- c(-1, -0.5) + 1e-4
+  upper <- c(1, 0.5) - 1e-4
+  
+  opt <- optim(
+    init[mask],
+    objective,
+    method = "L-BFGS-B",
+    lower = lower[mask],
+    upper = upper[mask]
+  )
+  
+  coef <- fixed
+  coef[mask] <- opt$par
+  names(coef) <- c("phi", "d")
+  
+  r <- tacvfARFIMA(phi = coef[1], dfrac = coef[2], maxlag = n - 1)
+  error <- DLResiduals(r, x)
+  
+  c(coef, sigma2 = mean(error^2))
+}
+```
+
+
+
+```{r}
 fi_est <- function(d, N) {
   model <- list(dfrac = d, sigma2 = 1, N = N)
   
@@ -106,16 +151,18 @@ fi_est <- function(d, N) {
   registerDoRNG(seed = 1, once = FALSE)
   r <- foreach (
     i = 1:M,
-    .export = "Whittle",
+    .export = c("arfima_whittle", "arfima_mle"),
     .options.snow = opts
   ) %dopar% {
     source("../R/mc-mssa.R", chdir = TRUE, local = TRUE)
     f <- generate_channel(model)
-    v1 <- arfima::arfima(f, dmean = 1e-20, quiet = TRUE)$modes[[1]]
-    v2 <- arfima::arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]
+    v1 <- mle_arfima(f, c(0, NA))
+    v2 <- mle_arfima(f - mean(f), c(0, NA))
+    #v1 <- arfima::arfima(f, dmean = 1e-20, quiet = TRUE)$modes[[1]]
+    #v2 <- arfima::arfima(f, dmean = FALSE, quiet = TRUE)$modes[[1]]
     v3 <- fracdiff::fracdiff(f)
-    v4 <- Whittle(f, fixed = c(0, NA))
-    c(v1$dfrac, v2$dfrac, v3$d, v4$par)
+    v4 <- arfima_whittle(f, fixed = c(0, NA))
+    c(v1[2], v2[2], v3$d, v4[2])
   }
   stopCluster(cl)
   
@@ -217,15 +264,15 @@ ar1_est <- function(phi, N) {
   registerDoRNG(seed = 1, once = FALSE)
   r <- foreach (
     i = 1:M,
-    .export = "Whittle",
+    .export = "arfima_whittle",
     .options.snow = opts
   ) %dopar% {
     source("../R/mc-mssa.R", chdir = TRUE, local = TRUE)
     f <- generate_channel(model)
     v1 <- arima(f, c(1, 0, 0), include.mean = FALSE)$coef
     v2 <- arima(f - mean(f), c(1, 0, 0), include.mean = FALSE)$coef
-    v3 <- Whittle(f, fixed = c(NA, 0))$par
-    c(v1, v2, v3)
+    v3 <- arfima_whittle(f, fixed = c(NA, 0))
+    c(v1, v2, v3[1])
   }
   stopCluster(cl)
   
@@ -262,6 +309,7 @@ plot_ar1 <- function(x) {
   lines(phis, mse_arima, col = cols[1], type = "b")
   lines(phis, mse_arima_centered, col = cols[2], type = "b")
   lines(phis, mse_whittle, col = cols[3], type = "b")
+  
   legend("topleft", legend = legend, col = cols, lty = 1)
   
   bias_arima <- sapply(seq_along(phis), function(i) bias(x[[i]]$arima, phis[i]))
@@ -274,11 +322,13 @@ plot_ar1 <- function(x) {
   lines(phis, bias_arima, col = cols[1], type = "b")
   lines(phis, bias_arima_centered, col = cols[2], type = "b")
   lines(phis, bias_whittle, col = cols[3], type = "b")
+  
   legend("topleft", legend = legend, col = cols, lty = 1)
 
   var_arima <- sapply(x, function(xx) var(xx$arima))
   var_arima_centered <- sapply(x, function(xx) var(xx$arima_centered))
   var_whittle <- sapply(x, function(xx) var(xx$whittle))
+  
   var_max <- max(var_arima, var_arima_centered, var_whittle)
   
   plot(phis, rep(0, length(phis)), xlab = TeX(r"($\phi)"), ylab = "variance", main = "Variance", ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
@@ -286,21 +336,21 @@ plot_ar1 <- function(x) {
   lines(phis, var_arima, col = cols[1], type = "b")
   lines(phis, var_arima_centered, col = cols[2], type = "b")
   lines(phis, var_whittle, col = cols[3], type = "b")
-
+   
   legend("topleft", legend = legend, col = cols, lty = 1)
 }
 ```
 
 ```{r, fig.width=12, fig.height=4}
-pdf(file = "../../tex/mag/img/ar1_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
+#pdf(file = "../../tex/mag/img/ar1_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_ar1(res_ar1$`N = 100`)
-dev.off()
+#dev.off()
 
 # plot_ar1(res_ar1$`N = 500`)
 
-pdf(file = "../../tex/mag/img/ar1_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
+#pdf(file = "../../tex/mag/img/ar1_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_ar1(res_ar1$`N = 1000`)
-dev.off()
+#dev.off()
 ```
 
 # ARFI(1, d)
@@ -315,26 +365,33 @@ arfi_est <- function(phi, d, N) {
   registerDoRNG(seed = 1, once = FALSE)
   r <- foreach (
     i = 1:M,
-    .export = "Whittle",
+    .export = c("Whittle", "mle_arfima"),
     .options.snow = opts
   ) %dopar% {
     source("../R/mc-mssa.R", chdir = TRUE, local = TRUE)
     f <- generate_channel(model)
     v1 <- arfima::arfima(f, c(1, 0, 0), dmean = 1e-20, quiet = TRUE)$modes[[1]]
-    v2 <- arfima::arfima(f, c(1, 0, 0), dmean = FALSE, quiet = TRUE)$modes[[1]]
-    v3 <- fracdiff::fracdiff(f, nar = 1)
-    v4 <- Whittle(f)$par
-    c(v1$phi, v1$dfrac, v2$phi, v2$dfrac, v3$ar, v3$d, v4)
+    v2 <- mle_arfima(f)
+    # v2 <- mle_arfima(f - mean(f))
+    # v2 <- arfima::arfima(f, c(1, 0, 0), dmean = FALSE, quiet = TRUE)$modes[[1]]
+    # v3 <- fracdiff::fracdiff(f, nar = 1)
+    # v4 <- Whittle(f)
+    # c(v1, v2, v3$ar, v3$d, v4[1:2])
+    c(v1$phi, v1$dfrac, v2)
   }
   stopCluster(cl)
   
   r <- do.call(rbind, r) |> data.frame()
   colnames(r) <- c(
     "arfima.phi", "arfima.d",
-    "arfima_centered.phi", "arfima_centered.d",
-    "fracdiff.phi", "fracdiff.d",
-    "whittle.phi", "whittle.d"
+    "mle.phi", "mle.d"
   )
+  # colnames(r) <- c(
+  #   "arfima.phi", "arfima.d",
+  #   "arfima_centered.phi", "arfima_centered.d",
+  #   "fracdiff.phi", "fracdiff.d",
+  #   "whittle.phi", "whittle.d"
+  # )
   row.names(r) <- NULL
   r
 }
@@ -356,100 +413,154 @@ for (i in seq_along(Ns)) {
 
 ```{r}
 plot_arfi <- function(x, phi) {
-  legend <- c("arfima", "arfima centered", "fracdiff", "Whittle")
+  legend <- c("arfima_mle", "arfima")
+  # legend <- c(TeX(r'(MLE($\mu))'), TeX(r'(MLE($\bar{x}$))'), "fracdiff", "Whittle")
   cols <- c("black", "blue", "red", "orange")
   
   par(mfrow = c(2, 3))
   
-  mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.d, ds[i]))
-  mse_arfima_centered <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.d, ds[i]))
-  mse_fracdiff <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.d, ds[i]))
-  mse_whittle <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.d, ds[i]))
-  mse_max <- max(mse_arfima, mse_arfima_centered, mse_fracdiff, mse_whittle)
+  # mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.d, ds[i]))
+  # mse_arfima_centered <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.d, ds[i]))
+  # mse_fracdiff <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.d, ds[i]))
+  # mse_whittle <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.d, ds[i]))
+  # mse_max <- max(mse_arfima, mse_arfima_centered, mse_fracdiff, mse_whittle)
   
-  plot(ds, rep(0, length(ds)), ylab = "mse", main = "MSE (d)", ylim = c(0, 2 * mse_max), type = 'l', lty = 2, xaxt = "n")
+  mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.d, ds[i]))
+  mse_mle <- sapply(seq_along(ds), function(i) mse(x[[i]]$mle.d, ds[i]))
+  mse_max <- max(mse_arfima, mse_mle)
+  
+  plot(ds, rep(0, length(ds)), xlab = "d", ylab = "mse", main = TeX(r"(MSE(d))"), ylim = c(0, 2 * mse_max), type = 'l', lty = 2, xaxt = "n")
   axis(1, ds)
-  lines(ds, mse_arfima, col = cols[1], type = "b")
-  lines(ds, mse_arfima_centered, col = cols[2], type = "b")
-  lines(ds, mse_fracdiff, col = cols[3], type = "b")
-  lines(ds, mse_whittle, col = cols[4], type = "b")
+  # lines(ds, mse_arfima, col = cols[1], type = "b")
+  # lines(ds, mse_arfima_centered, col = cols[2], type = "b")
+  # lines(ds, mse_fracdiff, col = cols[3], type = "b")
+  # lines(ds, mse_whittle, col = cols[4], type = "b")
+  
+  lines(ds, mse_arfima, col = cols[2], type = "b")
+  lines(ds, mse_mle, col = cols[1], type = "b")
   legend("topleft", legend = legend, col = cols, lty = 1)
+  
+  # bias_arfima <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.d, ds[i]))
+  # bias_arfima_centered <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered.d, ds[i]))
+  # bias_fracdiff <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff.d, ds[i]))
+  # bias_whittle <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle.d, ds[i]))
+  # bias_max <- max(abs(c(bias_arfima, bias_whittle, bias_arfima_centered, bias_fracdiff)))
   
   bias_arfima <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.d, ds[i]))
-  bias_arfima_centered <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered.d, ds[i]))
-  bias_fracdiff <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff.d, ds[i]))
-  bias_whittle <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle.d, ds[i]))
-  bias_max <- max(abs(c(bias_arfima, bias_arfima_centered, bias_fracdiff, bias_whittle)))
+  bias_mle <- sapply(seq_along(ds), function(i) bias(x[[i]]$mle.d, ds[i]))
+  bias_max <- max(abs(c(bias_arfima, bias_mle)))
   
-  plot(ds, rep(0, length(ds)), ylab = "bias", main = "Bias (d)", ylim = c(-bias_max, bias_max), type = 'l', lty = 2, xaxt = "n")
+  plot(ds, rep(0, length(ds)), xlab = "d", ylab = "bias", main = TeX(r"(Bias(d))"), ylim = c(-bias_max, bias_max), type = 'l', lty = 2, xaxt = "n")
   axis(1, ds)
-  lines(ds, bias_arfima, col = cols[1], type = "b")
-  lines(ds, bias_arfima_centered, col = cols[2], type = "b")
-  lines(ds, bias_fracdiff, col = cols[3], type = "b")
-  lines(ds, bias_whittle, col = cols[4], type = "b")
+  # lines(ds, bias_arfima, col = cols[1], type = "b")
+  # lines(ds, bias_arfima_centered, col = cols[2], type = "b")
+  # lines(ds, bias_fracdiff, col = cols[3], type = "b")
+  # lines(ds, bias_whittle, col = cols[4], type = "b")
   legend("topleft", legend = legend, col = cols, lty = 1)
-
-  var_arfima <- sapply(x, function(xx) var(xx$arfima.d))
-  var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered.d))
-  var_fracdiff <- sapply(x, function(xx) var(xx$fracdiff.d))
-  var_whittle <- sapply(x, function(xx) var(xx$whittle.d))
-  var_max <- max(var_arfima, var_arfima_centered, var_fracdiff, var_whittle)
   
-  plot(ds, rep(0, length(ds)), ylab = "variance", main = "Variance (d)", ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
+  lines(ds, bias_arfima, col = cols[2], type = "b")
+  lines(ds, bias_mle, col = cols[1], type = "b")
+  # legend("bottomleft", legend = legend, col = cols, lty = 1)
+
+  # var_arfima <- sapply(x, function(xx) var(xx$arfima.d))
+  # var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered.d))
+  # var_fracdiff <- sapply(x, function(xx) var(xx$fracdiff.d))
+  # var_whittle <- sapply(x, function(xx) var(xx$whittle.d))
+  # var_max <- max(var_arfima, var_whittle, var_arfima_centered, var_fracdiff)
+  
+  var_arfima <- sapply(x, function(xx) var(xx$arfima.d))
+  var_mle <- sapply(x, function(xx) var(xx$mle.d))
+  var_max <- max(var_arfima, var_mle)
+  
+  # print(data.frame(mse_arfima, mse_arfima_centered, mse_fracdiff, mse_whittle))
+  
+  plot(ds, rep(0, length(ds)), xlab = "d", ylab = "variance", main = TeX(r"(Variance(d))"), ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
   axis(1, ds)
-  lines(ds, var_arfima, col = cols[1], type = "b")
-  lines(ds, var_arfima_centered, col = cols[2], type = "b")
-  lines(ds, var_fracdiff, col = cols[3], type = "b")
-  lines(ds, var_whittle, col = cols[4], type = "b")
+  # lines(ds, var_arfima, col = cols[1], type = "b", lwd = 2)
+  # lines(ds, var_arfima_centered, col = cols[2], type = "b", lwd = 2)
+  # lines(ds, var_fracdiff, col = cols[3], type = "b")
+  # lines(ds, var_whittle, col = cols[4], type = "b", lwd = 2)
+  
+  lines(ds, var_arfima, col = cols[2], type = "b")
+  lines(ds, var_mle, col = cols[1], type = "b")
   legend("topleft", legend = legend, col = cols, lty = 1)
    
-  mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.phi, phi))
-  mse_arfima_centered <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.phi, phi))
-  mse_fracdiff <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.phi, phi))
-  mse_whittle <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.phi, phi))
-  mse_max <- max(mse_arfima, mse_arfima_centered, mse_fracdiff, mse_whittle)
+  # mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.phi, phi))
+  # mse_arfima_centered <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.phi, phi))
+  # mse_fracdiff <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.phi, phi))
+  # mse_whittle <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.phi, phi))
+  # mse_max <- max(mse_arfima, mse_whittle, mse_arfima_centered, mse_fracdiff)
   
-  plot(ds, rep(0, length(ds)), ylab = "mse", main = "MSE (phi)", ylim = c(0, 2 * mse_max), type = 'l', lty = 2, xaxt = "n")
+  mse_arfima <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.phi, phi))
+  mse_mle <- sapply(seq_along(ds), function(i) mse(x[[i]]$mle.phi, phi))
+  mse_max <- max(mse_arfima, mse_mle)
+  
+  plot(ds, rep(0, length(ds)), xlab = "d", ylab = "mse", main = TeX(r"(MSE(\phi))"), ylim = c(0, 2 * mse_max), type = 'l', lty = 2, xaxt = "n")
   axis(1, ds)
-  lines(ds, mse_arfima, col = cols[1], type = "b")
-  lines(ds, mse_arfima_centered, col = cols[2], type = "b")
-  lines(ds, mse_fracdiff, col = cols[3], type = "b")
-  lines(ds, mse_whittle, col = cols[4], type = "b")
+  # lines(ds, mse_arfima, col = cols[1], type = "b")
+  # lines(ds, mse_arfima_centered, col = cols[2], type = "b")
+  # lines(ds, mse_fracdiff, col = cols[3], type = "b")
+  # lines(ds, mse_whittle, col = cols[4], type = "b")
+  
+  lines(ds, mse_arfima, col = cols[2], type = "b")
+  lines(ds, mse_mle, col = cols[1], type = "b")
   legend("topleft", legend = legend, col = cols, lty = 1)
   
-  bias_arfima <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.phi, phi))
-  bias_arfima_centered <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered.phi, phi))
-  bias_fracdiff <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff.phi, phi))
-  bias_whittle <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle.phi, phi))
-  bias_max <- max(abs(c(bias_arfima, bias_arfima_centered, bias_fracdiff, bias_whittle)))
+  # bias_arfima <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.phi, phi))
+  # bias_arfima_centered <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered.phi, phi))
+  # bias_fracdiff <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff.phi, phi))
+  # bias_whittle <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle.phi, phi))
+  # bias_max <- max(abs(c(bias_arfima, bias_whittle, bias_arfima_centered, bias_fracdiff)))
   
-  plot(ds, rep(0, length(ds)), ylab = "bias", main = "Bias (phi)", ylim = c(-bias_max, bias_max), type = 'l', lty = 2, xaxt = "n")
+  bias_arfima <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.phi, phi))
+  bias_mle <- sapply(seq_along(ds), function(i) bias(x[[i]]$mle.phi, phi))
+  bias_max <- max(abs(c(bias_arfima, bias_mle)))
+  
+  plot(ds, rep(0, length(ds)), xlab = "d", ylab = "bias", main = TeX(r"(Bias(\phi))"), ylim = c(-bias_max, bias_max), type = 'l', lty = 2, xaxt = "n")
   axis(1, ds)
-  lines(ds, bias_arfima, col = cols[1], type = "b")
-  lines(ds, bias_arfima_centered, col = cols[2], type = "b")
-  lines(ds, bias_fracdiff, col = cols[3], type = "b")
-  lines(ds, bias_whittle, col = cols[4], type = "b")
+  # lines(ds, bias_arfima, col = cols[1], type = "b", lwd = 2)
+  # lines(ds, bias_arfima_centered, col = cols[2], type = "b", lwd = 2)
+  # lines(ds, bias_fracdiff, col = cols[3], type = "b")
+  # lines(ds, bias_whittle, col = cols[4], type = "b", lwd = 2)
   legend("bottomleft", legend = legend, col = cols, lty = 1)
   
-  var_arfima <- sapply(x, function(xx) var(xx$arfima.phi))
-  var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered.phi))
-  var_fracdiff <- sapply(x, function(xx) var(xx$fracdiff.phi))
-  var_whittle <- sapply(x, function(xx) var(xx$whittle.phi))
-  var_max <- max(var_arfima, var_arfima_centered, var_whittle)
+  lines(ds, bias_arfima, col = cols[2], type = "b")
+  lines(ds, bias_mle, col = cols[1], type = "b")
+  # legend("topleft", legend = legend, col = cols, lty = 1)
   
-  plot(ds, rep(0, length(ds)), ylab = "variance", main = "Variance (phi)", ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
+  # var_arfima <- sapply(x, function(xx) var(xx$arfima.phi))
+  # var_arfima_centered <- sapply(x, function(xx) var(xx$arfima_centered.phi))
+  # var_fracdiff <- sapply(x, function(xx) var(xx$fracdiff.phi))
+  # var_whittle <- sapply(x, function(xx) var(xx$whittle.phi))
+  # var_max <- max(var_arfima, var_whittle, var_arfima_centered, var_fracdiff)
+  
+  var_arfima <- sapply(x, function(xx) var(xx$arfima.phi))
+  var_mle <- sapply(x, function(xx) var(xx$mle.phi))
+  var_max <- max(var_arfima, var_max)
+  
+  # print(data.frame(var_arfima, var_arfima_centered, var_whittle))
+  
+  plot(ds, rep(0, length(ds)), xlab = "d", ylab = "variance", main = TeX(r"(Variance(\phi))"), ylim = c(0, 2 * var_max), type = 'l', lty = 2, xaxt = "n")
   axis(1, ds)
-  lines(ds, var_arfima, col = cols[1], type = "b")
-  lines(ds, var_arfima_centered, col = cols[2], type = "b")
-  lines(ds, var_fracdiff, col = cols[3], type = "b")
-  lines(ds, var_whittle, col = cols[4], type = "b")
+  # lines(ds, var_arfima, col = cols[1], type = "b", lwd = 2)
+  # lines(ds, var_arfima_centered, col = cols[2], type = "b", lwd = 2)
+  # lines(ds, var_fracdiff, col = cols[3], type = "b")
+  # lines(ds, var_whittle, col = cols[4], type = "b", lwd = 2)
+  
+  lines(ds, var_arfima, col = cols[2], type = "b")
+  lines(ds, var_mle, col = cols[1], type = "b")
   legend("topleft", legend = legend, col = cols, lty = 1)
 }
 ```
 
 ```{r, fig.width=12, fig.height=8}
-plot_arfi(res_arfi1$`N = 100`, phi)
+#pdf(file = "../../tex/mag/img/arfi_est_phi1.pdf", width = 12, height = 3.5, pointsize = 15)
+#plot_arfi(res_arfi1$`N = 100`, phi)
+#dev.off()
+
+pdf(file = "../../tex/mag/img/arfi_est_phi1.pdf", width = 12, height = 6, pointsize = 15)
 plot_arfi(res_arfi1$`N = 1000`, phi)
+dev.off()
 ```
 
 2. $\varphi=0.5$
@@ -467,8 +578,11 @@ for (i in seq_along(Ns)) {
 ```
 
 ```{r, fig.width=12, fig.height=8}
-plot_arfi(res_arfi2$`N = 100`, phi)
+# plot_arfi(res_arfi2$`N = 100`, phi)
+
+pdf(file = "../../tex/mag/img/arfi_est_phi5.pdf", width = 12, height = 6, pointsize = 15)
 plot_arfi(res_arfi2$`N = 1000`, phi)
+dev.off()
 ```
 
 3. $\phi=0.9$
@@ -486,28 +600,75 @@ for (i in seq_along(Ns)) {
 ```
 
 ```{r, fig.width=12, fig.height=8}
-plot_arfi(res_arfi3$`N = 100`, phi)
+# plot_arfi(res_arfi3$`N = 100`, phi)
+
+pdf(file = "../../tex/mag/img/arfi_est_phi9.pdf", width = 12, height = 6, pointsize = 15)
 plot_arfi(res_arfi3$`N = 1000`, phi)
+dev.off()
+```
+
+
+```{r}
+table_res_arfi <- function(x, phi, coef = 1) {
+  mse_arfima_d <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.d, ds[i]))
+  mse_arfima_phi <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima.phi, phi))
+  
+  mse_arfima_centered_d <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.d, ds[i]))
+  mse_arfima_centered_phi <- sapply(seq_along(ds), function(i) mse(x[[i]]$arfima_centered.phi, phi))
+  
+  mse_fracdiff_d <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.d, ds[i]))
+  mse_fracdiff_phi <- sapply(seq_along(ds), function(i) mse(x[[i]]$fracdiff.phi, phi))
+
+  mse_whittle_d <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.d, ds[i]))
+  mse_whittle_phi <- sapply(seq_along(ds), function(i) mse(x[[i]]$whittle.phi, phi))
+
+  bias_arfima_d <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.d, ds[i]))
+  bias_arfima_phi <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima.phi, phi))
+
+  bias_arfima_centered_d <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered.d, ds[i]))
+  bias_arfima_centered_phi <- sapply(seq_along(ds), function(i) bias(x[[i]]$arfima_centered.phi, phi))
+
+  bias_fracdiff_d <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff.d, ds[i]))
+  bias_fracdiff_phi <- sapply(seq_along(ds), function(i) bias(x[[i]]$fracdiff.phi, phi))
+
+  bias_whittle_d <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle.d, ds[i]))
+  bias_whittle_phi <- sapply(seq_along(ds), function(i) bias(x[[i]]$whittle.phi, phi))
+
+  xtable::xtable(
+    coef * data.frame(
+      ds, rep(phi, length(ds)),
+      mse_arfima_d, mse_arfima_phi,
+      mse_arfima_centered_d, mse_arfima_centered_phi,
+      mse_fracdiff_d, mse_fracdiff_phi,
+      mse_whittle_d, mse_whittle_phi,
+      bias_arfima_d, bias_arfima_phi,
+      bias_arfima_centered_d, bias_arfima_centered_phi,
+      bias_fracdiff_d, bias_fracdiff_phi,
+      bias_whittle_d, bias_whittle_phi
+      ),
+    digits = 3
+  )
+} 
 ```
 
 
 ```{r}
 phi <- 0.9
 
-mse_arfima_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 100`[[i]]$arfima.d, ds[i]))
-mse_arfima_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 100`[[i]]$arfima.phi, phi))
+mse_arfima_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$arfima.d, ds[i]))
+mse_arfima_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$arfima.phi, phi))
 
-mse_arfima_centered_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 100`[[i]]$arfima_centered.d, ds[i]))
-mse_arfima_centered_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 100`[[i]]$arfima_centered.phi, phi))
+mse_arfima_centered_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$arfima_centered.d, ds[i]))
+mse_arfima_centered_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$arfima_centered.phi, phi))
 
-mse_fracdiff_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 100`[[i]]$fracdiff.d, ds[i]))
-mse_fracdiff_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 100`[[i]]$fracdiff.phi, phi))
+mse_fracdiff_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$fracdiff.d, ds[i]))
+mse_fracdiff_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$fracdiff.phi, phi))
 
-mse_whittle_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 100`[[i]]$whittle.d, ds[i]))
-mse_whittle_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 100`[[i]]$whittle.phi, phi))
+mse_whittle_d <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$whittle.d, ds[i]))
+mse_whittle_phi <- sapply(seq_along(ds), function(i) mse(res_arfi3$`N = 1000`[[i]]$whittle.phi, phi))
 
-bias_arfima_d <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$arfima.d, ds[i]))
-bias_arfima_phi <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$arfima.phi, phi))
+bias_arfima_d <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 1000`[[i]]$arfima.d, ds[i]))
+bias_arfima_phi <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 1000`[[i]]$arfima.phi, phi))
 
 bias_arfima_centered_d <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$arfima_centered.d, ds[i]))
 bias_arfima_centered_phi <- sapply(seq_along(ds), function(i) bias(res_arfi3$`N = 100`[[i]]$arfima_centered.phi, phi))
@@ -530,7 +691,7 @@ xtable::xtable(
     bias_fracdiff_d, bias_fracdiff_phi,
     bias_whittle_d, bias_whittle_phi
   ),
-  digits = 3
+  digits = 5
 )
 ```
 

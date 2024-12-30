@@ -27,7 +27,9 @@ f1 <- as.vector(wind$RPT - mean(wind$RPT))
 ```{r}
 model_wind_fi <- Whittle(wind$RPT, fixed = c(0, NA))
 model_wind_fi
-arfima::arfima(wind$RPT, dmean = FALSE, quiet = TRUE)
+
+arfima_mle(f1, fixed = c(0, NA))
+# arfima::arfima(wind$RPT, dmean = FALSE, quiet = TRUE)
 fracdiff::fracdiff(wind$RPT)
 
 model_wind_fi <- list(
@@ -41,7 +43,9 @@ model_wind_fi <- list(
 ```{r}
 model_wind_arfi <- Whittle(wind$RPT)
 model_wind_arfi
-arfima::arfima(wind$RPT, c(1, 0, 0), dmean = FALSE, quiet = TRUE)
+
+arfima_mle(f1)
+# arfima::arfima(wind$RPT, c(1, 0, 0), dmean = FALSE, quiet = TRUE)
 fracdiff::fracdiff(wind$RPT, nar = 1)
 
 model_wind_arfi <- list(
@@ -111,7 +115,12 @@ lines(per2$freq, spectral_density(per2$freq, d = 0.4054710, sigma2 = 0.4902565),
 dev.off()
 ```
 ```{r}
-model_NileMin <- Whittle(f2, fixed = c(0, NA))
+model_NileMin <- arfima_whittle(f2, fixed = c(0, NA))
+
+model_NileMin
+arfima_mle(f2-mean(f2), fixed = c(0, NA))
+fracdiff::fracdiff(f2)
+
 model_NileMin <- list(
   dfrac = model_NileMin["d"],
   sigma2 = model_NileMin["sigma2"],
