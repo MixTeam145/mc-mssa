@@ -443,7 +443,7 @@ TODO
 \begin{equation}\label{eq:mle_distribution}
 	\sqrt{n}(\widehat{\bm\varphi}_\mathrm{ML} - \bm\varphi_0)\overset{d}{\longrightarrow} \mathcal{N}_{k+1}(0, \mathcal{I}^{-1}(\bm{\varphi}_0)),
 \end{equation}
-где $\bm\varphi_0$~--- истинный вектор параметров, $\mathcal{I}(\bm\varphi)$~--- информационная матрица Фишера. Поскольку Whittle является апроксимацией MLE, Также известно~\cite[Proposition 8.3]{Hassler2018}, что вектор $\widehat{\bm\varphi}_W$ имеет такое же асимптотическое распределение, что и $\widehat{\bm\varphi}_\mathrm{ML}$.
+где $\bm\varphi_0$~--- истинный вектор параметров, $\mathcal{I}(\bm\varphi)$~--- информационная матрица Фишера. Также известно~\cite[Proposition 8.3]{Hassler2018}, что вектор $\widehat{\bm\varphi}_W$ имеет такое же асимптотическое распределение, что и $\widehat{\bm\varphi}_\mathrm{ML}$.
 
 Покажем, что методы MLE и Whittle реализованы корректно, посмотрев на дисперсию оценок для $n=10000$. В таблице~\ref{tab:variance} представлены оценки дисперсий $\hat d$ и $\hat \phi$, в скобках указана настоящая дисперсия. Как видим, для разных значений параметров значение дисперсий оценок близки к теоретическим.
 
@@ -721,8 +721,8 @@ TODO
 		\hline
 		Метод & $\hat{d}$ & $\hat{\sigma}^2$ \\
 		\hline
-		$\mathsf{arfima}$ & 0.39264 & 0.48939 \\
-		$\mathsf{fracdiff}$ & 0.39327 & 0.48934 \\
+		$\mathrm{MLE}(\bar x)$ & 0.39264 & 0.48939 \\
+		H\&R & 0.39327 & 0.48934 \\
 		Whittle & 0.40547 & 0.49026 \\
 		\hline
 	\end{tabular}
@@ -768,7 +768,7 @@ TODO
 		\hline
 		Метод & $\hat d$ & $\hat\sigma^2$ & $\hat{d}$ & $\hat\phi$ & $\hat{\sigma}^2$ \\
 		\hline
-		MLE & 0.37117 & 24.39916 & 0.17306 & 0.28403 & 23.7581 \\
+		$\mathrm{MLE}(\bar x)$ & 0.37117 & 24.39916 & 0.17306 & 0.28403 & 23.7581 \\
 		H\&R & 0.36891 & 24.38116 & 0.17245 & 0.28309 & 23.73458 \\
 		Whittle & 0.37287 & 24.40285 & 0.17598 & 0.28105 & 23.75983 \\
 		\hline
