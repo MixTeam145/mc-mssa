@@ -314,14 +314,13 @@ TODO
 \end{enumerate}
 Для оценки параметров этих моделей на языке $\mathsf{R}$~\cite{R} были реализованы функции \textsf{arfima\_mle} и \textsf{arfima\_whittle}, которые соответствуют методам MLE и Whittle соответственно. Для реализации MLE были использованы функции \textsf{tacvfARFIMA} из пакета \textsf{arfima}~\cite{Veenstra2012} и \textsf{DLLoglikelihood} из пакета \textsf{ltsa}~\cite{McLeod2007}, вычисляющие автоковариационную функцию модели ARFIMA и функцию $\ell_c(\bm\varphi)$ из формулы~\eqref{eq:mle_objective} соответственно. 
 
-Помимо функций \textsf{arfima\_mle} и \textsf{arfima\_whittle}, будем оценивать параметры функциями, реализованными в пакетах \textsf{R}:
+Помимо функций \textsf{arfima\_mle} и \textsf{arfima\_whittle}, будем использовать следующие функции:
 \begin{enumerate}
-	\item Функция \textsf{arima} из пакета \textsf{stats}, соответствующая MLE модели ARMA;
-	% \item Функция $\mathsf{arfima}$ из пакета $\mathsf{arfima}$~\cite{Veenstra2012}, соответствующая MLE модели $\mathrm{ARFIMA}$;
-	\item Функция \textsf{fracdiff} из пакета \textsf{fracdiff}~\cite{Maechler1999}, соответствующая апроксимации MLE модели ARFIMA, описанной в работе~\cite{Haslett1989} (обозначим за H\&R).
+	\item Функцию \textsf{arima} из пакета \textsf{stats}, соответствующую MLE модели ARMA;
+	\item Функцию \textsf{fracdiff} из пакета \textsf{fracdiff}~\cite{Maechler1999}, соответствующую апроксимации MLE модели ARFIMA, описанной в работе~\cite{Haslett1989} (обозначим ее за H\&R).
 \end{enumerate}
 \begin{remark}
-	Помимо вышеперечисленных функций, существует функция \textsf{arfima} из пакета \textsf{arfima}, которая соответствует MLE модели ARFIMA. Но данная реализация MLE в некоторых случаях дает оценки хуже, чем \textsf{arfima\_mle}. Сравнение оценок обоих реализаций можно найти в разделе~\ref{sect:mle_comparison}.
+	Помимо вышеперечисленных функций, в пакете \textsf{arfima} есть функция \textsf{arfima}, которая вычисляет MLE модели ARFIMA. Но данная реализация MLE в некоторых случаях дает оценки хуже, чем \textsf{arfima\_mle}. Сравнение оценок обоих реализаций можно найти в разделе~\ref{sect:mle_comparison}.
 \end{remark}
 Поскольку для реальных временных рядов матожидание $\mu$ неизвестно, будем рассматривать MLE с известным средним и с его оценкой~--- выборочным средним (будем обозначать их $\mathrm{MLE}(\mu)$ и $\mathrm{MLE}(\bar x)$ соответственно). Не умаляя общности, пусть $\mu=0$.
 
