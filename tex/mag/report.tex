@@ -29,14 +29,14 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \usepackage{bm}
 
 \theoremstyle{definition}
-\newtheorem{definition}{Определение}[section]
+\newtheorem{definition}{Определение}[chapter]
 \newtheorem{algorithm}{Алгоритм}
-\newtheorem{remark}{Замечание}[section]
-\newtheorem{example}{Пример}[section]
-\newtheorem{assumption}{Предположение}[section]
+\newtheorem{remark}{Замечание}[chapter]
+\newtheorem{example}{Пример}[chapter]
+% \newtheorem{assumption}{Предположение}[section]
 \newtheorem{statement}{Утверждение}
-\newtheorem{proposition}{Предложение}[section]
-\newtheorem{corollary}{Следствие}[section]
+\newtheorem{proposition}{Предложение}[chapter]
+\newtheorem{corollary}{Следствие}[chapter]
 
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\Z}{\mathbb{Z}}
@@ -74,7 +74,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 % Научный руководитель
 \sa       {Голяндина Нина Эдуардовна \\%
 	Кафедра Статистического Моделирования}
-\sastatus {к.\,ф.-м.\,н., доцент}
+\sastatus {д.\,ф.-м.\,н., доцент}
 
 % Город и год
 \city{Санкт-Петербург}
@@ -114,9 +114,16 @@ TODO
 	\]
 	где $\{\varepsilon_t\}\sim\mathrm{WN}(0, \sigma^2)$.
 \end{definition}
+\begin{remark}
+	Модель $\mathrm{ARMA}(p, q)$ является стационарным и обратимым процессом, если корни характеристических полиномов
+	\[
+		\phi(L)=1-\sum_{i=1}^p \phi_i L^i,\quad \theta(L)=1+\sum_{i=1}^q \theta_i L^i
+	\]
+	 лежат вне единичной окружности $\{z:|z|=1\}$~\cite[Section 3.4.1]{BoxJenkins2016}.
+\end{remark}
 
 \begin{definition}
-	Процесс $\{X_t\}$ называют красным шумом с параметрами $\phi$ и $\sigma^2$, если $\{X_t\}$~--- модель $\mathrm{ARMA}(p, q)$ с $p=1$, $q=0$ и $\phi=\phi_1>0$.
+	Процесс $\{X_t\}$ называют красным шумом с параметрами $\phi$ и $\sigma^2$, если $\{X_t\}$~--- стационарная модель $\mathrm{ARMA}(p, q)$ с $p=1$, $q=0$ и $\phi=\phi_1\in(0, 1)$.
 \end{definition}
 
 \begin{definition}
@@ -132,6 +139,9 @@ TODO
 	\]
 	называют периодограммой выборки размера $n$ процесса $\{Y_t\}$.
 \end{definition}
+\begin{remark}
+	Периодограмма является асимптотически несмещенной оценкой спектральной плотности, то есть $\mathsf{E}[I(w)] \to f(w)$, при $n\to\infty$~\cite[Section 2.2.3]{BoxJenkins2016}. 
+\end{remark}
 
 \section{Процессы с длинной памятью}
 \begin{definition}\label{def:longmemory}
@@ -158,7 +168,7 @@ TODO
 %     при $\lambda\to0$, где $\ell_2(\cdot)$~--- медленно меняющаяся на бесконечности функция.
 % \end{enumerate}
 \begin{example}
-	Процессом с короткой памятью является, например, стационарная модель $\mathrm{ARMA}(p, q)$, поскольку $|\gamma(h)|\leqslant CR^h$, где $C>0$ и $0<R<1$~\cite{BoxJenkins2016}.
+	Процессом с короткой памятью является, например, стационарная модель $\mathrm{ARMA}(p, q)$, поскольку $|\gamma(h)|\leqslant CR^h$, где $C>0$ и $0<R<1$~\cite[Section 10.4]{BoxJenkins2016}.
 \end{example}
 % Примером стационарного процесса с длинной памятью является дробно интегрированный процесс.
 Введем понятие дробного интегрирования $(1-L)^d$, где $L$~--- оператор сдвига. Например, для $d=1$ имеем $(1-L)Y_t=Y_t-Y_{t-1}$, для $d=2$~--- $(1-L)^2Y_t=Y_t-2Y_{t-1}+Y_{t-2}$, и так далее. Обобщим этот оператор для нецелых $d$ с помощью разложения в ряд Тейлора функции $(1-x)^d$ в нуле:
@@ -197,14 +207,15 @@ TODO
 % \end{remark}
 
 \begin{proposition}\label{prop1}
-	$\mathrm{ARFIMA}(p, d, q)$ является стационарным процессом с нулевым средним при $d<1/2$. Его спектральная плотность определяется выражением
+	Процесс $\{Y_t\}$ из определения~\ref{def:arfima} является стационарным процессом с нулевым средним. Его спектральная плотность определяется выражением
 	\begin{equation}\label{eq:spec_long}
 		\begin{aligned}
-			f_Y(\omega) & =\sigma^2 4^{-d}\sin^{-2d}\left(\pi\omega\right)f_X(\omega)                                                                                              \\
-			            & =\sigma^2 4^{-d}\sin^{-2d}\left(\pi\omega\right)\frac{\left|\theta(e^{-2\pi \omega\im})\right|^2}{\left|\phi(e^{-2\pi\omega\im})\right|^2},\quad\omega>0 \\
-			            & \sim\sigma^2\omega^{-2d}\frac{|\theta(1)|^2}{|\phi(1)|^2},\quad \omega\to0,
+			f_Y(\omega) & =4^{-d}\sin^{-2d}\left(\pi\omega\right)f_X(\omega)                                                                                              \\
+			            & =4^{-d}\sin^{-2d}\left(\pi\omega\right)\sigma^2\frac{\left|\theta(e^{-2\pi \omega\im})\right|^2}{\left|\phi(e^{-2\pi\omega\im})\right|^2},\quad\omega>0 \\
+			            & \sim\omega^{-2d}\sigma^2\frac{|\theta(1)|^2}{|\phi(1)|^2},\quad \omega\to0,
 		\end{aligned}
 	\end{equation}
+	где $\phi(L)$, $\theta(L)$ --- характеристические полиномы процесса $\{X_t\}$.
 \end{proposition}
 \begin{proof}
 	См.~\cite[Proposition 6.1]{Hassler2018}.
@@ -249,7 +260,7 @@ TODO
 Процессы с длинной памятью, являющиеся частным случаем процессов со степенной спектральной плотностью, довольно распространены. Например, в работе~\cite{Hipel1994} обнаружена длинная память в таких среднегодовых гидрологических временных рядах, как количество осадков, температура и данных о речном стоке. В работе~\cite{Haslett1989} на наличие длинной памяти исследовалась скорость ветра в Ирландии, в работе~\cite{Mariani2020} исследовался эффект длинной памяти у сейсмических данных. Помимо геофизики, длинная память встречается также в финансах~\cite{Barkoulas1997,Guglielmo2019}.
 
 \section{Оценка параметров}
-Пусть $Y_t=(1-L)^{-d}X_t$, $d<1/2$. Будем считать, что $\{X_t\}$ представляет собой модель $\mathrm{ARMA}(p, q)$ с нормально распределенным белым шумом $\{\varepsilon_t\}$. Тогда его спектральная плотность $f_X(\omega)=f_X(\omega; \bm\psi, \sigma)$, где
+Пусть $Y_t=(1-L)^{-d}X_t$, $d<1/2$. Будем считать, что $\{X_t\}$ представляет собой модель $\mathrm{ARMA}(p, q)$ с нормально распределенным белым шумом $\{\varepsilon_t\}$. Тогда представим его спектральную плотность в параметрическом виде: $f_X(\omega)=f_X(\omega; \bm\psi, \sigma)$, где
 \[
 	\bm\psi=(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q)^\rmT.
 \]
@@ -285,9 +296,9 @@ TODO
 	Для вычисления $\ell_c$ можно использовать алгоритм Левинсона-Дурбина, имеющий временную трудоемкость $O(n^2)$~\cite{McLeod2007}.
 \end{remark}
 \subsection{Whittle estimation}
-Метод максимального правдоподобия применим, когда известно матожидание $\mu$. При неизвестном $\mu$ можно использовать его оценку $\overline{\bm Y}$, однако, помимо этого, существует проблема вычислительной сложности метода при больших $n$.
+Метод максимального правдоподобия применим, когда известно матожидание $\mu$. При неизвестном $\mu$ обычно используют его оценку $\overline{\bm Y}$, однако, помимо этого, существует проблема вычислительной сложности метода при больших $n$.
 
-Обе эти проблемы можно решить, используя оценку Уиттла (Whittle): вместо логарифма функции правдоподобия рассматривается ее оценка (с точностью до константы)~\cite{Whittle1953}. Пусть $f(\omega, \bm\varphi, \sigma^2)$~--- спектральная плотность $\{Y_t\}$, $I(\omega)$~--- периодограмма $\bm Y$, тогда
+Обе эти проблемы можно решить, используя оценку Уиттла (Whittle): вместо логарифма функции правдоподобия рассматривается ее оценка (с точностью до константы)~\cite{Whittle1953}. Пусть $f(\omega; \bm\varphi, \sigma^2)$~--- спектральная плотность $\{Y_t\}$, $I(\omega)$~--- периодограмма $\bm Y$, тогда
 \[
 	\ell_W(\bm\varphi, \sigma^2)=-\frac1m\sum_{j=1}^m\left(\ln f(\omega_j; \bm\varphi, \sigma^2) + \frac{I(\omega_j)}{f(\omega_j; \bm\varphi, \sigma^2)}\right),
 \]
@@ -444,7 +455,7 @@ TODO
 \end{equation}
 где $\bm\varphi_0$~--- истинный вектор параметров, $\mathcal{I}(\bm\varphi)$~--- информационная матрица Фишера. Также известно~\cite[Proposition 8.3]{Hassler2018}, что вектор $\widehat{\bm\varphi}_W$ имеет такое же асимптотическое распределение, что и $\widehat{\bm\varphi}_\mathrm{ML}$.
 
-Покажем, что методы MLE и Whittle реализованы корректно, посмотрев на дисперсию оценок для $n=10000$. В таблице~\ref{tab:variance} представлены оценки дисперсий $\hat d$ и $\hat \phi$, в скобках указана настоящая дисперсия. Как видим, для разных значений параметров значение дисперсий оценок близки к теоретическим.
+Покажем, что методы MLE и Whittle реализованы корректно, посмотрев на дисперсию оценок для $n=10000$. В таблице~\ref{tab:variance} представлены оценки дисперсий $\hat d$ и $\hat \phi$, в скобках указана теоретическая дисперсия. Как видим, для разных значений параметров значение дисперсий оценок близки к теоретическим.
 
 \begin{table}[h]
 	\centering
