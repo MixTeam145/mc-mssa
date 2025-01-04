@@ -297,7 +297,7 @@ mcssa <- function(f,
 }
 
 
-plot.mcssa <- function(x, by.order = FALSE) {
+plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
   df <-
     data.frame(
       frequency = x$projec_vectors$freq,
@@ -317,11 +317,15 @@ plot.mcssa <- function(x, by.order = FALSE) {
   }
   
   p <- p +
-    geom_point() +
-    geom_errorbar(aes(ymin = lower, ymax = upper), color = "blue") +
+    geom_point(size = point.size) +
+    geom_errorbar(aes(ymin = lower, ymax = upper), color = "black", linewidth = 0.2) +
     scale_color_manual(values = c("blue", "red")) +
-    theme_bw() +
-    theme(legend.position = "none") 
+    theme(
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5),
+      panel.background = element_blank(),
+      legend.position = "none",
+      axis.title=element_text(size = text.size)
+    )
   p
 }
 
