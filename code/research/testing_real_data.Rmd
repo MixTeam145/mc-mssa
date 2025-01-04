@@ -25,7 +25,7 @@ f1 <- as.vector(wind$RPT - mean(wind$RPT))
 ```
 
 ```{r}
-model_wind_fi <- Whittle(wind$RPT, fixed = c(0, NA))
+model_wind_fi <- arfima_whittle(wind$RPT, fixed = c(0, NA))
 model_wind_fi
 
 arfima_mle(f1, fixed = c(0, NA))
@@ -41,7 +41,7 @@ model_wind_fi <- list(
 
 
 ```{r}
-model_wind_arfi <- Whittle(wind$RPT)
+model_wind_arfi <- arfima_whittle(wind$RPT)
 model_wind_arfi
 
 arfima_mle(f1)
@@ -58,7 +58,7 @@ model_wind_arfi <- list(
 
 ```{r}
 set.seed(1234)
-m1_fi <- mcssa(f1, 60, "ev", model0 = model_wind_fi, conf.level = 0.95)
+m1_fi <- mcssa(f1, 365, "ev", model0 = model_wind_fi, conf.level = 0.95)
 ```
 
 ```{r}
@@ -136,8 +136,10 @@ m2 <- mcssa(f2-mean(f2), L = 330, "ev", model0 = model_NileMin, conf.level = 0.9
 ```
 
 ```{r}
-p <- plot(m2) + scale_y_continuous(trans = scales::pseudo_log_trans(base = 10))
-ggsave("../../tex/mag/img/NileMin_mcssa.pdf", p, device = "pdf", width = 12, height = 5, units = "cm")
+p <- plot(m2, text.size = 8, point.size = 0.5) + scale_y_continuous(trans = scales::pseudo_log_trans(base = 10))
+ggsave("../../tex/mag/img/NileMin_mcssa.pdf", p, device = "pdf", width = 12, height = 5, units = "cm") 
+
+knitr::plot_crop("../../tex/mag/img/NileMin_mcssa.pdf")
 ```
 
 # Central England temperature
