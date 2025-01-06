@@ -16,10 +16,10 @@ source("../R/mc-mssa.R", chdir = TRUE)
 ```{r, message=FALSE}
 library(gstat)
 data(wind)
-pdf("../../tex/mag/img/IrelandWind_ts.pdf", width = 12, height = 5, pointsize = 20)
-par(mar = c(2.2, 2.2, 2, 1.2))
+# pdf("../../tex/mag/img/IrelandWind_ts.pdf", width = 12, height = 5, pointsize = 20)
+# par(mar = c(2.2, 2.2, 2, 1.2))
 plot(ts(wind$RPT, start = 1961, frequency = 365), type = 'l', ylab = "", xlab = "", main = "Ireland Wind")
-dev.off()
+# dev.off()
 
 f1 <- as.vector(wind$RPT - mean(wind$RPT))
 ```
@@ -58,22 +58,35 @@ model_wind_arfi <- list(
 
 ```{r}
 set.seed(1234)
-m1_fi <- mcssa(f1, 365, "ev", model0 = model_wind_fi, conf.level = 0.95)
+system.time(m1_fi_cos <- mcssa(f1, L = 365, "cos", model0 = model_wind_fi, conf.level = 0.95))
 ```
 
 ```{r}
-p1_fi <- plot(m1_fi) + scale_y_continuous(trans = scales::pseudo_log_trans(base = 10)) + ylab("")
-what.reject(m1_fi)
-ggsave("../../tex/mag/img/IrelandWind_mcssa_fi.pdf", p1_fi, device = "pdf", width = 12, height = 5, units = "cm")
+p1_fi <-
+  plot(m1_fi_cos, text.size = 8, point.size = 0.5) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10)) +
+  xlim(0, 0.2)
+p1_fi
+what.reject(m1_fi_cos)
+# ggsave("../../tex/mag/img/IrelandWind_mcssa_fi.pdf", p1_fi, device = "pdf", width = 12, height = 5, units = "cm")
+
+# knitr::plot_crop("../../tex/mag/img/IrelandWind_mcssa_fi.pdf")
 ```
 
 ```{r}
-m1_arfi <- mcssa(f1, 60, "ev", model0 = model_wind_arfi, conf.level = 0.95)
+set.seed(1234)
+m1_arfi_cos <- mcssa(f1, 365, "cos", model0 = model_wind_arfi, conf.level = 0.95)
 ```
 
 ```{r}
-p1_arfi <- plot(m1_arfi) + scale_y_continuous(trans = scales::pseudo_log_trans(base = 10)) + ylab("")
-ggsave("../../tex/mag/img/IrelandWind_mcssa_arfi.pdf", p1_arfi, device = "pdf", width = 12, height = 5, units = "cm")
+p1_arfi <-
+  plot(m1_arfi_cos, text.size = 8, point.size = 0.5) +
+  xlim(0, 0.2)
+p1_arfi
+what.reject(m1_arfi_cos)
+# ggsave("../../tex/mag/img/IrelandWind_mcssa_arfi.pdf", p1_arfi, device = "pdf", width = 12, height = 5, units = "cm")
+
+# knitr::plot_crop("../../tex/mag/img/IrelandWind_mcssa_arfi.pdf")
 ```
 
 # Nile River Minima, 622-1284 (Beran, 1994)
@@ -81,10 +94,13 @@ ggsave("../../tex/mag/img/IrelandWind_mcssa_arfi.pdf", p1_arfi, device = "pdf", 
 ```{r, message=FALSE}
 library(longmemo)
 data("NileMin")
-pdf("../../tex/mag/img/NileMin_ts.pdf", width = 12, height = 5, pointsize = 20)
-par(mar = c(2.2, 2.2, 2, 1.2))
+
+# pdf("../../tex/mag/img/NileMin_ts.pdf", width = 12, height = 5, pointsize = 20)
 plot(ts(NileMin / 100, start = 622), ylab = "", xlab = "", main = "Nile Minima")
-dev.off()
+# dev.off()
+
+# knitr::plot_crop("../../tex/mag/img/NileMin_ts.pdf")
+
 f2 <- as.vector(NileMin) / 100
 ```
 Автокорреляционная функция:
@@ -92,11 +108,12 @@ f2 <- as.vector(NileMin) / 100
 lag <- 30
 acrs <- acf(f2, lag.max = lag, plot = FALSE)
 
-pdf("../../tex/mag/img/NileMin_acf.pdf", width = 12, height = 5, pointsize = 20)
-par(mar = c(2.2, 2.2, 2, 1.2))
+# pdf("../../tex/mag/img/NileMin_acf.pdf", width = 12, height = 5, pointsize = 20)
 plot(acvs$lag, acvs$acf, type = "b", ylim = c(0, 1), main = "Sample autocorrelation", xlab = "lag", ylab = "ACF", col = "blue", lwd = 2, xaxt = "n")
 axis(1, 0:lag)
-dev.off()
+# dev.off()
+
+# knitr::plot_crop("../../tex/mag/img/NileMin_acf.pdf") 
 ```
 
 ```{r}
@@ -108,11 +125,12 @@ spectral_density <- function(w, d = 0, phi = 0, sigma2 = 1) {
 Периодограмма временного ряда:
 ```{r}
 per2 <- spec.pgram(f2, taper = 0, detrend = FALSE, fast = FALSE, log = 'no', plot = FALSE)
-pdf("../../tex/mag/img/NileMin_per.pdf", width = 12, height = 5, pointsize = 20)
-par(mar = c(4, 4, 2, 1.2))
+# pdf("../../tex/mag/img/NileMin_per.pdf", width = 12, height = 5, pointsize = 20)
 plot(per2$freq, per2$spec, type = "l", main = "Periodogram", xlab = "frequency", ylab = "spectrum")
 lines(per2$freq, spectral_density(per2$freq, d = 0.4054710, sigma2 = 0.4902565), col = "blue", lwd = 2)
-dev.off()
+# dev.off()
+
+# knitr::plot_crop("../../tex/mag/img/NileMin_per.pdf") 
 ```
 ```{r}
 model_NileMin <- arfima_whittle(f2, fixed = c(0, NA))
@@ -136,10 +154,12 @@ m2 <- mcssa(f2-mean(f2), L = 330, "ev", model0 = model_NileMin, conf.level = 0.9
 ```
 
 ```{r}
-p <- plot(m2, text.size = 8, point.size = 0.5) + scale_y_continuous(trans = scales::pseudo_log_trans(base = 10))
-ggsave("../../tex/mag/img/NileMin_mcssa.pdf", p, device = "pdf", width = 12, height = 5, units = "cm") 
+p2 <-
+  plot(m2, text.size = 8, point.size = 0.5) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10))
+# ggsave("../../tex/mag/img/NileMin_mcssa.pdf", p2, device = "pdf", width = 12, height = 5, units = "cm") 
 
-knitr::plot_crop("../../tex/mag/img/NileMin_mcssa.pdf")
+# knitr::plot_crop("../../tex/mag/img/NileMin_mcssa1.pdf")
 ```
 
 # Central England temperature
