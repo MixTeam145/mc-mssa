@@ -65,11 +65,14 @@ projec <- function(data, L, W, kind = c("columns", "rows")) {
     X_res[, (1 + (channel - 1) * K):(channel * K)] <- t(tX)
   }
   
+  # f.fft <- fft(c(f[(N-L+1):N], f[1:(N-L)]))
+  
   if (kind == "rows") {
     p <- X_res %*% W # Projection on rows
   }
   else {
     p <- t(X_res) %*% W # Projection on columns
+    # p <- mvfft(W * f.fft, inverse = TRUE)[L:N, ] / N # Projection
   }
   colSums(p ^ 2 / N) # divide by N to weaken the dependence on t.s. length
 }
@@ -95,12 +98,29 @@ basis.ev <- function(ts, L, toeplitz.method, factor.v = FALSE) {
     s <- ssa(ts, L, neig, kind = "mssa")
   }
   
+  res <- list()
+  
   if (factor.v) {
-    s$V
+    res$W <- s$V 
   }
   else {
-    s$U
+    res$W <- s$U
   }
+  
+  res$freq <- apply(res$W, 2, est_freq)
+  res
+}
+
+# Generate vectors for projections as cosine vectors
+basis.cos <- function(L) {
+  W <- matrix(0, nrow = L, ncol = L)
+  separat <- 1 / (2 * L)
+  freq <- seq(0, 0.5 - separat, separat) # Grid of frequencies
+  for (i in seq_along(freq)) {
+    W[, i] <- cos(2 * pi * freq[i] * 1:L)
+    W[, i] <- W[, i] / Norm(W[, i])
+  }
+  list(W = W, freq = freq)
 }
 
 matrix.toeplitz <- function(phi, L) {
@@ -156,24 +176,35 @@ do.test <- function(x,
                     G,
                     two.tailed = FALSE,
                     freq.range = c(0, 0.5)) {
-  freq <- apply(projec_vectors, 2, est_freq)
-  idx <- freq >=  freq.range[1] & freq <= freq.range[2]
+  
+  # fftU <- mvfft(
+  #   rbind(
+  #     matrix(
+  #       0,
+  #       nrow = length(x$series[, 1]) - x$L,
+  #       ncol = dim(projec_vectors$W)[2]
+  #     ),
+  #     projec_vectors$W[x$L:1, ])
+  # )
+  
+  idx <-
+    projec_vectors$freq >=  freq.range[1] & projec_vectors$freq <= freq.range[2]
   if (!any(idx))
     stop("No vectors with given frequency range, aborting")
   
-  projec_vectors <- projec_vectors[, idx, drop = FALSE]
+  projec_vectors$W <- projec_vectors$W[, idx, drop = FALSE]
   
   P <- replicate(
     G,
-    projec(x$model, x$L, projec_vectors, x$kind),
+    projec(x$model, x$L, fftU, x$kind),
     simplify = FALSE
   )
   P <- do.call(cbind, P)
-  v <- projec(x$series, x$L, projec_vectors, x$kind)
+  v <- projec(x$series, x$L, fftU, x$kind)
   
   x$projec_vectors <- list(
-    W = projec_vectors,
-    freq = freq[idx],
+    W = projec_vectors$W,
+    freq = projec_vectors$freq[idx],
     contribution = v
   )
   x$freq.range <- freq.range
@@ -227,7 +258,7 @@ do.test <- function(x,
 #' @param composite If TRUE performs test with composite null hypothesis (noise + nuisance signal)
 mcssa <- function(f,
                   L,
-                  basis = c("ev", "t"),
+                  basis = c("ev", "t", "cos"),
                   kind = c("columns", "rows"),
                   toeplitz.method = c("no", "sum", "block"),
                   model = c("ar1", "fi"),
@@ -278,12 +309,21 @@ mcssa <- function(f,
     else
       projec_vectors <- basis.ev(f.basis, L, toeplitz.method)
   }
-  else {
+  else if (basis == "t") {
     if (kind == 'fa')
       projec_vectors <- basis.toeplitz(estModel, N - L + 1, D, factor.v = TRUE)
     else
       projec_vectors <- basis.toeplitz(estModel, L, D)
   }
+  else if (D == 1) {
+    projec_vectors <- basis.cos(L)
+    
+  }
+  else {
+    stop()
+  }
+  
+  # projec_vectors$W <- gpu.matrix(projec_vectors$W)
   
   this <- do.test(
     this,
@@ -324,7 +364,7 @@ plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
       panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5),
       panel.background = element_blank(),
       legend.position = "none",
-      axis.title=element_text(size = text.size)
+      axis.title = element_text(size = text.size)
     )
   p
 }
