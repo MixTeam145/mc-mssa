@@ -4,7 +4,7 @@ output: html_document
 ---
 
 ```{r}
-library(arfima)
+source("../R/mc-mssa.R", chdir = TRUE)
 ```
 
 ```{r}
@@ -16,42 +16,43 @@ eig <- eigen(m, symmetric = TRUE)
 ```
 
 ```{r}
-pdf("../tex/mag/img/eigenvectors_longmemo1.pdf", width = 12, height = 5, pointsize = 20)
+# pdf("../../tex/mag/img/eigenvectors_longmemo1.pdf", width = 12, height = 5, pointsize = 20)
 par(mar=c(5.1, 4.1, 4.1, 8.1), xpd=TRUE)
 matplot(eig$vectors[, 1:5], type = "l", lty = 1, lwd = 2, ylab = "")
 legend("topright", inset = c(-0.2, 0), legend = 1:5, col = 1:5, lty = 1, lwd = 2)
-dev.off()
+# dev.off()
 
 
-pdf("../tex/mag/img/eigenvectors_longmemo2.pdf", width = 12, height = 5, pointsize = 20)
+# pdf("../tex/mag/img/eigenvectors_longmemo2.pdf", width = 12, height = 5, pointsize = 20)
 par(mar=c(5.1, 4.1, 4.1, 8.1), xpd=TRUE)
 matplot(eig$vectors[, 6:10], type = "l", lty = 1, lwd = 2, ylab = "")
 legend("topright", inset = c(-0.2, 0), legend = 6:10, col = 1:5, lty = 1, lwd = 2)
-dev.off()
+# dev.off()
 
-
-knitr::plot_crop("../tex/mag/img/eigenvectors_longmemo1.pdf")
-knitr::plot_crop("../tex/mag/img/eigenvectors_longmemo2.pdf")
-```
-```{r}
-pdf("../tex/mag/img/eigenvalues_longmemo.pdf", width = 12, height = 5, pointsize = 20)
-plot(freq, eig$values, type = "p", log = "y", ylab = "eigenvalue", xlab = "frequency")
-lines(seq(0, 0.5, 0.001), spectral_density(seq(0, 0.5, 0.001), d = 0.4), col = "blue")
-dev.off()
-
-knitr::plot_crop("../tex/mag/img/eigenvalues_longmemo.pdf")
+# knitr::plot_crop("../../tex/mag/img/eigenvectors_longmemo1.pdf")
+# knitr::plot_crop("../tex/mag/img/eigenvectors_longmemo2.pdf")
 ```
 
 ```{r}
 freq <- apply(eig$vectors, 2, est_freq)
+w <- seq(0, 0.5, 0.001)
 
-pdf("../tex/mag/img/eigenvectors_freq_diff.pdf", width = 12, height = 5, pointsize = 20)
+# pdf("../tex/mag/img/eigenvalues_longmemo.pdf", width = 12, height = 5, pointsize = 20)
+plot(freq, eig$values, type = "p", log = "y", ylab = "eigenvalue", xlab = "frequency")
+lines(w, spectral_density(w, dfrac = 0.4), col = "blue")
+# dev.off()
+
+# knitr::plot_crop("../tex/mag/img/eigenvalues_longmemo.pdf")
+```
+
+```{r}
+# pdf("../tex/mag/img/eigenvectors_freq_diff.pdf", width = 12, height = 5, pointsize = 20)
 plot(diff(freq), ylab = "difference", xlab = "", ylim = c(0.0025, 0.0075), yaxt = "n")
 axis(2, c(0.0025, 0.005, 0.0075))
 abline(h = 1 / (2 * n), lty = 2)
-dev.off()
+# dev.off()
 
-knitr::plot_crop("../tex/mag/img/eigenvectors_freq_diff.pdf")
+# knitr::plot_crop("../tex/mag/img/eigenvectors_freq_diff.pdf")
 ```
 
 

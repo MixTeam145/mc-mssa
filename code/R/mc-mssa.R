@@ -15,10 +15,111 @@ library("magic")
 library("arfima")
 
 source("toeplitz_mssa.R")
+source("arfima.R")
 
 type = 8
 
 ### Functions for Monte Carlo SSA
+
+# Spectral density of ARFIMA(1, d, 0) model
+spec_arfima <- function(w,
+                        phi = 0,
+                        d = 0,
+                        sigma2 = 1) {
+  sigma2 * (2 * sin(pi * w)) ^ (-2 * d)  /
+    abs(1 - phi * exp(-2i * pi * w)) ^ 2
+}
+
+# Maximum likelihood estimation of ARFIMA(1, d, 0) model
+arfima_mle <- function(x, fixed = NULL) {
+  n <- length(x)
+  
+  if (is.null(fixed))
+    fixed <- rep(NA, 2)
+  
+  mask <- is.na(fixed)
+  
+  objective <- function(p) {
+    par <- fixed
+    par[mask] <- p
+    r <- tacvfARFIMA(phi = par[1], dfrac = par[2], maxlag = n - 1)
+    -DLLoglikelihood(r, x)
+  }
+  
+  init <- c(0, 0)
+  lower <- c(-1, -0.5) + 1e-4
+  upper <- c(1, 0.5) - 1e-4
+  
+  opt <- optim(
+    init[mask],
+    objective,
+    method = "L-BFGS-B",
+    lower = lower[mask],
+    upper = upper[mask]
+  )
+  
+  coef <- fixed
+  coef[mask] <- opt$par
+  names(coef) <- c("phi", "d")
+  
+  r <- tacvfARFIMA(phi = coef[1], dfrac = coef[2], maxlag = n - 1)
+  error <- DLResiduals(r, x)
+  
+  c(coef, sigma2 = mean(error^2))
+}
+
+# Whittle estimation of ARFIMA(1, d, 0) model
+arfima_whittle <- function(x, fixed = NULL) {
+  n <- length(x)
+  m <- (n - 1) %/% 2
+  
+  # Periodogram
+  per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
+  freq <- 1:m / n
+  
+  # ARFIMA(1, d, 0) spectrum
+  spec <- function(par) {
+    phi <- par[1]
+    d <- par[2]
+    (2 * sin(pi * freq)) ^ (-2 * d) /
+      abs(1 - phi * exp(-2i * pi * freq)) ^ 2
+  }
+  
+  if (is.null(fixed))
+    fixed <- rep(NA, 2)
+  
+  mask <- is.na(fixed)
+  
+  # Whittle loglikelihood
+  objective <- function(p) {
+    par <- fixed
+    par[mask] <- p
+    g <- spec_arfima(freq, par[1], par[2])
+    sigma2 <- mean(per / g)
+    loglike <- -log(sigma2) - mean(log(g)) - 1
+    - loglike
+  }
+  
+  init <- c(0, 0)
+  lower <- c(-1, -0.5) + 1e-4
+  upper <- c(1, 0.5) - 1e-4
+  
+  opt <- optim(
+    init[mask],
+    objective,
+    method = "L-BFGS-B",
+    lower = lower[mask],
+    upper = upper[mask]
+  )
+  
+  coef <- fixed
+  coef[mask] <- opt$par
+  names(coef) <- c("phi", "d")
+  
+  c(coef, sigma2 = mean(per / spec_arfima(freq, coef[1], coef[2])))
+}
+
+
 # Estimate AR(1) or FI(d) parameters
 est_model <- function(f, model = c("ar1", "fi")) {
   model <- match.arg(model)
@@ -323,8 +424,6 @@ mcssa <- function(f,
     stop()
   }
   
-  # projec_vectors$W <- gpu.matrix(projec_vectors$W)
-  
   this <- do.test(
     this,
     projec_vectors,
@@ -445,17 +544,6 @@ DH.sim <- function(n, acvf, ...) {
   
   # Truncate the resulted series
   x[1:n]
-}
-
-# Theoretical autocovariance function for FD(d) process
-tacvfFD <- function(lag.max, d, sigma2 = 1) {
-  acv0 <- sigma2 * gamma(1 - 2 * d) / gamma(1 - d) ^ 2
-  acvs <- c(acv0)
-  if (lag.max > 0) {
-    ks <- 1:lag.max
-    acvs <- cumprod(c(acv0, (ks - 1 + d) / (ks - d)))
-  }
-  acvs
 }
 
 # Generates sinusoidal signal with specified frequency

@@ -4,13 +4,10 @@ output: html_document
 ---
 
 ```{r include=FALSE}
-library(arfima)
-library(longmemo)
 library(doSNOW)
 library(parallel)
 library(doRNG)
 library(latex2exp)
-library(ltsa)
 
 M <- 500
 pb <- txtProgressBar(max = M, style = 3)
@@ -45,97 +42,6 @@ mse <- function(x, x_true) {
 
 bias <- function(x, x_true) {
   mean(x) - x_true
-}
-```
-
-```{r}
-arfima_whittle <- function(x, fixed = NULL) {
-  n <- length(x)
-  m <- (n - 1) %/% 2
-  
-  # Periodogram
-  per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
-  freq <- 1:m / n
-  
-  # ARFI(1, d) spectrum
-  spec <- function(par) {
-    phi <- par[1]
-    d <- par[2]
-    (2 * sin(pi * freq)) ^ (-2 * d) /
-      abs(1 - phi * exp(-2i * pi * freq)) ^ 2
-  }
-  
-  if (is.null(fixed))
-    fixed <- rep(NA, 2)
-  
-  mask <- is.na(fixed)
-  
-  # Whittle loglikelihood
-  objective <- function(p) {
-    par <- fixed
-    par[mask] <- p
-    g <- spec(par)
-    sigma2 <- mean(per / g)
-    loglike <- -log(sigma2) - mean(log(g)) - 1
-    - loglike
-  }
-  
-  init <- c(0, 0)
-  lower <- c(-1, -0.5) + 1e-4
-  upper <- c(1, 0.5) - 1e-4
-  
-  opt <- optim(
-    init[mask],
-    objective,
-    method = "L-BFGS-B",
-    lower = lower[mask],
-    upper = upper[mask]
-  )
-  
-  coef <- fixed
-  coef[mask] <- opt$par
-  names(coef) <- c("phi", "d")
-  
-  c(coef, sigma2 = mean(per / spec(coef)))
-}
-```
-
-```{r}
-arfima_mle <- function(x, fixed = NULL) {
-  n <- length(x)
-  
-  if (is.null(fixed))
-    fixed <- rep(NA, 2)
-  
-  mask <- is.na(fixed)
-  
-  objective <- function(p) {
-    par <- fixed
-    par[mask] <- p
-    r <- tacvfARFIMA(phi = par[1], dfrac = par[2], maxlag = n - 1)
-    -DLLoglikelihood(r, x)
-  }
-  
-  init <- c(0, 0)
-  lower <- c(-1, -0.5) + 1e-4
-  upper <- c(1, 0.5) - 1e-4
-  
-  opt <- optim(
-    init[mask],
-    objective,
-    method = "L-BFGS-B",
-    lower = lower[mask],
-    upper = upper[mask]
-  )
-  
-  coef <- fixed
-  coef[mask] <- opt$par
-  names(coef) <- c("phi", "d")
-  
-  r <- tacvfARFIMA(phi = coef[1], dfrac = coef[2], maxlag = n - 1)
-  error <- DLResiduals(r, x)
-  
-  c(coef, sigma2 = mean(error^2))
 }
 ```
 
@@ -300,18 +206,18 @@ for (i in seq_along(Ns)) {
 ```
 
 ```{r, fig.width=12, fig.height=4}
-pdf(file = "../../tex/mag/img/fi_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
+# pdf(file = "../../tex/mag/img/fi_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
 par(mfrow = c(1, 3))
 plot_arfi(res_fi$`N = 100`, "d")
-dev.off()
+# dev.off()
 
-pdf(file = "../../tex/mag/img/fi_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
+# pdf(file = "../../tex/mag/img/fi_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
 par(mfrow = c(1, 3))
 plot_arfi(res_fi$`N = 1000`, "d")
-dev.off()
+# dev.off()
 
-knitr::plot_crop("../../tex/mag/img/fi_est_N100.pdf")
-knitr::plot_crop("../../tex/mag/img/fi_est_N1000.pdf")
+# knitr::plot_crop("../../tex/mag/img/fi_est_N100.pdf")
+# knitr::plot_crop("../../tex/mag/img/fi_est_N1000.pdf")
 ```
 
 # AR(1)
@@ -404,16 +310,16 @@ plot_ar1 <- function(x) {
 ```
 
 ```{r, fig.width=12, fig.height=4}
-pdf(file = "../../tex/mag/img/ar1_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
+# pdf(file = "../../tex/mag/img/ar1_est_N100.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_ar1(res_ar1$`N = 100`)
-dev.off()
+# dev.off()
 
-pdf(file = "../../tex/mag/img/ar1_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
+# pdf(file = "../../tex/mag/img/ar1_est_N1000.pdf", width = 12, height = 3.5, pointsize = 15)
 plot_ar1(res_ar1$`N = 1000`)
-dev.off()
+# dev.off()
 
-knitr::plot_crop("../../tex/mag/img/ar1_est_N100.pdf")
-knitr::plot_crop("../../tex/mag/img/ar1_est_N1000.pdf")
+# knitr::plot_crop("../../tex/mag/img/ar1_est_N100.pdf")
+# knitr::plot_crop("../../tex/mag/img/ar1_est_N1000.pdf")
 ```
 
 # ARFI(1, d)

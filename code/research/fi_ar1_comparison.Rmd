@@ -31,30 +31,25 @@ $$
 sigma2 <- 1
 N <- 100
 
-dfrac <- 0.4
-gamma0 <- gamma(1 - 2 * dfrac) / gamma(1 - dfrac)^2
+d <- 0.4
+gamma0 <- gamma(1 - 2 * d) / gamma(1 - d)^2
 phi <- sqrt(1 - 1 / gamma0)
 
-model_fi <- list(dfrac = dfrac, sigma2 = sigma2, N = N)
+model_fi <- list(dfrac = d, sigma2 = sigma2, N = N)
 model_ar1 <- list(phi = phi, sigma2 = sigma2, N = N) 
 
 Ls <- c(10, 20, 50, 80, 90)
 ```
 
 ```{r}
-spectral_density <- function(w, dfrac = 0, phi = 0, sigma2 = 1) {
-  sigma2 * (2 * sin(pi * w))^(-2 * dfrac)  / abs(1 - phi * exp(-2 * pi * w))^2
-}
-```
-
-```{r}
 w <- seq(0, 0.5, 0.005)
-pdf("../../tex/mag/img/spectrum.pdf", width = 12)
-plot(w, spectral_density(w, dfrac = dfrac), type = "l", col = "red", xlab = latex2exp::TeX(r'(\omega)'), ylab = "spectrum", cex.lab=1.8, cex.axis=1.8, cex.sub=1.8)
-lines(w, spectral_density(w, phi = phi), col = "blue")
-# abline(v = 0.075, lty = 2)
-legend("topright", c("ARFIMA(0, d, 0)", "AR(1)"), col = c("red", "blue"), lty = 1, bty = "n", cex = 2)
-dev.off()
+# pdf("../../tex/mag/img/spectrum.pdf", width = 12, height = 5, pointsize = 20)
+plot(w, spec_arfima(w, d = d), type = "l", col = "red", xlab = latex2exp::TeX(r'(\omega)'), ylab = "spectrum")
+lines(w, spec_arfima(w, phi = phi), col = "blue")
+legend("topright", c("ARFIMA(0, d, 0)", "AR(1)"), col = c("red", "blue"), lty = 1, bty = "n")
+# dev.off()
+
+# knitr::plot_crop("../../tex/mag/img/spectrum.pdf")
 ```
 
 Как видно на графике, график $\mathrm{AR}(1)$ процесса выше $\mathrm{FI}(d)$ везде, кроме маленьких частот, поэтому ожидается повышение мощности MC-SSA, если частота сигнала будет не слишком маленькой.
