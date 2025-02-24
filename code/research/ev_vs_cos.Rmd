@@ -1,0 +1,503 @@
+---
+title: "Сравнение способов задания проекционных векторов"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(foreach)
+library(doSNOW)
+library(parallel)
+library(doRNG)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+load("../research/data/ev_vs_cos.RData")
+```
+Сравним два способа задания векторов для проекции:
+
+1. Собственные векторы матрицы $\mathbf{X}\mathbf{X}^\mathrm{T}$, которые будем называть просто собственными векторами;
+
+2. Косинусы с равностоящими частотами $j/(2L)$, $j=0,\ldots,L-1$.
+
+Будем рассматривать как обычно ряд длины $N=100$ и $L=10,20,50,80,90$.
+
+```{r}
+N <- 100
+Ls <- c(10, 20, 50, 80, 90)
+```
+
+Помимо этого, будем рассматривать два случая:
+
+1. Частота сигнала в альтернативе попадает в решетку $j/(2L)$ для рассматриваемых $L$;
+
+2. Частота сигнала в альтернативе не попадает в решетку.
+
+В первом случае будем рассматривать косинус с частотой $\omega_1=0.1$ и амплитудой $A_1$, во втором --- косинус с частотой $\omega_2=0.085$ и амплитудой $A_2$. Также будем выбирать амплитуду $A_2$ косинуса так, чтобы
+$$
+\frac{A_1^2}{f(\omega_1)}=\frac{A_2^2}{f(\omega_2)}
+$$
+где $f(\omega)$ --- спектральная плотность шума.
+
+### AR(1)
+В качестве модели рассмотрим $\mathrm{AR}(1)$ с $\phi=0.7$ и $\sigma^2=1$.
+```{r}
+phi <- 0.7
+sigma2 <- 1
+model_ar1 <- list(phi = phi, sigma2 = sigma2, N = N)
+```
+
+```{r}
+omega1 <- 0.1
+A1_ar1 <- 0.9
+signal1_ar1 <- A1_ar1 * cos(2 * pi * (1:N) * omega1)
+
+snr <- A1_ar1^2 / spec_arfima(omega1, phi)
+
+omega2 <- 0.085
+A2_ar1 <- sqrt(snr * spec_arfima(omega2, phi))
+signal2_ar1 <- A2_ar1 * cos(2 * pi * (1:N) * omega2)
+```
+
+```{r eval=FALSE, include=FALSE}
+M <- 1000
+pb <- txtProgressBar(max = M, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+
+functions <- c("Norm", "rowQuantiles")
+packages <- c("Rssa", "arfima")
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_ar1_ev <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_ar1)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, conf.level = NULL)
+    res$p.value
+  }
+  p.values_noise_ar1_ev[[idx]] <- result
+}
+
+p.values_noise_ar1_cos <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_ar1)
+    res <- mcssa(f, Ls[idx], "cos", model0 = model_ar1, conf.level = NULL)
+    res$p.value
+  }
+  p.values_noise_ar1_cos[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal1_ar1_ev <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_ar1, signal1_ar1)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal1_ar1_ev[[idx]] <- result
+}
+
+p.values_signal1_ar1_cos <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_ar1, signal1_ar1)
+    res <- mcssa(f, Ls[idx], "cos", model0 = model_ar1, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal1_ar1_cos[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal2_ar1_ev <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_ar1, signal2_ar1)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal2_ar1_ev[[idx]] <- result
+}
+
+p.values_signal2_ar1_cos <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_ar1, signal2_ar1)
+    res <- mcssa(f, Ls[idx], "cos", model0 = model_ar1, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal2_ar1_cos[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r include=FALSE}
+alphas <- 0:1000 / 1000
+clrs <- c("black", "red", "green", "orange", "purple")
+lwds <- c(2, 1, 1, 1, 1)
+
+alphaI_ev <-
+  lapply(p.values_noise_ar1_ev, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_cos <-
+  lapply(p.values_noise_ar1_cos, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+```
+
+```{r echo=FALSE, fig.width=12}
+par(mfrow = c(1, 2))
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "Eigenvectors")
+for (i in seq_along(Ls))
+  lines(alphas, alphaI_ev[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "Cosines")
+for (i in seq_along(Ls))
+  lines(alphas, alphaI_cos[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+Как видим, критерий с косинусами в качестве векторов для проекции дает точный критерий, в отличие от критерия с собственными векторами.
+
+1. Если частота попадает в решетку, мощность критерия с косинусами в качестве проекционных векторов больше для всех длин окна кроме $L=90$, где мощность у обоих критериев примерно одинаковая.
+```{r include=FALSE}
+beta_ev <-
+  lapply(p.values_signal1_ar1_ev, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_cos <-
+  lapply(p.values_signal1_ar1_cos, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+```
+
+```{r echo=FALSE, fig.width=12}
+par(mfrow = c(1, 2))
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "Eigenvectors")
+for (i in seq_along(Ls))
+  lines(alphaI_ev[[i]][-1], beta_ev[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "power", main = "Cosines")
+for (i in seq_along(Ls))
+  lines(alphas[-1], beta_cos[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r echo=FALSE, fig.height=12, fig.width=12}
+par(mfrow = c(3, 2))
+for (i in seq_along(Ls)) {
+  plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = sprintf("L = %d", Ls[i]))
+  lines(alphaI_ev[[i]][-1], beta_ev[[i]][-1], lwd = lwds[i], col = clrs[i])
+  lines(alphas[-1], beta_cos[[i]][-1], lwd = 2, col = clrs[i], lty = 2)
+  legend("bottomright", legend = c("Eigenvectors", "Cosines"), col = clrs[i], lty = c(1, 2), lwd = lwds[i])
+}
+```
+
+2. Если частота не попадает в решетку, то мощность методов примерно одинаковая при $L=20,50,80$. При $L=10$ мощность больше у косинусов, а при $L=90$ --- у собственных векторов.
+```{r include=FALSE}
+beta_ev <-
+  lapply(p.values_signal2_ar1_ev, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_cos <-
+  lapply(p.values_signal2_ar1_cos, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+```
+
+```{r echo=FALSE, fig.width=12}
+par(mfrow = c(1, 2))
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "Eigenvectors of ts")
+for (i in seq_along(Ls))
+  lines(alphaI_ev[[i]][-1], beta_ev[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "power", main = "Cosines")
+for (i in seq_along(Ls))
+  lines(alphas[-1], beta_cos[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r echo=FALSE, fig.height=12, fig.width=12}
+par(mfrow = c(3, 2))
+for (i in seq_along(Ls)) {
+  plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = sprintf("L = %d", Ls[i]))
+  lines(alphaI_ev[[i]][-1], beta_ev[[i]][-1], lwd = lwds[i], col = clrs[i])
+  lines(alphas[-1], beta_cos[[i]][-1], lwd = 2, col = clrs[i], lty = 2)
+  legend("bottomright", legend = c("Eigenvectors of ts", "Cosines"), col = clrs[i], lty = c(1, 2), lwd = lwds[i])
+}
+```
+
+### ARFIMA(0, d, 0)
+Теперь рассмотрим модель $\mathrm{ARFIMA}(0, d, 0)$ с $d=0.4$ и $\sigma^2=1$.
+```{r}
+d <- 0.4
+model_fi <- list(dfrac = d, sigma2 = sigma2, N = N)
+```
+
+```{r}
+A1_fi <- sqrt(snr * spec_arfima(omega1, 0, d))
+signal1_fi <- A1_fi * cos(2 * pi * (1:N) * omega1)
+
+A2_fi <- sqrt(snr * spec_arfima(omega2, 0, d))
+signal2_fi <- A2_fi * cos(2 * pi * (1:N) * omega2)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_noise_fi_ev <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_fi)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, conf.level = NULL)
+    res$p.value
+  }
+  p.values_noise_fi_ev[[idx]] <- result
+}
+
+p.values_noise_fi_cos <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_fi)
+    res <- mcssa(f, Ls[idx], "cos", model0 = model_fi, conf.level = NULL)
+    res$p.value
+  }
+  p.values_noise_fi_cos[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal1_fi_ev <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_fi, signal1_fi)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal1_fi_ev[[idx]] <- result
+}
+
+p.values_signal1_fi_cos <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_fi, signal1_fi)
+    res <- mcssa(f, Ls[idx], "cos", model0 = model_fi, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal1_fi_cos[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- detectCores()
+cluster <- makeCluster(cores - 1)
+registerDoSNOW(cluster)
+registerDoRNG(seed = 1, once = FALSE)
+
+p.values_signal2_fi_ev <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_fi, signal2_fi)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal2_fi_ev[[idx]] <- result
+}
+
+p.values_signal2_fi_cos <- list()
+for (idx in seq_along(Ls)) {
+  result <- foreach (
+    i = 1:M,
+    .combine = 'c',
+    .export = functions,
+    .packages = packages,
+    .options.snow = opts
+  ) %dopar% {
+    f <- generate_channel(model_fi, signal2_fi)
+    res <- mcssa(f, Ls[idx], "cos", model0 = model_fi, conf.level = NULL)
+    res$p.value
+  }
+  p.values_signal2_fi_cos[[idx]] <- result
+}
+
+stopCluster(cluster)
+```
+
+```{r include=FALSE}
+alphaI_ev <-
+  lapply(p.values_noise_fi_ev, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+alphaI_cos <-
+  lapply(p.values_noise_fi_cos, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+```
+
+```{r echo=FALSE, fig.width=12}
+par(mfrow = c(1, 2))
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "Eigenvectors")
+for (i in seq_along(Ls))
+  lines(alphas, alphaI_ev[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "type I error", main = "Cosines")
+for (i in seq_along(Ls))
+  lines(alphas, alphaI_cos[[i]], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+2. Частота попадает в решетку
+```{r include=FALSE}
+beta_ev <-
+  lapply(p.values_signal1_fi_ev, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_cos <-
+  lapply(p.values_signal1_fi_cos, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+```
+
+```{r echo=FALSE, fig.width=12}
+par(mfrow = c(1, 2))
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "Eigenvectors")
+for (i in seq_along(Ls))
+  lines(alphaI_ev[[i]][-1], beta_ev[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "power", main = "Cosines")
+for (i in seq_along(Ls))
+  lines(alphas[-1], beta_cos[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r echo=FALSE, fig.height=12, fig.width=12}
+par(mfrow = c(3, 2))
+for (i in seq_along(Ls)) {
+  plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = sprintf("L = %d", Ls[i]))
+  lines(alphaI_ev[[i]][-1], beta_ev[[i]][-1], lwd = lwds[i], col = clrs[i])
+  lines(alphaI_cos[[i]][-1], beta_cos[[i]][-1], lwd = lwds[i], col = clrs[i], lty = 2)
+  legend("bottomright", legend = c("Eigenvectors", "Cosines"), col = clrs[i], lty = c(1, 2), lwd = lwds[i])
+}
+```
+
+2. Частота не попадает в решетку
+```{r include=FALSE}
+beta_ev <-
+  lapply(p.values_signal2_fi_ev, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta_cos <-
+  lapply(p.values_signal2_fi_cos, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+```
+
+```{r echo=FALSE, fig.width=12}
+par(mfrow = c(1, 2))
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = "Eigenvectors")
+for (i in seq_along(Ls))
+  lines(alphaI_ev[[i]][-1], beta_ev[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+
+plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = "power", main = "Cosines")
+for (i in seq_along(Ls))
+  lines(alphas[-1], beta_cos[[i]][-1], lwd = lwds[i], col = clrs[i])
+legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
+```
+
+```{r echo=FALSE, fig.height=12, fig.width=12}
+par(mfrow = c(3, 2))
+for (i in seq_along(Ls)) {
+  plot(c(0,1), c(0,1), type="l", col = "blue", lty = 2, xlab = "type I error", ylab = "power", main = sprintf("L = %d", Ls[i]))
+  lines(alphaI_ev[[i]][-1], beta_ev[[i]][-1], lwd = lwds[i], col = clrs[i])
+  lines(alphas[-1], beta_cos[[i]][-1], lwd = lwds[i], col = clrs[i], lty = 2)
+  legend("bottomright", legend = c("Eigenvectors", "Cosines"), col = clrs[i], lty = c(1, 2), lwd = lwds[i])
+}
+```
+
+Для этой модели шума косинусы дают более мощный критерий для всех рассмотренных $L$ (кроме $L=50$ в случае не попадания частоты в решетку, мощности примерно одинаковые) в обоих случаях. Учитывая, что для собственных векторов необходимо производить поправку, целесообразнее рассматривать проекцию на косинусы.
