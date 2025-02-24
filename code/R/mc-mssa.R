@@ -15,9 +15,9 @@ library("magic")
 library("arfima")
 
 source("toeplitz_mssa.R")
-source("arfima.R")
 
-type = 8
+# Quantile algorithm 
+type <- 8
 
 ### Functions for Monte Carlo SSA
 
@@ -76,14 +76,6 @@ arfima_whittle <- function(x, fixed = NULL) {
   # Periodogram
   per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
   freq <- 1:m / n
-  
-  # ARFIMA(1, d, 0) spectrum
-  spec <- function(par) {
-    phi <- par[1]
-    d <- par[2]
-    (2 * sin(pi * freq)) ^ (-2 * d) /
-      abs(1 - phi * exp(-2i * pi * freq)) ^ 2
-  }
   
   if (is.null(fixed))
     fixed <- rep(NA, 2)
@@ -151,36 +143,36 @@ projec <- function(data, L, W, kind = c("columns", "rows")) {
     # data are given by a model
     D <- length(data)
     f <- generate(D, data)
-    f <- f - colMeans(f)
   } else {
     # data are given by a series
     f <- data
     D <- dim(f)[2]
   }
+  f <- f - colMeans(f)
   N <- length(f[, 1]) # assert equal length in each channel
   K <- N - L + 1
   
-  X_res <- matrix(0, nrow = L, ncol = K * D)
-  for (channel in seq_len(D)) {
-    tX <- sapply(1:L, function(i) f[i:(i + K - 1), channel])
-    X_res[, (1 + (channel - 1) * K):(channel * K)] <- t(tX)
-  }
+  # X_res <- matrix(0, nrow = L, ncol = K * D)
+  # for (channel in seq_len(D)) {
+  #   tX <- sapply(1:L, function(i) f[i:(i + K - 1), channel])
+  #   X_res[, (1 + (channel - 1) * K):(channel * K)] <- t(tX)
+  # }
   
-  # f.fft <- fft(c(f[(N-L+1):N], f[1:(N-L)]))
+  f.fft <- fft(c(f[(N-L+1):N], f[1:(N-L)]))
   
   if (kind == "rows") {
     p <- X_res %*% W # Projection on rows
   }
   else {
-    p <- t(X_res) %*% W # Projection on columns
-    # p <- mvfft(W * f.fft, inverse = TRUE)[L:N, ] / N # Projection
+    # p <- t(X_res) %*% W # Projection on columns
+    p <- mvfft(W * f.fft, inverse = TRUE)[L:N, ] / N # Projection on columns
   }
-  colSums(p ^ 2 / N) # divide by N to weaken the dependence on t.s. length
+  colSums(Mod(p) ^ 2 / N) # divide by N to weaken the dependence on t.s. length
 }
 
 # Estimate vector main frequency by ESPRIT
 est_freq <- function(v) {
-  s <- ssa(v, neig = 2, svd.method = "propack")
+  s <- ssa(v, neig = 2)
   p <- parestimate(s, list(1:2))
   freq <- p$frequencies[[1]]
   freq
@@ -208,7 +200,6 @@ basis.ev <- function(ts, L, toeplitz.method, factor.v = FALSE) {
     res$W <- s$U
   }
   
-  res$freq <- apply(res$W, 2, est_freq)
   res
 }
 
@@ -245,7 +236,7 @@ basis.toeplitz <- function(model, L, D, fa = F) {
                     nrow = L,
                     ncol = L)
     for (channel in 1:D) {
-      toepl <- toepl + matrix.toeplitz(model[[channel]]$varphi, L)
+      toepl <- toepl + matrix.toeplitz(model[[channel]]$phi, L)
     }
     s <- svd(toepl, L)
     U <- s$u
@@ -259,7 +250,7 @@ basis.toeplitz <- function(model, L, D, fa = F) {
     p <- parestimate(ss, groups = list(1:2))
     freq[i] <- p$frequencies[[1]]
   }
-  list(U = U, freq = freq)
+  list(W = U, freq = freq)
 }
 ### end
 
@@ -275,40 +266,41 @@ do.test <- function(x,
                     projec_vectors,
                     conf.level,
                     G,
-                    two.tailed = FALSE,
-                    freq.range = c(0, 0.5)) {
+                    two.tailed = FALSE) {
   
-  # fftU <- mvfft(
-  #   rbind(
-  #     matrix(
-  #       0,
-  #       nrow = length(x$series[, 1]) - x$L,
-  #       ncol = dim(projec_vectors$W)[2]
-  #     ),
-  #     projec_vectors$W[x$L:1, ])
-  # )
-  
-  idx <-
-    projec_vectors$freq >=  freq.range[1] & projec_vectors$freq <= freq.range[2]
+  if (length(x$freq.range)) {
+    if (!length(projec_vectors$freq))
+      projec_vectors$freq <- apply(projec_vectors$W, 2, est_freq)
+    idx <-
+      projec_vectors$freq >=  x$freq.range[1] & projec_vectors$freq <= x$freq.range[2]
+  }
+  else
+    idx <- seq_len(ncol(projec_vectors$W))
   if (!any(idx))
     stop("No vectors with given frequency range, aborting")
   
   projec_vectors$W <- projec_vectors$W[, idx, drop = FALSE]
   
+  W.fft <- mvfft(
+    rbind(
+      matrix(0, nrow = dim(x$series)[1] - x$L, ncol = dim(projec_vectors$W)[2]),
+      projec_vectors$W[x$L:1, ]
+    )
+  )
+  
   P <- replicate(
     G,
-    projec(x$model, x$L, fftU, x$kind),
+    projec(x$model, x$L, W.fft, x$kind),
     simplify = FALSE
   )
   P <- do.call(cbind, P)
-  v <- projec(x$series, x$L, fftU, x$kind)
+  v <- projec(x$series, x$L, W.fft, x$kind)
   
   x$projec_vectors <- list(
     W = projec_vectors$W,
     freq = projec_vectors$freq[idx],
     contribution = v
   )
-  x$freq.range <- freq.range
   
   means <- apply(P, 1, mean)
   sds <- apply(P, 1, sd)
@@ -352,10 +344,11 @@ do.test <- function(x,
 #' @param toeplitz.method Toeplitz MSSA decomposition method
 #' @param model Noise model to be fitted (will be omitted, if model0 is specified)
 #' @param model0 Exact noise model
-#' @param freq.range Potential signal frequency range
 #' @param G Number of surrogates
 #' @param conf.level Confidence level
 #' @param two.tailed If TRUE performs two-tailed test
+#' @param est.freq If TRUE estimates the main frequencies of projection vectors
+#' @param freq.range Potential signal frequency range
 #' @param composite If TRUE performs test with composite null hypothesis (noise + nuisance signal)
 mcssa <- function(f,
                   L,
@@ -364,10 +357,11 @@ mcssa <- function(f,
                   toeplitz.method = c("no", "sum", "block"),
                   model = c("ar1", "fi"),
                   model0 = list(phi = NA, dfrac = NA, sigma2 = NA, N = NA),
-                  freq.range = c(0, 0.5),
                   G = 1000,
                   conf.level = 0.8,
                   two.tailed = FALSE,
+                  est.freq = TRUE,
+                  freq.range = c(0, 0.5),
                   composite = FALSE) {
   if (is.vector(f)) {
     f <- as.matrix(f)
@@ -414,7 +408,7 @@ mcssa <- function(f,
     if (kind == 'fa')
       projec_vectors <- basis.toeplitz(estModel, N - L + 1, D, factor.v = TRUE)
     else
-      projec_vectors <- basis.toeplitz(estModel, L, D)
+      projec_vectors <- basis.toeplitz(model0, L, D)
   }
   else if (D == 1) {
     projec_vectors <- basis.cos(L)
@@ -424,19 +418,27 @@ mcssa <- function(f,
     stop()
   }
   
+  if (est.freq)
+    this$freq.range <- freq.range
+  else if (!identical(freq.range, c(0, 0.5)))
+    warning("est.freq is set FALSE, freq.range will be omitted")
+  
   this <- do.test(
     this,
     projec_vectors,
     conf.level,
     G,
-    two.tailed,
-    freq.range
+    two.tailed
   )
   this
 }
 
 
 plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
+  if (!length(x$freq.range))
+    warning("The main frequency of projection vectors has not been estimated, estimating it now")
+    x$projec_vectors$freq <- apply(x$projec_vectors$W, 2, est_freq)
+  
   df <-
     data.frame(
       frequency = x$projec_vectors$freq,
@@ -476,10 +478,12 @@ print.mcssa <- function(x) {
   cat("\nProjection vectors: ")
   if (x$basis == "ev")
     cat("based on series (liberal test)")
-  else
+  else if (x$basis == "t")
     cat("eigenvectors of theoretical autocovariance matrix (exact test)")
+  else
+    cat("cosines with frequency j / (2L) (exact test)")
   cat("\nType of projection: on", x$kind, "of trajectory matrix")
-  cat("\nNumber of projection vectors:", length(x$projec_vectors$freq))
+  cat("\nNumber of projection vectors:", ncol(x$projec_vectors$W))
   cat("\np-value:", x$p.value)
   if (!is.null(x$conf.level))
     cat("\nNull hypothesis is", if (!x$reject) "not", "rejected")
@@ -538,9 +542,9 @@ DH.sim <- function(n, acvf, ...) {
   yk <- sqrt(0.5 * ak[ks]) *
     complex(real = eps[2 * ks - 2], imaginary = eps[2 * ks - 1])
   
-  yk <- c(y0, yk, yN, Conj(rev(yk)))
+  y <- c(y0, yk, yN, Conj(rev(yk)))
   
-  x <- Re(fft(yk, inverse = TRUE)) / sqrt(2 * N)
+  x <- Re(fft(y, inverse = TRUE)) / sqrt(2 * N)
   
   # Truncate the resulted series
   x[1:n]
@@ -561,12 +565,12 @@ generate_channel <- function(model, signal = 0) {
   # r <- tacvfARFIMA(phi = model$phi, dfrac = model$dfrac, sigma2 = model$sigma2, maxlag = model$N - 1)
   # xi <- ltsa::DLSimulate(model$N, r)
   xi <- DH.sim(
-     model$N,
-     tacvfARFIMA,
-     phi = model$phi,
-     dfrac = model$dfrac,
-     sigma2 = model$sigma2
-   )
+    model$N,
+    tacvfARFIMA,
+    phi = model$phi,
+    dfrac = model$dfrac,
+    sigma2 = model$sigma2
+  )
   if (!is.null(model$signal)) # composite null hypothesis
     xi <- xi + model$signal
   f <- xi + signal
