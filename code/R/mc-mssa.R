@@ -347,7 +347,7 @@ do.test <- function(x,
 #' @param G Number of surrogates
 #' @param conf.level Confidence level
 #' @param two.tailed If TRUE performs two-tailed test
-#' @param est.freq If TRUE estimates the main frequencies of projection vectors
+#' @param est.freq If TRUE estimates the main frequency of each projection vector
 #' @param freq.range Potential signal frequency range
 #' @param composite If TRUE performs test with composite null hypothesis (noise + nuisance signal)
 mcssa <- function(f,
@@ -436,7 +436,7 @@ mcssa <- function(f,
 
 plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
   if (!length(x$freq.range))
-    warning("The main frequency of projection vectors has not been estimated, estimating it now")
+    warning("The main frequencies of projection vectors missing, estimating it now")
     x$projec_vectors$freq <- apply(x$projec_vectors$W, 2, est_freq)
   
   df <-

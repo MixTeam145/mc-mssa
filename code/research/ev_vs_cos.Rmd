@@ -33,7 +33,7 @@ Ls <- c(10, 20, 50, 80, 90)
 
 2. Частота сигнала в альтернативе не попадает в решетку.
 
-В первом случае будем рассматривать косинус с частотой $\omega_1=0.1$ и амплитудой $A_1$, во втором --- косинус с частотой $\omega_2=0.085$ и амплитудой $A_2$. Также будем выбирать амплитуду $A_2$ косинуса так, чтобы
+В первом случае будем рассматривать косинус с частотой $\omega_1=0.1$ и амплитудой $A_1$, во втором --- косинус с частотой $\omega_2=0.085$ и амплитудой $A_2$. Также будем выбирать амплитуды $A_1$ и $A_2$ так, чтобы
 $$
 \frac{A_1^2}{f(\omega_1)}=\frac{A_2^2}{f(\omega_2)}
 $$
@@ -85,7 +85,7 @@ for (idx in seq_along(Ls)) {
     .options.snow = opts
   ) %dopar% {
     f <- generate_channel(model_ar1)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, conf.level = NULL)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, est.freq = FALSE, conf.level = NULL)
     res$p.value
   }
   p.values_noise_ar1_ev[[idx]] <- result
@@ -126,7 +126,7 @@ for (idx in seq_along(Ls)) {
     .options.snow = opts
   ) %dopar% {
     f <- generate_channel(model_ar1, signal1_ar1)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, conf.level = NULL)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, est.freq = FALSE, conf.level = NULL)
     res$p.value
   }
   p.values_signal1_ar1_ev[[idx]] <- result
@@ -167,7 +167,7 @@ for (idx in seq_along(Ls)) {
     .options.snow = opts
   ) %dopar% {
     f <- generate_channel(model_ar1, signal2_ar1)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, conf.level = NULL)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_ar1, est.freq = FALSE, conf.level = NULL)
     res$p.value
   }
   p.values_signal2_ar1_ev[[idx]] <- result
@@ -218,7 +218,7 @@ legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 
 Как видим, критерий с косинусами в качестве векторов для проекции дает точный критерий, в отличие от критерия с собственными векторами.
 
-1. Если частота попадает в решетку, мощность критерия с косинусами в качестве проекционных векторов больше для всех длин окна кроме $L=90$, где мощность у обоих критериев примерно одинаковая.
+1. Если частота попадает в решетку, мощность критерия с косинусами в качестве проекционных векторов больше для всех длин окна кроме $L=90$, где мощность критериев примерно одинаковая.
 ```{r include=FALSE}
 beta_ev <-
   lapply(p.values_signal1_ar1_ev, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
@@ -311,7 +311,7 @@ for (idx in seq_along(Ls)) {
     .options.snow = opts
   ) %dopar% {
     f <- generate_channel(model_fi)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, conf.level = NULL)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, est.freq = FALSE, conf.level = NULL)
     res$p.value
   }
   p.values_noise_fi_ev[[idx]] <- result
@@ -352,7 +352,7 @@ for (idx in seq_along(Ls)) {
     .options.snow = opts
   ) %dopar% {
     f <- generate_channel(model_fi, signal1_fi)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, conf.level = NULL)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, est.freq = FALSE, conf.level = NULL)
     res$p.value
   }
   p.values_signal1_fi_ev[[idx]] <- result
@@ -393,7 +393,7 @@ for (idx in seq_along(Ls)) {
     .options.snow = opts
   ) %dopar% {
     f <- generate_channel(model_fi, signal2_fi)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, conf.level = NULL)
+    res <- mcssa(f, Ls[idx], "ev", model0 = model_fi, est.freq = FALSE, conf.level = NULL)
     res$p.value
   }
   p.values_signal2_fi_ev[[idx]] <- result
@@ -409,7 +409,7 @@ for (idx in seq_along(Ls)) {
     .options.snow = opts
   ) %dopar% {
     f <- generate_channel(model_fi, signal2_fi)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_fi, conf.level = NULL)
+    res <- mcssa(f, Ls[idx], "cos", model0 = model_fi, est.freq = FALSE, conf.level = NULL)
     res$p.value
   }
   p.values_signal2_fi_cos[[idx]] <- result
@@ -438,7 +438,9 @@ for (i in seq_along(Ls))
 legend(x = "bottomright", as.character(Ls), col = clrs, lty = 1, lwd = lwds)
 ```
 
-2. Частота попадает в решетку
+Заметим, что MC-SSA с собственными векторами при $L=80,90$ дает очень радикальный критерий, поэтому для адекватной оценки мощности поправленного критерия надо бы брать $G>1000$, но это очень трудозатратно. 
+
+1. Частота попадает в решетку
 ```{r include=FALSE}
 beta_ev <-
   lapply(p.values_signal1_fi_ev, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
@@ -500,4 +502,4 @@ for (i in seq_along(Ls)) {
 }
 ```
 
-Для этой модели шума косинусы дают более мощный критерий для всех рассмотренных $L$ (кроме $L=50$ в случае не попадания частоты в решетку, мощности примерно одинаковые) в обоих случаях. Учитывая, что для собственных векторов необходимо производить поправку, целесообразнее рассматривать проекцию на косинусы.
+Для этой модели шума, не считая случаев $L=80,90$, косинусы дают чуть более мощный критерий в обоих случаях. Учитывая это и то, что для критерия с собственными векторами необходимо производить поправку (а в случае очень радикальных критериев еще и увеличивать количество суррогатных выборок $G$), целесообразнее рассматривать проекцию на косинусы.
