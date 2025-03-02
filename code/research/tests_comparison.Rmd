@@ -16,32 +16,63 @@ source("../R/mc-mssa.R", chdir = TRUE)
 load("../research/data/tests_comparison.RData")
 ```
 
-Сравним MC-SSA с критерием Ljung-Box (далее box) и `genwwn.test` (далее wavelet) из пакета `hwwntest`. Поскольку два последних критерия проверяют гипотезу о том, что ряд представляет собой белый шум, будем проверять гипотезу следующим образом:
+Рассмотрим критерии `Box.test` и `genwwn.test` из пакета `hwwntest`. Поскольку эти критерии проверяют гипотезу о том, что ряд представляет собой белый шум, будем проверять гипотезу следующим образом:
 
 1. Подогнать исходный временной ряд под выбранную модель шума и вычислить остаток;
 
 2. Применить к остатку критерий проверки ряда на белый шум.
 
-Рассмотрим модель $\mathrm{ARFIMA}(0, d, 0)$ с $d=0.4$ и $\sigma^2=1$. В качестве векторов для проекции возьмем собственные векторы матрицы $\mathbf{X}\mathbf{X}^\mathrm{T}$ и косинусы с частотами $j/(2L)$. Оценивать параметр $d$ будем с помощью метода Whittle. В критерии box будем использовать первые $10$ лагов, а поскольку параметр $d$ оценивается, количество степеней свободы будем брать меньше на $1$.
+Помимо этих критериев рассмотрим следующий критерий, который в дальнейшем будем называть `spectrum.test`:
+
+1. Вычислить значение периодограммы ряда в точках $\omega_j=j/N$, $j=1,\ldots,m=\lfloor(N-1) / 2\rfloor$.
+
+2. Оценить спектральную плотность ряда.
+
+3. Вычисить статистики критерия: $t_j=2 \cdot I_N(\omega_j) / \widehat{f}(\omega_j)\to\chi^2(2)$.
+
+4. Сравнить $t_j$ с пороговым значением $\gamma_\alpha=-2 \ln\left[1 - (1 - \alpha)^{1 / m}\right]$: если $t_j>\gamma_\alpha$, $j$-ое значение периодограммы значимо.
+
+```{r}
+spectrum.test <- function(x, kind = c("ar1", "fi")) {
+  n <- length(x)
+  m <- (n - 1) %/% 2
+  
+  per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
+  
+  freq <- 1:m / n
+  
+  if (kind == "ar1")
+    fixed <- c(NA, 0)
+  else
+    fixed <- c(0, NA) 
+  
+  model_est <- arfima_whittle(x, fixed)
+  spec <- spec_arfima(freq, model_est["phi"], model_est["d"], model_est["sigma2"])
+  
+  2 * per / spec
+}
+```
+
+Сравним эти критерии с методом Monte-Carlo SSA. Рассмотрим модель $\mathrm{ARFIMA}(0, d, 0)$ с $d=0.4$ и $\sigma^2=1$. В качестве векторов для проекции возьмем собственные векторы матрицы $\mathbf{X}\mathbf{X}^\mathrm{T}$ и косинусы с частотами $j/(2L)$. Оценивать параметр $d$ будем с помощью метода Whittle. В критерии box будем использовать первые $10$ лагов, а поскольку параметр $d$ оценивается, количество степеней свободы будем брать меньше на $1$.
 ```{r}
 d <- 0.4
 sigma2 <- 1
 N <- 128
-model <- list(dfrac = d, sigma2 = sigma2, N = N)
+model_fi <- list(dfrac = d, sigma2 = sigma2, N = N)
 ```
 
 ```{r}
 omega1 <- 0.025
-signal1 <- 1.5 *  cos(2 * pi * (1:N) * omega1)
+signal1_fi <- 1.5 *  cos(2 * pi * (1:N) * omega1)
 
 omega2 <- 0.125
-signal2 <- 0.6 *  cos(2 * pi * (1:N) * omega2)
+signal2_fi <- 0.6 *  cos(2 * pi * (1:N) * omega2)
 
 omega3 <- 0.225
-signal3 <- 0.5 *  cos(2 * pi * (1:N) * omega3)
+signal3_fi <- 0.5 *  cos(2 * pi * (1:N) * omega3)
 ```
 
-```{r eval=FALSE, include=FALSE}
+```{r include=FALSE}
 M <- 1000
 pb <- txtProgressBar(max = M, style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
@@ -56,315 +87,167 @@ Ls <- c(12, 24, 64, 104, 116)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-cores <- detectCores()
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
+mcssa_sim <- function(Ls, basis, model, signal = 0) {
+  source("../R/mc-mssa.R", local = TRUE, chdir = TRUE)
+  
+  cores <- detectCores()
+  cluster <- makeCluster(cores - 1)
+  registerDoSNOW(cluster)
+  registerDoRNG(seed = 1, once = FALSE)
 
-# p.values_noise_mcssa_fi <- list()
-# for (idx in seq_along(Ls)) {
-#   result <- foreach (
-#     i = 1:M,
-#     .combine = 'c',
-#     .export = functions,
-#     .packages = packages,
-#     .options.snow = opts
-#   ) %dopar% {
-#     f <- generate_channel(model)
-#     model_est <- arfima_whittle(f, c(0, NA))
-#     model_est <- list(dfrac = model_est["d"], sigma2 = model_est["sigma2"], N = N)
-#     res <- mcssa(f, Ls[idx], "ev", model0 = model_est, est.freq = FALSE, conf.level = NULL)
-#     res$p.value
-#   }
-#   p.values_noise_mcssa_fi[[idx]] <- result
-# }
-
-p.values_noise_cos_fi <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model)
-    model_est <- arfima_whittle(f, c(0, NA))
-    model_est <- list(dfrac = model_est["d"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_est, conf.level = NULL)
-    res$p.value
+  p.values <- list()
+  for (idx in seq_along(Ls)) {
+    result <- foreach (
+      i = 1:M,
+      .combine = 'c',
+      .export = functions,
+      .packages = packages,
+      .options.snow = opts
+    ) %dopar% {
+      f <- generate_channel(model, signal)
+      model_est <- arfima_whittle(f, c(0, NA))
+      model_est <- list(
+        phi = model_est["phi"],
+        dfrac = model_est["d"],
+        sigma2 = model_est["sigma2"],
+        N = model$N
+      )
+      res <- mcssa(
+        f,
+        Ls[idx],
+        basis,
+        model0 = model_est,
+        est.freq = FALSE,
+        conf.level = NULL
+      )
+      res$p.value
+    }
+    p.values[[idx]] <- result
   }
-  p.values_noise_cos_fi[[idx]] <- result
+  
+  stopCluster(cluster)
+  
+  p.values
 }
-
-stopCluster(cluster)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-cores <- detectCores()
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
+p.values_noise_mev_fi <- mcssa_sim(Ls, "ev", model_fi)
+p.values_signal1_mev_fi <- mcssa_sim(Ls, "ev", model_fi, signal1_fi)
+p.values_signal2_mev_fi <- mcssa_sim(Ls, "ev", model_fi, signal2_fi)
+p.values_signal3_mev_fi <- mcssa_sim(Ls, "ev", model_fi, signal3_fi)
+```
 
-# p.values_signal1_mcssa_fi <- list()
-# for (idx in seq_along(Ls)) {
-#   result <- foreach (
-#     i = 1:M,
-#     .combine = 'c',
-#     .export = functions,
-#     .packages = packages,
-#     .options.snow = opts
-#   ) %dopar% {
-#     f <- generate_channel(model, signal1)
-#     model_est <- arfima_whittle(f, c(0, NA))
-#     model_est <- list(dfrac = model_est["d"], sigma2 = model_est["sigma2"], N = N)
-#     res <- mcssa(f, Ls[idx], "ev", model0 = model_est, est.freq = FALSE, conf.level = NULL)
-#     res$p.value
-#   }
-#   p.values_signal1_mcssa_fi[[idx]] <- result
-# }
+```{r eval=FALSE, include=FALSE}
+p.values_noise_mcos_fi <- mcssa_sim(Ls, "cos", model_fi)
+p.values_signal1_mcos_fi <- mcssa_sim(Ls, "cos", model_fi, signal1_fi)
+p.values_signal2_mcos_fi <- mcssa_sim(Ls, "cos", model_fi, signal2_fi)
+p.values_signal3_mcos_fi <- mcssa_sim(Ls, "cos", model_fi, signal3_fi)
+```
 
-p.values_signal1_cos_fi <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model, signal1)
-    model_est <- arfima_whittle(f, c(0, NA))
-    model_est <- list(dfrac = model_est["d"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_est, conf.level = NULL)
-    res$p.value
+```{r include=FALSE}
+tests_sim <- function(noise.test, kind = c("ar1", "fi"), model, signal = 0, ...) {
+  set.seed(5)
+  
+  if (kind == "ar1")
+      fixed <- c(NA, 0)
+  else
+    fixed <- c(0, NA)
+  
+  p.values <- c()
+  for (i in 1:M) {
+    f <- generate_channel(model, signal)
+    model_est <- arfima_whittle(f, fixed)
+    
+    if (kind == "ar1")
+      resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
+    else
+      resid <- fracdiff::diffseries(f, model_est["d"])
+    
+    p.values <- c(p.values, noise.test(resid, ...)$p.value)
   }
-  p.values_signal1_cos_fi[[idx]] <- result
+  p.values
 }
-
-stopCluster(cluster)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-cores <- detectCores()
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
+p.values_noise_box_fi <- tests_sim(Box.test, "fi", model_fi, lag = 10, type = "Ljung-Box", fitdf = 1)
+p.values_signal1_box_fi <- tests_sim(Box.test, "fi", model_fi, signal1_fi, lag = 10, type = "Ljung-Box", fitdf = 1)
+p.values_signal2_box_fi <- tests_sim(Box.test, "fi", model_fi, signal2_fi, lag = 10, type = "Ljung-Box", fitdf = 1)
+p.values_signal3_box_fi <- tests_sim(Box.test, "fi", model_fi, signal3_fi, lag = 10, type = "Ljung-Box", fitdf = 1)
+```
 
-# p.values_signal2_mcssa_fi <- list()
-# for (idx in seq_along(Ls)) {
-#   result <- foreach (
-#     i = 1:M,
-#     .combine = 'c',
-#     .export = functions,
-#     .packages = packages,
-#     .options.snow = opts
-#   ) %dopar% {
-#     f <- generate_channel(model, signal2)
-#     model_est <- arfima_whittle(f, c(0, NA))
-#     model_est <- list(dfrac = model_est["d"], sigma2 = model_est["sigma2"], N = N)
-#     res <- mcssa(f, Ls[idx], "ev", model0 = model_est, est.freq = FALSE, conf.level = NULL)
-#     res$p.value
-#   }
-#   p.values_signal2_mcssa_fi[[idx]] <- result
-# }
+```{r eval=FALSE, include=FALSE}
+p.values_noise_wavelet_fi <- tests_sim(genwwn.test, "fi", model_fi)
+p.values_signal1_wavelet_fi <- tests_sim(genwwn.test, "fi", model_fi, signal1_fi)
+p.values_signal2_wavelet_fi <- tests_sim(genwwn.test, "fi", model_fi, signal2_fi)
+p.values_signal3_wavelet_fi <- tests_sim(genwwn.test, "fi", model_fi, signal3_fi)
+```
 
-p.values_signal2_cos_fi <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model, signal2)
-    model_est <- arfima_whittle(f, c(0, NA))
-    model_est <- list(dfrac = model_est["d"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_est, conf.level = NULL)
-    res$p.value
+```{r include=FALSE}
+m <- (N - 1) %/% 2
+alphas <- 0:1000 / 1000
+threshold <- -2 * log(1 - (1 - alphas)^(1 / m))
+
+spectrum.test_sim <- function(kind, model, signal = 0) {
+  set.seed(5)
+  rejected <- rep(0, length(alphas))
+  for (i in 1:M) {
+    f <- generate_channel(model, signal)
+    t <- spectrum.test(f, kind)
+    rejected <- rejected + sapply(seq_along(alphas), function(i) sum(t > threshold[i]) > 0)
   }
-  p.values_signal2_cos_fi[[idx]] <- result
-}
-
-stopCluster(cluster)
-```
-
-```{r eval=FALSE, include=FALSE}
-cores <- detectCores()
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
-
-# p.values_signal3_mcssa_fi <- list()
-# for (idx in seq_along(Ls)) {
-#   result <- foreach (
-#     i = 1:M,
-#     .combine = 'c',
-#     .export = functions,
-#     .packages = packages,
-#     .options.snow = opts
-#   ) %dopar% {
-#     f <- generate_channel(model, signal3)
-#     model_est <- arfima_whittle(f, c(0, NA))
-#     model_est <- list(dfrac = model_est["d"], sigma2 = model_est["sigma2"], N = N)
-#     res <- mcssa(f, Ls[idx], "ev", model0 = model_est, est.freq = FALSE, conf.level = NULL)
-#     res$p.value
-#   }
-#   p.values_signal3_mcssa_fi[[idx]] <- result
-# }
-
-p.values_signal3_cos_fi <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model, signal3)
-    model_est <- arfima_whittle(f, c(0, NA))
-    model_est <- list(dfrac = model_est["d"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_est, conf.level = NULL)
-    res$p.value
-  }
-  p.values_signal3_cos_fi[[idx]] <- result
-}
-
-stopCluster(cluster)
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_noise_box_fi <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model)
-  model_est <- arfima_whittle(f, c(0, NA))
-  resid <- fracdiff::diffseries(f, model_est["d"])
-  p.values_noise_box_fi <- c(p.values_noise_box_fi, Box.test(resid, 10, "Ljung-Box", 1)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal1_box_fi <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model, signal1)
-  model_est <- arfima_whittle(f, c(0, NA))
-  resid <- fracdiff::diffseries(f, model_est["d"])
-  p.values_signal1_box_fi <- c(p.values_signal1_box_fi, Box.test(resid, 10, "Ljung-Box", 1)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal2_box_fi <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model, signal2)
-  model_est <- arfima_whittle(f, c(0, NA))
-  resid <- fracdiff::diffseries(f, model_est["d"])
-  p.values_signal2_box_fi <- c(p.values_signal2_box_fi, Box.test(resid, 10, "Ljung-Box", 1)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal3_box_fi <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model, signal3)
-  model_est <- arfima_whittle(f, c(0, NA))
-  resid <- fracdiff::diffseries(f, model_est["d"])
-  p.values_signal3_box_fi <- c(p.values_signal3_box_fi, Box.test(resid, 10, "Ljung-Box", 1)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_noise_wavelet_fi <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model)
-  model_est <- arfima_whittle(f, c(0, NA))
-  resid <- fracdiff::diffseries(f, model_est["d"])
-  p.values_noise_wavelet_fi <- c(p.values_noise_wavelet_fi, genwwn.test(resid)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal1_wavelet_fi <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model, signal1)
-  model_est <- arfima_whittle(f, c(0, NA))
-  resid <- fracdiff::diffseries(f, model_est["d"])
-  p.values_signal1_wavelet_fi <- c(p.values_signal1_wavelet_fi, genwwn.test(resid)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal2_wavelet_fi <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model, signal2)
-  model_est <- arfima_whittle(f, c(0, NA))
-  resid <- fracdiff::diffseries(f, model_est["d"])
-  p.values_signal2_wavelet_fi <- c(p.values_signal2_wavelet_fi, genwwn.test(resid)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal3_wavelet_fi <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model, signal3)
-  model_est <- arfima_whittle(f, c(0, NA))
-  resid <- fracdiff::diffseries(f, model_est["d"])
-  p.values_signal3_wavelet_fi <- c(p.values_signal3_wavelet_fi, genwwn.test(resid)$p.value)
+  rejected / M
 }
 ```
 
 ```{r include=FALSE}
-alphas <- 0:1000/1000
-clrs <- c('black', 'red', 'green', "orange", "purple")
-lwds <- c(2, 1, 1, 1, 1)
+alphaI_fi <- spectrum.test_sim("fi", model_fi)
+beta1_fi <- spectrum.test_sim("fi", model_fi, signal1_fi)
+beta2_fi <- spectrum.test_sim("fi", model_fi, signal2_fi)
+beta3_fi <- spectrum.test_sim("fi", model_fi, signal3_fi)
+```
 
-alphaI_mcssa <- lapply(p.values_noise_mcssa_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+```{r include=FALSE}
+alphaI_mev <- lapply(p.values_noise_mev_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta1_mev <- lapply(p.values_signal1_mev_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta2_mev <- lapply(p.values_signal2_mev_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta3_mev <- lapply(p.values_signal3_mev_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+
+alphaI_cos <- lapply(p.values_noise_mcos_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta1_cos <- lapply(p.values_signal1_mcos_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta2_cos <- lapply(p.values_signal2_mcos_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta3_cos <- lapply(p.values_signal3_mcos_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+
 alphaI_box <- sapply(alphas, function(a) mean(p.values_noise_box_fi < a))
+beta1_box <- sapply(alphas, function(a) mean(p.values_signal1_box_fi < a))
+beta2_box <- sapply(alphas, function(a) mean(p.values_signal2_box_fi < a))
+beta3_box <- sapply(alphas, function(a) mean(p.values_signal3_box_fi < a))
+
 alphaI_wavelet <- sapply(alphas, function(a) mean(p.values_noise_wavelet_fi < a))
-
-alphaI_cos <- lapply(p.values_noise_cos_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-
-beta_mcssa1 <- lapply(p.values_signal1_mcssa_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_mcssa2 <- lapply(p.values_signal2_mcssa_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_mcssa3 <- lapply(p.values_signal3_mcssa_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-
-beta_cos1 <- lapply(p.values_signal1_cos_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_cos2 <- lapply(p.values_signal2_cos_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_cos3 <- lapply(p.values_signal3_cos_fi, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-
-beta_box1 <- sapply(alphas, function(a) mean(p.values_signal1_box_fi < a))
-beta_box2 <- sapply(alphas, function(a) mean(p.values_signal2_box_fi < a))
-beta_box3 <- sapply(alphas, function(a) mean(p.values_signal3_box_fi < a))
-
-beta_wavelet1 <- sapply(alphas, function(a) mean(p.values_signal1_wavelet_fi < a))
-beta_wavelet2 <- sapply(alphas, function(a) mean(p.values_signal2_wavelet_fi < a))
-beta_wavelet3 <- sapply(alphas, function(a) mean(p.values_signal3_wavelet_fi < a))
+beta1_wavelet <- sapply(alphas, function(a) mean(p.values_signal1_wavelet_fi < a))
+beta2_wavelet <- sapply(alphas, function(a) mean(p.values_signal2_wavelet_fi < a))
+beta3_wavelet <- sapply(alphas, function(a) mean(p.values_signal3_wavelet_fi < a))
 ```
 
 Сначала рассмотрим собственные векторы в качестве векторов для проекции. Ошибка первого рода:
 
 ```{r echo=FALSE}
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = "significance level", ylab = 'type I error')
+clrs <- c('black', 'red', 'green', "orange", "purple")
+lwds <- c(2, 1, 1, 1, 1)
+
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = "significance level", ylab = 'type I error')
 for (i in seq_along(Ls))
-  lines(alphas, alphaI_mcssa[[i]], lwd = lwds[i], col = clrs[i])
+  lines(alphas, alphaI_mev[[i]], lwd = lwds[i], col = clrs[i])
 lines(alphas, alphaI_box, lwd = 3, col = "darkblue")
 lines(alphas, alphaI_wavelet, lwd = 3, col = "brown")
+lines(alphas, alphaI_fi, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
 
@@ -375,46 +258,46 @@ par(mfrow = c(1, 3))
 
 plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
 for (i in seq_along(Ls))
-  lines(alphaI_mcssa[[i]][-1], beta_mcssa1[[i]][-1], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box1, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet1, lwd = 3, col = "brown")
+  lines(alphaI_mev[[i]][-1], beta1_mev[[i]][-1], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta1_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta1_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta1_fi, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),,
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
 plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
 for (i in seq_along(Ls))
-  lines(alphaI_mcssa[[i]][-1], beta_mcssa2[[i]][-1], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box2, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet2, lwd = 3, col = "brown")
+  lines(alphaI_mev[[i]][-1], beta2_mev[[i]][-1], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta2_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta2_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta2_fi, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
 plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
 for (i in seq_along(Ls))
-  lines(alphaI_mcssa[[i]][-1], beta_mcssa3[[i]][-1], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box3, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet3, lwd = 3, col = "brown")
+  lines(alphaI_mev[[i]][-1], beta3_mev[[i]][-1], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta3_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta3_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta3_fi, lwd = 3, col = "violet")
 legend(
-  x = "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),,
-  col = c(clrs, "darkblue", "brown"),
+  "bottomright",
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
-
-В случае малых частот ($\omega=0.025$) оба критерия имеют мощность больше, чем у MC-SSA с $L=12$. В случае средних частот ($\omega=0.125$) wavelet слабее MC-SSA с $L=12$, box --- мощнее. В случае больших частот ($\omega=0.225$) wavelet и box дают мощность меньше, чем у MC-SSA с $L=12$.
-
 
 Теперь перейдем к косинусам. Ошибка первого рода:
 
@@ -424,12 +307,13 @@ for (i in seq_along(Ls))
   lines(alphas, alphaI_cos[[i]], lwd = lwds[i], col = clrs[i])
 lines(alphas, alphaI_box, lwd = 3, col = "darkblue")
 lines(alphas, alphaI_wavelet, lwd = 3, col = "brown")
+lines(alphas, alphaI_fi, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
 
@@ -437,399 +321,167 @@ ROC-кривые:
 
 ```{r echo=FALSE, fig.width=15}
 par(mfrow = c(1, 3))
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
+plot(c(0,1), c(0,1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
 
 for (i in seq_along(Ls))
-  lines(alphaI_cos[[i]], beta_cos1[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box1, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet1, lwd = 3, col = "brown")
+  lines(alphaI_cos[[i]], beta1_cos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta1_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta1_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta1_fi, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),,
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
 
 for (i in seq_along(Ls))
-  lines(alphaI_cos[[i]], beta_cos2[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box2, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet2, lwd = 3, col = "brown")
+  lines(alphaI_cos[[i]], beta2_cos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta2_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta2_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta2_fi, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
 
 for (i in seq_along(Ls))
-  lines(alphaI_cos[[i]], beta_cos3[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box3, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet3, lwd = 3, col = "brown")
+  lines(alphaI_cos[[i]], beta3_cos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta3_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta3_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta3_fi, lwd = 3, col = "violet")
 legend(
-  x = "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  "bottomright",
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
 
-Если к этому варианту MC-SSA применять поправку, то критерии box и wavelet по мощности не превосходят MC-SSA с $L=12$. Если же забить на поправку (только MC-SSA, чтобы уменьшить трудоемкость, для двух других критериев поправка строится быстро), то оба критерия становятся мощнее MC-SSA с $L=12$.
+Поскольку этот вариант MC-SSA нерадикальный, можно не использовать поправку, тем самым уменьшив трудоемкость критерия:
 
 ```{r echo=FALSE, fig.width=15}
 par(mfrow = c(1, 3))
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
 for (i in seq_along(Ls))
-  lines(alphas, beta_cos1[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box1, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet1, lwd = 3, col = "brown")
+  lines(alphas, beta1_cos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta1_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta1_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta1_fi, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),,
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
 for (i in seq_along(Ls))
-  lines(alphas, beta_cos2[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box2, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet2, lwd = 3, col = "brown")
+  lines(alphas, beta2_cos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta2_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta2_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta2_fi, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
 for (i in seq_along(Ls))
-  lines(alphas, beta_cos3[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box3, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet3, lwd = 3, col = "brown")
+  lines(alphas, beta3_cos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta3_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta3_wavelet, lwd = 3, col = "brown")
+lines(alphaI_fi, beta3_fi, lwd = 3, col = "violet")
 legend(
-  x = "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),,
-  col = c(clrs, "darkblue", "brown"),
+  "bottomright",
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
-
 
 Теперь сделаем тоже самое, только с моделью $\mathrm{AR}(1)$ с $\phi=0.7$, $\sigma^2=1$.
 ```{r}
 phi <- 0.7
-model2 <- list(phi = phi, sigma2 = sigma2, N = N)
+model_ar1 <- list(phi = phi, sigma2 = sigma2, N = N)
 ```
 
 ```{r}
-signal1 <- 3 *  cos(2 * pi * (1:N) * omega1)
-
-signal2 <- 0.7 *  cos(2 * pi * (1:N) * omega2)
-
-signal3 <- 0.5 *  cos(2 * pi * (1:N) * omega3)
+signal1_ar1 <- 3 * cos(2 * pi * (1:N) * omega1)
+signal2_ar1 <- 0.7 * cos(2 * pi * (1:N) * omega2)
+signal3_ar1 <- 0.5 * cos(2 * pi * (1:N) * omega3)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-cores <- detectCores()
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
-
-p.values_noise_me_ar1 <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model2)
-    model_est <- arfima_whittle(f, c(NA, 0))
-    model_est <- list(phi = model_est["phi"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_est, est.freq = FALSE, conf.level = NULL)
-    res$p.value
-  }
-  p.values_noise_me_ar1[[idx]] <- result
-}
-
-p.values_noise_mcos_ar1 <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model2)
-    model_est <- arfima_whittle(f, c(NA, 0))
-    model_est <- list(phi = model_est["phi"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_est, conf.level = NULL)
-    res$p.value
-  }
-  p.values_noise_mcos_ar1[[idx]] <- result
-}
-
-stopCluster(cluster)
+p.values_noise_mev_ar1 <- mcssa_sim(Ls, "ev", model_ar1)
+p.values_signal1_mev_ar1 <- mcssa_sim(Ls, "ev", model_ar1, signal1_ar1)
+p.values_signal2_mev_ar1 <- mcssa_sim(Ls, "ev", model_ar1, signal2_ar1)
+p.values_signal3_mev_ar1 <- mcssa_sim(Ls, "ev", model_ar1, signal3_ar1)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-cores <- detectCores()
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
-
-p.values_signal1_me_ar1 <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model2, signal1)
-    model_est <- arfima_whittle(f, c(NA, 0))
-    model_est <- list(phi = model_est["phi"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_est, est.freq = FALSE, conf.level = NULL)
-    res$p.value
-  }
-  p.values_signal1_me_ar1[[idx]] <- result
-}
-
-p.values_signal1_mcos_ar1 <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model2, signal1)
-    model_est <- arfima_whittle(f, c(NA, 0))
-    model_est <- list(phi = model_est["phi"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_est, conf.level = NULL)
-    res$p.value
-  }
-  p.values_signal1_mcos_ar1[[idx]] <- result
-}
-
-stopCluster(cluster)
+p.values_noise_mcos_fi <- mcssa_sim(Ls, "cos", model_ar1)
+p.values_signal1_mcos_fi <- mcssa_sim(Ls, "cos", model_ar1, signal1_ar1)
+p.values_signal2_mcos_fi <- mcssa_sim(Ls, "cos", model_ar1, signal2_ar1)
+p.values_signal3_mcos_fi <- mcssa_sim(Ls, "cos", model_ar1, signal3_ar1)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-cores <- detectCores()
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
-
-p.values_signal2_me_ar1 <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model2, signal2)
-    model_est <- arfima_whittle(f, c(NA, 0))
-    model_est <- list(phi = model_est["phi"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_est, est.freq = FALSE, conf.level = NULL)
-    res$p.value
-  }
-  p.values_signal2_me_ar1[[idx]] <- result
-}
-
-p.values_signal2_mcos_ar1 <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model2, signal2)
-    model_est <- arfima_whittle(f, c(NA, 0))
-    model_est <- list(phi = model_est["phi"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_est, conf.level = NULL)
-    res$p.value
-  }
-  p.values_signal2_mcos_ar1[[idx]] <- result
-}
-
-stopCluster(cluster)
+p.values_noise_box_ar1 <- tests_sim(Box.test, "ar1", model_ar1, lag = 10, type = "Ljung-Box", fitdf = 1)
+p.values_signal1_box_ar1 <- tests_sim(Box.test, "ar1", model_ar1, signal1_fi, lag = 10, type = "Ljung-Box", fitdf = 1)
+p.values_signal2_box_ar1 <- tests_sim(Box.test, "ar1", model_ar1, signal2_fi, lag = 10, type = "Ljung-Box", fitdf = 1)
+p.values_signal3_box_ar1 <- tests_sim(Box.test, "ar1", model_ar1, signal3_fi, lag = 10, type = "Ljung-Box", fitdf = 1)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-cores <- detectCores()
-cluster <- makeCluster(cores - 1)
-registerDoSNOW(cluster)
-registerDoRNG(seed = 1, once = FALSE)
-
-p.values_signal3_me_ar1 <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model2, signal3)
-    model_est <- arfima_whittle(f, c(NA, 0))
-    model_est <- list(phi = model_est["phi"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "ev", model0 = model_est, est.freq = FALSE, conf.level = NULL)
-    res$p.value
-  }
-  p.values_signal3_me_ar1[[idx]] <- result
-}
-
-p.values_signal3_mcos_ar1 <- list()
-for (idx in seq_along(Ls)) {
-  result <- foreach (
-    i = 1:M,
-    .combine = 'c',
-    .export = functions,
-    .packages = packages,
-    .options.snow = opts
-  ) %dopar% {
-    f <- generate_channel(model2, signal3)
-    model_est <- arfima_whittle(f, c(NA, 0))
-    model_est <- list(phi = model_est["phi"], sigma2 = model_est["sigma2"], N = N)
-    res <- mcssa(f, Ls[idx], "cos", model0 = model_est, conf.level = NULL)
-    res$p.value
-  }
-  p.values_signal3_mcos_ar1[[idx]] <- result
-}
-
-stopCluster(cluster)
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_noise_box_ar1 <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model2)
-  model_est <- arfima_whittle(f, c(NA, 0))
-  resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
-  p.values_noise_box_ar1 <- c(p.values_noise_box_ar1, Box.test(resid, 10, "Ljung-Box", 1)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal1_box_ar1 <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model2, signal1)
-  model_est <- arfima_whittle(f, c(NA, 0))
-  resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
-  p.values_signal1_box_ar1 <- c(p.values_signal1_box_ar1, Box.test(resid, 10, "Ljung-Box", 1)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal2_box_ar1 <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model2, signal2)
-  model_est <- arfima_whittle(f, c(NA, 0))
-  resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
-  p.values_signal2_box_ar1 <- c(p.values_signal2_box_ar1, Box.test(resid, 10, "Ljung-Box", 1)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal3_box_ar1 <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model2, signal3)
-  model_est <- arfima_whittle(f, c(NA, 0))
-  resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
-  p.values_signal3_box_ar1 <- c(p.values_signal3_box_ar1, Box.test(resid, 10, "Ljung-Box", 1)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_noise_wavelet_ar1 <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model2)
-  model_est <- arfima_whittle(f, c(NA, 0))
-  resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
-  p.values_noise_wavelet_ar1 <- c(p.values_noise_wavelet_ar1, genwwn.test(resid)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal1_wavelet_ar1 <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model2, signal1)
-  model_est <- arfima_whittle(f, c(NA, 0))
-  resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
-  p.values_signal1_wavelet_ar1 <- c(p.values_signal1_wavelet_ar1, genwwn.test(resid)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal2_wavelet_ar1 <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model2, signal2)
-  model_est <- arfima_whittle(f, c(NA, 0))
-  resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
-  p.values_signal2_wavelet_ar1 <- c(p.values_signal2_wavelet_ar1, genwwn.test(resid)$p.value)
-}
-```
-
-```{r eval=FALSE, include=FALSE}
-p.values_signal3_wavelet_ar1 <- c()
-set.seed(5)
-for (i in 1:M) {
-  f <- generate_channel(model2, signal3)
-  model_est <- arfima_whittle(f, c(NA, 0))
-  resid <- arima(f, c(1, 0, 0), include.mean = FALSE, fixed = model_est["phi"])$resid
-  p.values_signal3_wavelet_ar1 <- c(p.values_signal3_wavelet_ar1, genwwn.test(resid)$p.value)
-}
+p.values_noise_wavelet_ar1 <- tests_sim(genwwn.test, "ar1", model_ar1)
+p.values_signal1_wavelet_ar1 <- tests_sim(genwwn.test, "ar1", model_ar1, signal1_ar1)
+p.values_signal2_wavelet_ar1 <- tests_sim(genwwn.test, "ar1", model_ar1, signal2_ar1)
+p.values_signal3_wavelet_ar1 <- tests_sim(genwwn.test, "ar1", model_ar1, signal3_ar1)
 ```
 
 ```{r include=FALSE}
+alphaI_ar1 <- spectrum.test_sim("ar1", model_ar1)
+beta1_ar1 <- spectrum.test_sim("ar1", model_ar1, signal1_ar1)
+beta2_ar1 <- spectrum.test_sim("ar1", model_ar1, signal2_ar1)
+beta3_ar1 <- spectrum.test_sim("ar1", model_ar1, signal3_ar1)
+```
+
+```{r include=FALSE}
+alphaI_mev <- lapply(p.values_noise_mev_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta1_mev <- lapply(p.values_signal1_mev_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta2_mev <- lapply(p.values_signal2_mev_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta3_mev <- lapply(p.values_signal3_mev_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+
 alphaI_mcos <- lapply(p.values_noise_mcos_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-alphaI_mev <- lapply(p.values_noise_me_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta1_mcos <- lapply(p.values_signal1_mcos_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta2_mcos <- lapply(p.values_signal2_mcos_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
+beta3_mcos <- lapply(p.values_signal3_mcos_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
 
 alphaI_box <- sapply(alphas, function(a) mean(p.values_noise_box_ar1 < a))
+beta1_box <- sapply(alphas, function(a) mean(p.values_signal1_box_ar1 < a))
+beta2_box <- sapply(alphas, function(a) mean(p.values_signal2_box_ar1 < a))
+beta3_box <- sapply(alphas, function(a) mean(p.values_signal3_box_ar1 < a))
+
 alphaI_wavelet <- sapply(alphas, function(a) mean(p.values_noise_wavelet_ar1 < a))
-
-beta_mev1 <- lapply(p.values_signal1_me_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_mev2 <- lapply(p.values_signal2_me_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_mev3 <- lapply(p.values_signal3_me_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-
-beta_mcos1 <- lapply(p.values_signal1_mcos_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_mcos2 <- lapply(p.values_signal2_mcos_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-beta_mcos3 <- lapply(p.values_signal3_mcos_ar1, function(pvals) sapply(alphas, function(a) mean(pvals < a)))
-
-beta_box1 <- sapply(alphas, function(a) mean(p.values_signal1_box_ar1 < a))
-beta_box2 <- sapply(alphas, function(a) mean(p.values_signal2_box_ar1 < a))
-beta_box3 <- sapply(alphas, function(a) mean(p.values_signal3_box_ar1 < a))
-
-beta_wavelet1 <- sapply(alphas, function(a) mean(p.values_signal1_wavelet_ar1 < a))
-beta_wavelet2 <- sapply(alphas, function(a) mean(p.values_signal2_wavelet_ar1 < a))
-beta_wavelet3 <- sapply(alphas, function(a) mean(p.values_signal3_wavelet_ar1 < a))
+beta1_wavelet <- sapply(alphas, function(a) mean(p.values_signal1_wavelet_ar1 < a))
+beta2_wavelet <- sapply(alphas, function(a) mean(p.values_signal2_wavelet_ar1 < a))
+beta3_wavelet <- sapply(alphas, function(a) mean(p.values_signal3_wavelet_ar1 < a))
 ```
 
 Ошибка первого рода:
@@ -840,12 +492,13 @@ for (i in seq_along(Ls))
   lines(alphas, alphaI_mev[[i]], lwd = lwds[i], col = clrs[i])
 lines(alphas, alphaI_box, lwd = 3, col = "darkblue")
 lines(alphas, alphaI_wavelet, lwd = 3, col = "brown")
+lines(alphas, alphaI_ar1, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
 
@@ -858,43 +511,44 @@ par(mfrow = c(1, 3))
 
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
 for (i in seq_along(Ls))
-  lines(alphaI_mev[[i]], beta_mev1[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box1, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet1, lwd = 3, col = "brown")
+  lines(alphaI_mev[[i]], beta1_mev[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta1_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta1_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta1_ar1, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),,
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
-
 for (i in seq_along(Ls))
-  lines(alphaI_mev[[i]], beta_mev2[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box2, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet2, lwd = 3, col = "brown")
+  lines(alphaI_mev[[i]], beta2_mev[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta2_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta2_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta2_ar1, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
 plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
-
 for (i in seq_along(Ls))
-  lines(alphaI_mev[[i]], beta_mev3[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box3, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet3, lwd = 3, col = "brown")
+  lines(alphaI_mev[[i]], beta3_mev[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta3_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta3_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta3_ar1, lwd = 3, col = "violet")
 legend(
-  x = "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  "bottomright",
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
 
@@ -905,45 +559,46 @@ a. С поправкой:
 ```{r echo=FALSE, fig.width=15}
 par(mfrow = c(1, 3))
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
 for (i in seq_along(Ls))
-  lines(alphaI_mcos[[i]], beta_mcos1[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box1, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet1, lwd = 3, col = "brown")
+  lines(alphaI_mcos[[i]], beta1_mcos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta1_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta1_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta1_ar1, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),,
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
-
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
 for (i in seq_along(Ls))
-  lines(alphaI_mcos[[i]], beta_mcos2[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box2, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet2, lwd = 3, col = "brown")
+  lines(alphaI_mcos[[i]], beta2_mcos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta2_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta2_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta2_ar1, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
-
+plot(c(0, 1),c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
 for (i in seq_along(Ls))
-  lines(alphaI_mcos[[i]], beta_mcos3[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box3, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet3, lwd = 3, col = "brown")
+  lines(alphaI_mcos[[i]], beta3_mcos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta3_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta3_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta3_ar1, lwd = 3, col = "violet")
 legend(
-  x = "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  "bottomright",
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
 
@@ -952,44 +607,45 @@ b. Без поправки:
 ```{r echo=FALSE, fig.width=15}
 par(mfrow = c(1, 3))
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.025")
 for (i in seq_along(Ls))
-  lines(alphas, beta_mcos1[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box1, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet1, lwd = 3, col = "brown")
+  lines(alphas, beta1_mcos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta1_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta1_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta1_ar1, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),,
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
-
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.125")
 for (i in seq_along(Ls))
-  lines(alphas, beta_mcos2[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box2, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet2, lwd = 3, col = "brown")
+  lines(alphas, beta2_mcos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta2_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta2_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta2_ar1, lwd = 3, col = "violet")
 legend(
   "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 
-plot(c(0,1),c(0,1), type="l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
-
+plot(c(0, 1), c(0, 1), type = "l", col = "blue", lty = 2, xlab = 'type I error', ylab = 'power', main = "frequency = 0.225")
 for (i in seq_along(Ls))
-  lines(alphas, beta_mcos3[[i]], lwd = lwds[i], col = clrs[i])
-lines(alphaI_box, beta_box3, lwd = 3, col = "darkblue")
-lines(alphaI_wavelet, beta_wavelet3, lwd = 3, col = "brown")
+  lines(alphas, beta3_mcos[[i]], lwd = lwds[i], col = clrs[i])
+lines(alphaI_box, beta3_box, lwd = 3, col = "darkblue")
+lines(alphaI_wavelet, beta3_wavelet, lwd = 3, col = "brown")
+lines(alphaI_ar1, beta3_ar1, lwd = 3, col = "violet")
 legend(
-  x = "bottomright",
-  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "box", "wavelet"),
-  col = c(clrs, "darkblue", "brown"),
+  "bottomright",
+  c("L = 12", "L = 24", "L = 64", "L = 104", "L = 116", "Box.test", "genwwn.test", "spectrum.test"),
+  col = c(clrs, "darkblue", "brown", "violet"),
   lty = 1,
-  lwd = c(lwds, 3, 3)
+  lwd = c(lwds, 3, 3, 3)
 )
 ```
