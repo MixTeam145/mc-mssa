@@ -14,7 +14,7 @@ library("matrixStats")
 library("magic")
 library("arfima")
 
-source("toeplitz_mssa.R")
+source("toeplitz_mssa.R", TRUE)
 
 # Quantile algorithm 
 type <- 8
@@ -356,7 +356,7 @@ mcssa <- function(f,
                   kind = c("columns", "rows"),
                   toeplitz.method = c("no", "sum", "block"),
                   model = c("ar1", "fi"),
-                  model0 = list(phi = NA, dfrac = NA, sigma2 = NA, N = NA),
+                  model0 = list(phi = NA, d = NA, sigma2 = NA, N = NA),
                   G = 1000,
                   conf.level = 0.8,
                   two.tailed = FALSE,
@@ -568,7 +568,7 @@ generate_channel <- function(model, signal = 0) {
     model$N,
     tacvfARFIMA,
     phi = model$phi,
-    dfrac = model$dfrac,
+    dfrac = model$d,
     sigma2 = model$sigma2
   )
   if (!is.null(model$signal)) # composite null hypothesis
