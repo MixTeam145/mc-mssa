@@ -69,7 +69,7 @@ arfima_mle <- function(x, fixed = NULL) {
 }
 
 # Whittle estimation of ARFIMA(1, d, 0) model
-arfima_whittle <- function(x, fixed = NULL) {
+arfima_whittle <- function(x, fixed = NULL, freq.range = c(0, 0.5)) {
   n <- length(x)
   m <- (n - 1) %/% 2
   
@@ -77,6 +77,9 @@ arfima_whittle <- function(x, fixed = NULL) {
   per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
   freq <- 1:m / n
   
+  per <- per[freq > freq.range[1]]
+  freq <- freq[freq > freq.range[1]]
+ 
   if (is.null(fixed))
     fixed <- rep(NA, 2)
   
