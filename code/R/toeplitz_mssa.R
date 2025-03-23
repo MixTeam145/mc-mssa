@@ -64,8 +64,7 @@ toeplitz.mssa <- function(ts, # time series
   if (identical(kind, "sum")) {
     this$U <- U
     this$V <- V
-  }
-  else {
+  } else {
     this$U <- V
     this$V <- U
   }

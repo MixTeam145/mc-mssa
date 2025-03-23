@@ -77,8 +77,8 @@ arfima_whittle <- function(x, fixed = NULL, freq.range = c(0, 0.5)) {
   per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
   freq <- 1:m / n
   
-  per <- per[freq > freq.range[1]]
-  freq <- freq[freq > freq.range[1]]
+  per <- per[freq >= freq.range[1] & freq <= freq.range[2]]
+  freq <- freq[freq >= freq.range[1] & freq <= freq.range[2]]
  
   if (is.null(fixed))
     fixed <- rep(NA, 2)
@@ -124,10 +124,10 @@ projec <- function(x, ts = x$series) {
 
   if (x$proj.kind == "rows") {
     p <- X_res %*% W # Projection on rows
-  }
-  else {
+  } else {
     p <- mvfft(x$W_ft * ts_ft, inverse = TRUE)[L:N, ] / N # Projection on columns
   }
+  
   colSums(Mod(p) ^ 2 / N) # divide by N to weaken the dependence on t.s. length
 }
 
@@ -145,27 +145,26 @@ basis.ev <- function(ts, L, decomposition.method, vectors = c("U", "V")) {
   neig <- min(L, D * (length(ts[, 1]) - L + 1))
   
   if (decomposition.method == "svd") {
-    if (D == 1)
+    if (D == 1) {
       s <- ssa(ts, L, neig, kind = "1d-ssa")
-    else
+    } else {
       s <- ssa(ts, L, neig, kind = "mssa")
-  }
-  else {
-    if (D == 1)
+    }
+  } else {
+    if (D == 1) {
       s <- ssa(ts, L, neig, kind = "toeplitz-ssa")
-    else
+    } else {
       s <- toeplitz.mssa(ts, L, neig, kind = "sum")
+    }
   }
   
   res <- list()
   
   if (vectors == "V") {
     res$W <- s$V
-  }
-  else {
+  } else {
     res$W <- s$U
   }
-  
   res
 }
 
@@ -203,8 +202,7 @@ basis.t <- function(model, L, vectors = c("U", "V")) {
     Sigma <- do.call("adiag", Sigma)
     s <- svd(Sigma, nv = K)
     W <- s$v
-  }
-  else {
+  } else {
     Sigma <- matrix(0, L, L)
     for (channel in 1:D) {
       Sigma <- Sigma + autocov.mat(model[[channel]], L)
@@ -218,9 +216,9 @@ basis.t <- function(model, L, vectors = c("U", "V")) {
 ### end
 
 what.reject <- function(x) {
-  rej <- x$t$contribution < x$predint$lower |
-    x$t$contribution > x$predint$upper
-  x$t$freq[rej]
+  rej <- x$statistic$contribution < x$predint$lower |
+    x$statistic$contribution > x$predint$upper
+  x$statistic$freq[rej]
 }
 
 ### Main functions for multiple Monte Carlo SSA
@@ -232,9 +230,9 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
     idx <-
       x$proj_vectors$freq >=  freq.range[1] &
       x$proj_vectors$freq <= freq.range[2]
-  }
-  else
+  } else {
     idx <- rep(TRUE, ncol(x$proj_vectors$W))
+  }
   
   if (!any(idx))
     stop("No vectors with given frequency range, aborting")
@@ -248,8 +246,10 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
   P <- do.call(cbind, P)
   v <- projec(x)
   
-  x$t <- list(freq = x$proj_vectors$freq[idx],
-              contribution = v)
+  x$statistic <- list(
+    freq = x$proj_vectors$freq[idx],
+    contribution = v
+  )
   
   means <- apply(P, 1, mean)
   sds <- apply(P, 1, sd)
@@ -258,8 +258,7 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
     eta <- apply(P, 2, function(p)
       max((p - means) / sds))
     t <- max((v - means) / sds)
-  }
-  else {
+  } else {
     eta <- apply(P, 2, function(p)
       max(abs(p - means) / sds))
     t <- max(abs(v - means) / sds)
@@ -273,8 +272,7 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
       q.lower <- 0
       x$predint$lower <- 0
       x$reject <- as.logical(t > q.upper)
-    }
-    else {
+    } else {
       q.lower <- -q.upper
       x$predint$lower <- means + q.lower * sds
       x$reject <- as.logical(t > q.upper | t < q.lower)
@@ -316,9 +314,8 @@ mcssa <- function(x,
                   composite = FALSE) {
   if (is.vector(x)) {
     x <- as.matrix(x)
-    if (!missing(model)) {
+    if (!missing(model))
       model <- list(model)
-    }
   } else if (composite) {
     stop("mc-ssa with nuisance signal for multivariate ts is not implemented")
   }
@@ -352,9 +349,11 @@ mcssa <- function(x,
   )
   class(this) <- "mcssa"
   
-  if (proj.kind == "rows")
+  if (proj.kind == "rows") {
     vectors <- "V"
-  else vectors <- "U"
+  } else {
+    vectors <- "U"
+  }
     
   if (basis == "ev") {
     x.basis <- x
@@ -362,15 +361,11 @@ mcssa <- function(x,
     if (composite)
       x.basis <- x - model$signal
     proj_vectors <- basis.ev(x.basis, L, decomposition.method, vectors)
-  }
-  else if (basis == "t") {
+  } else if (basis == "t") {
     proj_vectors <- basis.t(model, L, vectors)
-  }
-  else if (D == 1) {
+  } else if (D == 1) {
     proj_vectors <- basis.cos(L)
-    
-  }
-  else {
+  } else {
     stop()
   }
   
@@ -391,14 +386,14 @@ mcssa <- function(x,
 
 
 plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
-  if (!length(x$freq.range))
+  if (!length(x$freq.range)) {
     warning("The main frequencies of projection vectors are missing, estimating them now")
-    x$t$freq <- apply(x$proj_vectors$W, 2, est_freq)
-  
+    x$statistic$freq <- apply(x$proj_vectors$W, 2, est_freq)
+  }
   df <-
     data.frame(
-      frequency = x$t$freq,
-      contribution = x$t$contribution,
+      frequency = x$statistic$freq,
+      contribution = x$statistic$contribution,
       lower = x$predint$lower,
       upper = x$predint$upper
     )
@@ -428,7 +423,7 @@ plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
 
 print.mcssa <- function(x) {
   cat("Series length:", rep(x$length, x$channels))
-  cat("\nWindow length:", x$L)
+  cat("\nWindow length:", x$window)
   cat("\nProjection vectors: ")
   if (x$basis == "ev")
     cat("based on series (liberal test)")
@@ -437,7 +432,7 @@ print.mcssa <- function(x) {
   else
     cat("cosines with frequencies j / (2L) (exact test)")
   cat("\nType of projection: on", x$proj.kind, "of trajectory matrix")
-  cat("\nNumber of projection vectors:", length(x$t$contribution))
+  cat("\nNumber of projection vectors:", length(x$statistic$freq))
   cat("\np-value:", x$p.value)
   if (!is.null(x$conf.level))
     cat("\nNull hypothesis is", if (!x$reject) "not", "rejected")
