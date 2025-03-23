@@ -20,22 +20,22 @@ Lcov <- function(f1, f2, K) {
 
 toeplitz.mssa <- function(ts, # time series
                           L, # window length
-                          D, # number of channels
-                          method = c("sum", "block"), # decomposition method
-                          neig = NULL # number of desired non-zero eigenvalues
+                          neig = NULL, # number of desired non-zero eigenvalues
+                          kind = c("sum", "block") # decomposition method
                           ) {
   N <- dim(ts)[1] # assert equal length in each channel
+  D <- dim(ts)[2]
   K <- N - L + 1
   
-  method <- match.arg(method)
+  kind <- match.arg(kind)
   
   if (is.null(neig))
     neig <- min(L, D * K)
   
-  this <- list("F" = ts, N = N, L = L, K = K, D = D, method = method)
+  this <- list("F" = ts, N = N, L = L, K = K, D = D, kind = kind)
   
   traj.mat <- new.hbhmat(ts, L = c(L, 1))
-  if (identical(method, "sum")) {
+  if (identical(kind, "sum")) {
     toepl.mat <- matrix(0, nrow = L, ncol = L)
     for (i in 1:D)
       toepl.mat <- toepl.mat + Lcov(ts[, i], ts[, i], L)
@@ -61,7 +61,7 @@ toeplitz.mssa <- function(ts, # time series
   sigma <- sigma[o]
   U <- U[, o, drop = FALSE]
   V <- V[, o, drop = FALSE]
-  if (identical(method, "sum")) {
+  if (identical(kind, "sum")) {
     this$U <- U
     this$V <- V
   }

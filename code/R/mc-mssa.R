@@ -114,61 +114,19 @@ arfima_whittle <- function(x, fixed = NULL, freq.range = c(0, 0.5)) {
   c(coef, sigma2 = mean(per / spec_arfima(freq, coef[1], coef[2])))
 }
 
-
-# Estimate AR(1) or FI(d) parameters
-est_model <- function(f, model = c("ar1", "fi")) {
-  model <- match.arg(model)
-  
-  lmodel <- "n"
-  nar <- 1
-  if (identical(model, "fi")) {
-    lmodel <- 'd'
-    nar <- 0
-  }
-  
-  fit <- arfima::arfima(f,
-                c(nar, 0, 0),
-                lmodel = lmodel,
-                dmean = FALSE,
-                quiet = TRUE)$modes[[1]]
-  
-  list(
-    phi = fit$phi,
-    dfrac = fit$dfrac,
-    sigma2 = fit$sigma2,
-    N = length(f)
-  )
-}
-
 # Compute squared norms of projections
-projec <- function(data, L, W, kind = c("columns", "rows")) {
-  if (is.list(data)) {
-    # data are given by a model
-    D <- length(data)
-    f <- generate(D, data)
-  } else {
-    # data are given by a series
-    f <- data
-    D <- dim(f)[2]
-  }
-  f <- f - colMeans(f)
-  N <- length(f[, 1]) # assert equal length in each channel
-  K <- N - L + 1
+projec <- function(x, ts = x$series) {
+  N <- x$length
+  L <- x$window
   
-  # X_res <- matrix(0, nrow = L, ncol = K * D)
-  # for (channel in seq_len(D)) {
-  #   tX <- sapply(1:L, function(i) f[i:(i + K - 1), channel])
-  #   X_res[, (1 + (channel - 1) * K):(channel * K)] <- t(tX)
-  # }
-  
-  f.fft <- fft(c(f[(N-L+1):N], f[1:(N-L)]))
-  
-  if (kind == "rows") {
+  ts <- ts - colMeans(ts)
+  ts_ft <- fft(c(ts[(N - L + 1):N], ts[1:(N - L)]))
+
+  if (x$proj.kind == "rows") {
     p <- X_res %*% W # Projection on rows
   }
   else {
-    # p <- t(X_res) %*% W # Projection on columns
-    p <- mvfft(W * f.fft, inverse = TRUE)[L:N, ] / N # Projection on columns
+    p <- mvfft(x$W_ft * ts_ft, inverse = TRUE)[L:N, ] / N # Projection on columns
   }
   colSums(Mod(p) ^ 2 / N) # divide by N to weaken the dependence on t.s. length
 }
@@ -182,22 +140,27 @@ est_freq <- function(v) {
 }
 
 # Generate projection vectors corresponding to eigenvectors produced by ts
-basis.ev <- function(ts, L, toeplitz.method, factor.v = FALSE) {
+basis.ev <- function(ts, L, decomposition.method, vectors = c("U", "V")) {
   D <- dim(ts)[2]
-  neig <- min(L, D * (length(ts[,1]) - L + 1))
+  neig <- min(L, D * (length(ts[, 1]) - L + 1))
   
-  if (D == 1) {
-    s <- ssa(ts, L, neig, kind = "toeplitz-ssa")
-  } else if (identical(toeplitz.method, "sum") || identical(toeplitz.method, "block")) {
-    s <- toeplitz.mssa(ts, L, D, toeplitz.method, neig)
-  } else {
-    s <- ssa(ts, L, neig, kind = "mssa")
+  if (decomposition.method == "svd") {
+    if (D == 1)
+      s <- ssa(ts, L, neig, kind = "1d-ssa")
+    else
+      s <- ssa(ts, L, neig, kind = "mssa")
+  }
+  else {
+    if (D == 1)
+      s <- ssa(ts, L, neig, kind = "toeplitz-ssa")
+    else
+      s <- toeplitz.mssa(ts, L, neig, kind = "sum")
   }
   
   res <- list()
   
-  if (factor.v) {
-    res$W <- s$V 
+  if (vectors == "V") {
+    res$W <- s$V
   }
   else {
     res$W <- s$U
@@ -206,7 +169,7 @@ basis.ev <- function(ts, L, toeplitz.method, factor.v = FALSE) {
   res
 }
 
-# Generate vectors for projections as cosine vectors
+# Generate projection vectors as cosine vectors
 basis.cos <- function(L) {
   W <- matrix(0, nrow = L, ncol = L)
   separat <- 1 / (2 * L)
@@ -218,102 +181,87 @@ basis.cos <- function(L) {
   list(W = W, freq = freq)
 }
 
-matrix.toeplitz <- function(phi, L) {
-  toeplitz(phi ^ (0:(L - 1)))
+autocov.mat <- function(model, L) {
+  r <- tacvfARFIMA(
+    phi = model$phi,
+    dfrac = model$d,
+    sigma2 = model$sigma2,
+    maxlag = L - 1
+  )
+  toeplitz(r)
 }
 
-# Generate vectors for projections corresponding to eigenvectors of theoretical autocovariance matrix 
-basis.toeplitz <- function(model, L, D, fa = F) {
-  if (fa) {
-    # here we assume that L param represents K = N - L + 1
-    toepl.array <- list()
+# Generate projection vectors corresponding to eigenvectors of theoretical autocovariance matrix 
+basis.t <- function(model, L, vectors = c("U", "V")) {
+  D <- length(model)
+  if (vectors == "V") {
+    K <- model[[1]]$N - L + 1
+    Sigma <- list()
     for (channel in 1:D) {
-      toepl.array[[channel]] <- model[[channel]]$delta * matrix.toeplitz(model[[channel]]$varphi, L)
+      Sigma[[channel]] <- autocov.mat(model[[channel]], K)
     }
-    toepl <- do.call("adiag", toepl.array)
-    s <- svd(toepl, nv = L)
-    U <- s$v
+    Sigma <- do.call("adiag", Sigma)
+    s <- svd(Sigma, nv = K)
+    W <- s$v
   }
   else {
-    toepl <- matrix(data = 0,
-                    nrow = L,
-                    ncol = L)
+    Sigma <- matrix(0, L, L)
     for (channel in 1:D) {
-      toepl <- toepl + matrix.toeplitz(model[[channel]]$phi, L)
+      Sigma <- Sigma + autocov.mat(model[[channel]], L)
     }
-    s <- svd(toepl, L)
-    U <- s$u
+    s <- svd(Sigma, L)
+    W <- s$u
   }
   
-  freq <- numeric(0)
-  for (i in 1:L) {
-    #ss <- ssa(s$U[,i], kind = "toeplitz-ssa")
-    ss <- ssa(U[, i], kind = "1d-ssa")
-    #estimation of the main frequency by ESPRIT
-    p <- parestimate(ss, groups = list(1:2))
-    freq[i] <- p$frequencies[[1]]
-  }
-  list(W = U, freq = freq)
+  list(W = W)
 }
 ### end
 
 what.reject <- function(x) {
-  rej <- x$projec_vectors$contribution < x$predint$lower |
-    x$projec_vectors$contribution > x$predint$upper
-  x$projec_vectors$freq[rej]
+  rej <- x$t$contribution < x$predint$lower |
+    x$t$contribution > x$predint$upper
+  x$t$freq[rej]
 }
 
 ### Main functions for multiple Monte Carlo SSA
 # Make multiple test
-do.test <- function(x,
-                    projec_vectors,
-                    conf.level,
-                    G,
-                    two.tailed = FALSE) {
-  
-  if (length(x$freq.range)) {
-    if (!length(projec_vectors$freq))
-      projec_vectors$freq <- apply(projec_vectors$W, 2, est_freq)
+do.test <- function(x, G, conf.level, two.tailed, freq.range) {
+  if (!is.null(freq.range)) {
+    if (!length(x$proj_vectors$freq))
+      x$proj_vectors$freq <- apply(x$proj_vectors$W, 2, est_freq)
     idx <-
-      projec_vectors$freq >=  x$freq.range[1] & projec_vectors$freq <= x$freq.range[2]
+      x$proj_vectors$freq >=  freq.range[1] &
+      x$proj_vectors$freq <= freq.range[2]
   }
   else
-    idx <- seq_len(ncol(projec_vectors$W))
+    idx <- rep(TRUE, ncol(x$proj_vectors$W))
+  
   if (!any(idx))
     stop("No vectors with given frequency range, aborting")
   
-  projec_vectors$W <- projec_vectors$W[, idx, drop = FALSE]
+  x$freq.range <- freq.range
   
-  W.fft <- mvfft(
-    rbind(
-      matrix(0, nrow = dim(x$series)[1] - x$L, ncol = dim(projec_vectors$W)[2]),
-      projec_vectors$W[x$L:1, ]
-    )
-  )
+  m <- matrix(0, x$length - x$window, sum(idx))
+  x$W_ft <- mvfft(rbind(m, x$proj_vectors$W[x$window:1, idx, drop = FALSE]))
   
-  P <- replicate(
-    G,
-    projec(x$model, x$L, W.fft, x$kind),
-    simplify = FALSE
-  )
+  P <- replicate(G, projec(x, generate(x$channels, x$model)), simplify = FALSE)
   P <- do.call(cbind, P)
-  v <- projec(x$series, x$L, W.fft, x$kind)
+  v <- projec(x)
   
-  x$projec_vectors <- list(
-    W = projec_vectors$W,
-    freq = projec_vectors$freq[idx],
-    contribution = v
-  )
+  x$t <- list(freq = x$proj_vectors$freq[idx],
+              contribution = v)
   
   means <- apply(P, 1, mean)
   sds <- apply(P, 1, sd)
   
   if (!two.tailed) {
-    eta <- apply(P, 2, function(p) max((p - means) / sds))
+    eta <- apply(P, 2, function(p)
+      max((p - means) / sds))
     t <- max((v - means) / sds)
   }
   else {
-    eta <- apply(P, 2, function(p) max(abs(p - means) / sds))
+    eta <- apply(P, 2, function(p)
+      max(abs(p - means) / sds))
     t <- max(abs(v - means) / sds)
   }
   
@@ -334,104 +282,109 @@ do.test <- function(x,
     x$conf.level <- conf.level
   }
   x$p.value <- 1 - ecdf(eta)(t)
-
+  
   x
 }
 
 #' The wrapped function for Multiple Monte Carlo SSA
 #' 
-#' @param f Time series
+#' @param x Time series
 #' @param L Window length
 #' @param basis Type of vectors for projection
-#' @param kind Projection on columns or rows of trajectory matrix
-#' @param toeplitz.method Toeplitz MSSA decomposition method
-#' @param model Noise model to be fitted (will be omitted, if model0 is specified)
-#' @param model0 Exact noise model
+#' @param proj.kind Projection on columns or rows of trajectory matrix
+#' @param decomposition.method Decomposition method (for basis = "ev" only)
+#' @param model A list of noise model parameters
+#' @param fixed A list of parameters to be fixed (if `model` is missing)
 #' @param G Number of surrogates
 #' @param conf.level Confidence level
 #' @param two.tailed If TRUE performs two-tailed test
 #' @param est.freq If TRUE estimates the main frequency of each projection vector
 #' @param freq.range Potential signal frequency range
 #' @param composite If TRUE performs test with composite null hypothesis (noise + nuisance signal)
-mcssa <- function(f,
+mcssa <- function(x,
                   L,
                   basis = c("ev", "t", "cos"),
-                  kind = c("columns", "rows"),
-                  toeplitz.method = c("no", "sum", "block"),
-                  model = c("ar1", "fi"),
-                  model0 = list(phi = NA, d = NA, sigma2 = NA, N = NA),
+                  proj.kind = c("columns", "rows"),
+                  decomposition.method = c("toeplitz", "svd"),
+                  model,
+                  fixed = list(phi = NA, d = NA),
                   G = 1000,
                   conf.level = 0.8,
                   two.tailed = FALSE,
                   est.freq = TRUE,
                   freq.range = c(0, 0.5),
                   composite = FALSE) {
-  if (is.vector(f)) {
-    f <- as.matrix(f)
-    if (!missing(model0)) {
-      model0 <- list(model0)
+  if (is.vector(x)) {
+    x <- as.matrix(x)
+    if (!missing(model)) {
+      model <- list(model)
     }
   } else if (composite) {
     stop("mc-ssa with nuisance signal for multivariate ts is not implemented")
   }
   
-  model <- match.arg(model)
-  kind <- match.arg(kind)
-  toeplitz.method <- match.arg(toeplitz.method)
+  x <- x - colMeans(x)
   
-  D <- dim(f)[2]
+  proj.kind <- match.arg(proj.kind)
+  decomposition.method <- match.arg(decomposition.method)
   
-  if (missing(model0)) {
-    model0 <- vector("list", D)
+  N <- dim(x)[1]
+  D <- dim(x)[2]
+  
+  if (missing(model)) {
+    model <- vector("list", D)
     for (channel in seq_len(D)) {
-      model0[[channel]] <- est_model(f[, channel], model)
+      model[[channel]] <- as.list(
+        arfima_whittle(x[, channel], c(fixed$phi, fixed$d), freq.range)
+      )
+      model[[channel]]$N <- N 
     }
   }
   
   this <- list(
-    series = f,
-    L = L,
-    model = model0,
+    series = x,
+    length = N,
+    channels = D,
+    window = L,
+    model = model,
     basis = basis,
-    kind = kind
+    proj.kind = proj.kind
   )
   class(this) <- "mcssa"
   
+  if (proj.kind == "rows")
+    vectors <- "V"
+  else vectors <- "U"
+    
   if (basis == "ev") {
-    f.basis <- f
+    x.basis <- x
     # comment next 2 lines to project vectors of original series (another version of the nuisance algorithm)
     if (composite)
-      f.basis <- f - model0$signal
-    if (kind == 'fa')
-      projec_vectors <- basis.ev(f.basis, L, toeplitz.method, factor.v = TRUE)
-    else
-      projec_vectors <- basis.ev(f.basis, L, toeplitz.method)
+      x.basis <- x - model$signal
+    proj_vectors <- basis.ev(x.basis, L, decomposition.method, vectors)
   }
   else if (basis == "t") {
-    if (kind == 'fa')
-      projec_vectors <- basis.toeplitz(estModel, N - L + 1, D, factor.v = TRUE)
-    else
-      projec_vectors <- basis.toeplitz(model0, L, D)
+    proj_vectors <- basis.t(model, L, vectors)
   }
   else if (D == 1) {
-    projec_vectors <- basis.cos(L)
+    proj_vectors <- basis.cos(L)
     
   }
   else {
     stop()
   }
   
-  if (est.freq)
-    this$freq.range <- freq.range
-  else if (!identical(freq.range, c(0, 0.5)))
-    warning("est.freq is set FALSE, freq.range will be omitted")
+  this$proj_vectors <- proj_vectors
+  
+  if (!est.freq)
+    freq.range <- NULL
   
   this <- do.test(
     this,
-    projec_vectors,
-    conf.level,
     G,
-    two.tailed
+    conf.level,
+    two.tailed,
+    freq.range
   )
   this
 }
@@ -439,13 +392,13 @@ mcssa <- function(f,
 
 plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
   if (!length(x$freq.range))
-    warning("The main frequencies of projection vectors missing, estimating it now")
-    x$projec_vectors$freq <- apply(x$projec_vectors$W, 2, est_freq)
+    warning("The main frequencies of projection vectors are missing, estimating them now")
+    x$t$freq <- apply(x$proj_vectors$W, 2, est_freq)
   
   df <-
     data.frame(
-      frequency = x$projec_vectors$freq,
-      contribution = x$projec_vectors$contribution,
+      frequency = x$t$freq,
+      contribution = x$t$contribution,
       lower = x$predint$lower,
       upper = x$predint$upper
     )
@@ -474,9 +427,7 @@ plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
 }
 
 print.mcssa <- function(x) {
-  N <- length(x$series[, 1])
-  D <- dim(x$series)[2]
-  cat("Series length:", rep(N, D))
+  cat("Series length:", rep(x$length, x$channels))
   cat("\nWindow length:", x$L)
   cat("\nProjection vectors: ")
   if (x$basis == "ev")
@@ -484,9 +435,9 @@ print.mcssa <- function(x) {
   else if (x$basis == "t")
     cat("eigenvectors of theoretical autocovariance matrix (exact test)")
   else
-    cat("cosines with frequency j / (2L) (exact test)")
-  cat("\nType of projection: on", x$kind, "of trajectory matrix")
-  cat("\nNumber of projection vectors:", ncol(x$projec_vectors$W))
+    cat("cosines with frequencies j / (2L) (exact test)")
+  cat("\nType of projection: on", x$proj.kind, "of trajectory matrix")
+  cat("\nNumber of projection vectors:", length(x$t$contribution))
   cat("\np-value:", x$p.value)
   if (!is.null(x$conf.level))
     cat("\nNull hypothesis is", if (!x$reject) "not", "rejected")
