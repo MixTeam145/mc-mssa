@@ -114,21 +114,33 @@ arfima_whittle <- function(x, fixed = NULL, freq.range = c(0, 0.5)) {
   c(coef, sigma2 = mean(per / spec_arfima(freq, coef[1], coef[2])))
 }
 
+imvfft <- function(x) {
+  mvfft(x, inverse = TRUE) / length(x)
+}
+
 # Compute squared norms of projections
 projec <- function(x, ts = x$series) {
   N <- x$length
   L <- x$window
-  
-  ts <- ts - colMeans(ts)
-  ts_ft <- fft(c(ts[(N - L + 1):N], ts[1:(N - L)]))
+
+  ts <- scale(ts, scale = FALSE)
+  ts_ft <- mvfft(ts[c((N - L + 1):N, 1:(N - L)), , drop = FALSE])
 
   if (x$proj.kind == "rows") {
-    p <- X_res %*% W # Projection on rows
+    v <- matrix(0, L, ncol(x$W_ft))
+    for (i in seq_len(x$channels)) {
+      p <- imvfft(x$W_ft[[i]] * ts_ft[, i])[1:L, , drop = FALSE]
+      v <- v + p
+    }
+    v <- colSums(Mod(v)^2)
   } else {
-    p <- mvfft(x$W_ft * ts_ft, inverse = TRUE)[L:N, ] / N # Projection on columns
+    v <- numeric(ncol(x$W_ft))
+    for (i in seq_len(x$channels)) {
+      p <- imvfft(x$W_ft * ts_ft[, i])[L:N, , drop = FALSE]
+      v <- v + colSums(Mod(p)^2)
+    }
   }
-  
-  colSums(Mod(p) ^ 2 / N) # divide by N to weaken the dependence on t.s. length
+  v / N # divide by N to weaken the dependence on series length
 }
 
 # Estimate vector main frequency by ESPRIT
@@ -174,7 +186,7 @@ basis.cos <- function(L) {
   separat <- 1 / (2 * L)
   freq <- seq(0, 0.5 - separat, separat) # Grid of frequencies
   for (i in seq_along(freq)) {
-    W[, i] <- cos(2 * pi * freq[i] * 1:L)
+    W[, i] <- cos(2 * pi * freq[i] * (1:L))
     W[, i] <- W[, i] / Norm(W[, i])
   }
   list(W = W, freq = freq)
@@ -239,20 +251,33 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
   
   x$freq.range <- freq.range
   
-  m <- matrix(0, x$length - x$window, sum(idx))
-  x$W_ft <- mvfft(rbind(m, x$proj_vectors$W[x$window:1, idx, drop = FALSE]))
+  x$plan <- fftw::planFFT(x$length)
+  
+  if (x$proj.kind == "rows") {
+    K <- x$length - x$window + 1
+    m <- matrix(0, x$window - 1, sum(idx))
+    x$W_ft <- list()
+    for (channel in seq_len(x$channels)) {
+      ind <- (channel * K):((channel - 1) * K + 1)
+      x$W_ft[[channel]] <- mvfft(
+        rbind(x$proj_vectors$W[ind, idx, drop = FALSE], m)
+      )
+    }
+  } else {
+    m <- matrix(0, x$length - x$window, sum(idx))
+    x$W_ft <- mvfft(rbind(m, x$proj_vectors$W[x$window:1, idx, drop = FALSE]))
+  }
+  
+  x$statistic <- list(freq = x$proj_vectors$freq[idx])
   
   P <- replicate(G, projec(x, generate(x$channels, x$model)), simplify = FALSE)
   P <- do.call(cbind, P)
   v <- projec(x)
   
-  x$statistic <- list(
-    freq = x$proj_vectors$freq[idx],
-    contribution = v
-  )
+  x$statistic$contribution <- v
   
-  means <- apply(P, 1, mean)
-  sds <- apply(P, 1, sd)
+  means <- rowMeans(P)
+  sds <- rowSds(P)
   
   if (!two.tailed) {
     eta <- apply(P, 2, function(p)
@@ -320,7 +345,7 @@ mcssa <- function(x,
     stop("mc-ssa with nuisance signal for multivariate ts is not implemented")
   }
   
-  x <- x - colMeans(x)
+  x <- scale(x, scale = FALSE)
   
   proj.kind <- match.arg(proj.kind)
   decomposition.method <- match.arg(decomposition.method)
@@ -432,7 +457,7 @@ print.mcssa <- function(x) {
   else
     cat("cosines with frequencies j / (2L) (exact test)")
   cat("\nType of projection: on", x$proj.kind, "of trajectory matrix")
-  cat("\nNumber of projection vectors:", length(x$statistic$freq))
+  cat("\nNumber of projection vectors:", ncol(x$W_ft))
   cat("\np-value:", x$p.value)
   if (!is.null(x$conf.level))
     cat("\nNull hypothesis is", if (!x$reject) "not", "rejected")
