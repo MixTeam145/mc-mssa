@@ -251,8 +251,6 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
   
   x$freq.range <- freq.range
   
-  x$plan <- fftw::planFFT(x$length)
-  
   if (x$proj.kind == "rows") {
     K <- x$length - x$window + 1
     m <- matrix(0, x$window - 1, sum(idx))

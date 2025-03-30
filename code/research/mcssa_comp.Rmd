@@ -1,0 +1,356 @@
+---
+title: "Сравнение способов задания проекционных векторов"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 2
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 10)
+
+library(parallel)
+library(doFuture)
+library(doRNG)
+library(progressr)
+library(plyr)
+library(lattice)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+load("../research/data/mcssa_comp.RData")
+```
+
+```{r eval=FALSE, include=FALSE}
+# Run this in R console to enable progress bar
+handlers(global = TRUE)
+```
+
+Введем понятие соотношения сигнал-шум. Обычно под ним понимают соотношение
+$$
+\frac{\frac{1}{N}\sum_{n=1}^N s^2_n}{\mathsf{D}{\boldsymbol\xi}},
+$$
+
+где $\mathsf{S}=(s_1,\ldots,s_N)$ --- сигнал, $\boldsymbol{\xi}$ --- шум. Но, поскольку это определение не учитывает поведение спектральной плотности шума, обобщим его. Будем называть
+$$
+\mathrm{SNR}(\mathsf{S}, \boldsymbol\xi)=\frac1N\sum_{j=0}^{N-1}\frac{I_{\mathsf{S}}(j/N)}{f_{\boldsymbol{\xi}}(j/N)}
+$$
+соотношением сигнал-шум, где $I_{\mathsf{S}}(\omega)$ --- периодограмма сигнала, $f_{\boldsymbol{\xi}}(\omega)$ --- спектральная плотность шума.
+```{r include=FALSE}
+snr <- function(s, ...) {
+  n <- length(s)
+  per <- Mod(fft(s))^2 / n
+  freq <- 0:(n - 1) / n
+  mean(per / spec_arfima(freq, ...))
+}
+```
+
+Сравним два способа задания векторов для проекции критерия MC-SSA:
+
+1. Собственные векторы матрицы $\mathbf{XX}^\mathrm{T}$ или $\mathbf{T}$;
+
+2. Косинусы с равностоящими частотами $j/(2L)$, $j=0,\ldots,L-1$.
+
+Для краткости будем называть данные способы задачи проекционных векторов ev и cos соответственно.
+
+Будем рассматривать ряды длины $N=100$ и $L\in\{10,20,50,80,90\}$. В качестве альтернативы рассмотрим
+$$
+\mathsf{S}=\left\{Ae^{\alpha n}\cos(2\pi\omega n)\right\}_{n=1}^N,
+$$
+где $\omega\in(0, 0.5)$. Нас интересуют два конктетных случая:
+
+1. $\alpha=0$ --- гармонический ряд;
+
+2. $\alpha\ne0$ --- экспоненциально-модулированный гармонический ряд.
+
+Помимо этого, будем рассматривать два возможных случая $\omega$: когда рассматриваемые $L$ (а значит и $2L$) делятся на $1/\omega$ и когда не делятся. Таким образом, рассмотрим 4 альтернативы:
+
+1. $\alpha=0$, $L$ делятся на $1/\omega$;
+
+2. $\alpha=0$, $L$ не делятся на $1/\omega$;
+
+3. $\alpha\ne0$, $L$ делятся на $1/\omega$;
+
+4. $\alpha\ne0$, $L$ не делятся на $1/\omega$;
+
+Пусть $\omega_1=\omega_3=0.1$, $\omega_2=\omega_4=0.085$, $A_1=0.9$, $A_3=0.02$, $\alpha_3=\alpha_4=0.05$, $A_2$ и $A_4$ выбираются таким образом, чтобы $\mathrm{SNR}(\mathsf{S_1}, \boldsymbol\xi)\approx\mathrm{SNR}(\mathsf{S_2}, \boldsymbol\xi)$ и $\mathrm{SNR}(\mathsf{S_3}, \boldsymbol\xi)\approx\mathrm{SNR}(\mathsf{S_4}, \boldsymbol\xi)$. В качестве шума рассмотрим модель $\mathrm{AR}(1)$ с $\phi=0.7$ и $\sigma^2=1$.
+
+```{r include=FALSE}
+N <- 100
+Ls <- c(10, 20, 50, 80, 90)
+```
+
+```{r include=FALSE}
+phi <- 0.7
+sigma2 <- 1
+model <- list(phi = phi, sigma2 = sigma2, N = N)
+```
+
+```{r include=FALSE}
+omega1 <- 0.1
+omega2 <- 0.085
+
+A1 <- 0.9
+signal1 <- A1 * cos(2 * pi * (1:N) * omega1)
+
+SNR1 <- snr(signal1, phi = model$phi)
+
+signal2 <- cos(2 * pi * (1:N) * omega2)
+A2 <- 
+  optimise(
+    function(A) abs(snr(A * signal2, phi = model$phi) - SNR1),
+    interval = c(0, 10)
+  )$minimum
+signal2 <- A2 * signal2
+
+A3 <- 0.02
+signal3 <- A3 * exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega1)
+SNR3 <- snr(signal3, phi = model$phi)
+
+signal4 <- exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega2)
+A4 <- 
+  optimise(
+    function(A) abs(snr(A * signal4, phi = model$phi) - SNR3),
+    interval = c(0, 10)
+  )$minimum
+signal4 <- A4 * signal4
+```
+
+```{r}
+plot.ts(signal1)
+plot.ts(signal3)
+```
+
+```{r eval=FALSE, include=FALSE}
+mcssa_sim <- function(M, Ls, basis, model, signal = 0, ...) {
+  p.values <- list()
+  pb <- progressor(M * length(Ls))
+  for (idx in seq_along(Ls)) {
+    result <- foreach (i = 1:M, .combine = "c", .options.RNG = 1) %dorng% {
+      pb()
+      f <- generate_channel(model, signal)
+      res <- mcssa(f, Ls[idx], basis, model = model, est.freq = FALSE, conf.level = NULL, ...)
+      res$p.value
+    }
+    p.values[[idx]] <- result
+  }
+  p.values <- do.call(cbind, p.values) |> data.frame()
+  colnames(p.values) <- paste0("L", Ls)
+  p.values
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+M <- 1000 # number of simulations
+
+cores <- 15
+# Setting up parallel computing
+plan(multisession, workers = min(cores, detectCores() - 1))
+registerDoFuture()
+```
+
+```{r eval=FALSE, include=FALSE}
+p_noise_ev <- mcssa_sim(M, Ls, model, basis = "ev")
+p_noise_ev_svd <- mcssa_sim(M, Ls, "ev", model, decomposition.method = "svd")
+p_signal1_ev <- mcssa_sim(M, Ls, "ev", model, signal1)
+p_signal2_ev <- mcssa_sim(M, Ls, "ev", model, signal2)
+p_signal3_ev <- mcssa_sim(M, Ls, "ev", model, signal3, decomposition.method = "svd")
+p_signal4_ev <- mcssa_sim(M, Ls, "ev", model, signal4, decomposition.method = "svd")
+
+p.values_ev <- data.frame(
+  noise = unlist(p_noise_ev),
+  noise_svd = unlist(p_noise_ev_svd),
+  signal1 = unlist(p_signal1_ev),
+  signal2 = unlist(p_signal1_ev),
+  signal3 = unlist(p_signal1_ev),
+  signal4 = unlist(p_signal1_ev),
+  L = rep(as.character(Ls), each = M),
+  row.names = NULL
+)
+```
+
+```{r eval=FALSE, include=FALSE}
+p_noise_cos1 <- mcssa_sim(M, Ls, "cos", model)
+p_signal1_cos1 <- mcssa_sim(M, Ls, "cos", model, signal1)
+p_signal2_cos1 <- mcssa_sim(M, Ls, "cos", model, signal2)
+p_signal3_cos1 <- mcssa_sim(M, Ls, "cos", model, signal3)
+p_signal4_cos1 <- mcssa_sim(M, Ls, "cos", model, signal4)
+
+p.values_cos <- data.frame(
+  noise = unlist(p_noise_cos),
+  signal1 = unlist(p_signal1_cos),
+  signal2 = unlist(p_signal1_cos),
+  signal3 = unlist(p_signal1_cos),
+  signal4 = unlist(p_signal1_cos),
+  L = rep(as.character(Ls), each = M),
+  row.names = NULL
+)
+```
+
+```{r include=FALSE}
+alphas <- 0:1000 / 1000
+
+df_ev <- p.values_ev |>
+  group_by(L) |>
+  reframe(
+    alphaI = ecdf(noise)(alphas),
+    alphaI_svd = ecdf(noise_svd)(alphas),
+    beta1 = ecdf(signal1)(alphas),
+    beta2 = ecdf(signal2)(alphas),
+    beta3 = ecdf(signal3)(alphas),
+    beta4 = ecdf(signal4)(alphas)
+  ) |>
+  mutate(signif.level = rep(alphas, length(Ls)))
+  
+df_cos <- p.values_cos |>
+  group_by(L) |>
+  reframe(
+    alphaI = ecdf(noise)(alphas),
+    beta1 = ecdf(signal1)(alphas),
+    beta2 = ecdf(signal2)(alphas),
+    beta3 = ecdf(signal3)(alphas),
+    beta4 = ecdf(signal4)(alphas)
+  ) |>
+  mutate(signif.level = rep(alphas, length(Ls)))
+```
+
+```{r, include=FALSE}
+cols <- c('black', 'red', 'green', "orange", "purple")
+lwds <- c(2, 1, 1, 1, 1)
+
+plot_pvalues <- function(formula, data, ...) {
+  xyplot(
+    formula,
+    data,
+    groups = L,
+    type = "l",
+    auto.key = list(corner = c(1, 0), x = 0.95, y = 0.05),
+    par.settings = simpleTheme(col = cols, lwd = lwds, lty = 1),
+    panel = function(x, y, ...) {
+      panel.xyplot(x, y, ...)
+      panel.abline(0, 1, col = "blue", lty = 2)
+    },
+    ...
+  )
+}
+```
+
+# Ошибка первого рода
+```{r, fig.height=15}
+p_ev <- plot_pvalues(
+  alphaI ~ signif.level, df_ev,
+  xlab = "significance level", ylab = "type I error", main = "Eigenvectors (Toeplitz)"
+)
+p_ev_svd <- plot_pvalues(
+  alphaI_svd ~ signif.level, df_ev,
+  xlab = "significance level", ylab = "type I error", main = "Eigenvectors (SVD)"
+)
+p_cos <- plot_pvalues(
+  alphaI ~ signif.level, df_cos,
+  xlab = "significance level", ylab = "type I error", main = "Cosines")
+
+plot(p_ev, split = c(1, 1, 1, 3), more = TRUE)
+plot(p_ev_svd, split = c(1, 2, 1, 3), more = TRUE)
+plot(p_cos, split = c(1, 3, 1, 3), more = FALSE)
+```
+
+На рис. сверху изображены графики ошибок первого рода критериев ev и cos для рассматриваемых длин окна. Как видно по графикам, критерий ev радикальный для всех $L>10$, а cos, в свою очередь, является точным критерием для любой длины окна.
+
+# Мошность (ROC-кривые) 
+Взгянем на ROC-кривые критериев. Под каждым графиком также выведено значение площади под ROC-кривой для каждого $L$ при $\alpha_I\leqslant 0.5$. При $\alpha=0$ в критерии ev использовались собственные векторы матрицы $\mathbf{T}$, а при $\alpha\ne0$ --- собственные векторы матрицы $\mathbf{XX}^\mathrm{T}$, поскольку в этом случае сигнал, вообще говоря, нестационарный.
+
+```{r include=FALSE}
+AUC <- function(x, y) {
+  y <- y[x <= 0.5]
+  x <- x[x <= 0.5]
+  trapz(x, y)
+}
+```
+
+## $\alpha=0$, $L$ делятся на $1/\omega$
+```{r, fig.width=14}
+p_ev <- plot_pvalues(
+  beta1 ~ alphaI, df_ev,
+  xlab = "type I error", ylab = "power", main = "Eigenvectors (Toeplitz)"
+)
+p_cos <- plot_pvalues(
+  beta1 ~ alphaI, df_cos,
+  xlab = "type I error", ylab = "power", main = "Cosines"
+)
+
+plot(p_ev, split = c(1, 1, 2, 1), more = TRUE)
+plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
+```
+
+```{r echo=FALSE}
+auc_ev1 <- df_ev |> group_by(L) |> dplyr::summarise(AUC.ev = AUC(alphaI, beta1))
+auc_cos1 <- df_cos |> group_by(L) |> dplyr::summarise(AUC.cos = AUC(alphaI, beta1))
+inner_join(auc_ev1, auc_cos1, by = "L")
+```
+
+## $\alpha=0$, $L$ не делятся на $1/\omega$
+```{r, fig.width=14}
+p_ev <- plot_pvalues(
+  beta2 ~ alphaI, df_ev,
+  xlab = "type I error", ylab = "power", main = "Eigenvectors (Toeplitz)"
+)
+p_cos <- plot_pvalues(
+  beta2 ~ alphaI, df_cos,
+  xlab = "type I error", ylab = "power", main = "Cosines"
+)
+
+plot(p_ev, split = c(1, 1, 2, 1), more = TRUE)
+plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
+```
+
+```{r echo=FALSE}
+auc_ev2 <- df_ev |> group_by(L) |> dplyr::summarise(AUC.ev = AUC(alphaI, beta2))
+auc_cos2 <- df_cos |> group_by(L) |> dplyr::summarise(AUC.cos = AUC(alphaI, beta2))
+inner_join(auc_ev2, auc_cos2, by = "L")
+```
+
+## $\alpha\ne0$, $L$ делятся на $1/\omega$
+```{r, fig.width=14}
+p_ev <- plot_pvalues(
+  beta3 ~ alphaI_svd, df_ev,
+  xlab = "type I error", ylab = "power", main = "Eigenvectors (SVD)"
+)
+p_cos <- plot_pvalues(
+  beta3 ~ alphaI, df_cos,
+  xlab = "type I error", ylab = "power", main = "Cosines"
+)
+
+plot(p_ev, split = c(1, 1, 2, 1), more = TRUE)
+plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
+```
+
+```{r echo=FALSE}
+auc_ev3 <- df_ev |> group_by(L) |> dplyr::summarise(AUC.ev = AUC(alphaI_svd, beta3))
+auc_cos3 <- df_cos |> group_by(L) |> dplyr::summarise(AUC.cos = AUC(alphaI, beta3))
+inner_join(auc_ev3, auc_cos3, by = "L")
+```
+
+## $\alpha\ne0$, $L$ не делятся на $1/\omega$
+```{r, fig.width=14}
+p_ev <- plot_pvalues(
+  beta4 ~ alphaI_svd, df_ev,
+  xlab = "type I error", ylab = "power", main = "Eigenvectors (SVD)"
+)
+p_cos <- plot_pvalues(
+  beta4 ~ alphaI, df_cos,
+  xlab = "type I error", ylab = "power", main = "Cosines"
+)
+
+plot(p_ev, split = c(1, 1, 2, 1), more = TRUE)
+plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
+```
+
+```{r echo=FALSE}
+auc_ev4 <- df_ev |> group_by(L) |> dplyr::summarise(AUC.ev = AUC(alphaI_svd, beta4))
+auc_cos4 <- df_cos |> group_by(L) |> dplyr::summarise(AUC.cos = AUC(alphaI, beta4))
+inner_join(auc_ev4, auc_cos4, by = "L")
+```
+
+Как видим, вариант cos в трех случаях из четырех оказывается болеее предпочтительным, чем ev.
