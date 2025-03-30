@@ -16,7 +16,6 @@ library(parallel)
 library(doFuture)
 library(doRNG)
 library(progressr)
-library(plyr)
 library(lattice)
 
 source("../R/mc-mssa.R", chdir = TRUE)
@@ -220,7 +219,7 @@ df_cos <- p.values_cos |>
 cols <- c('black', 'red', 'green', "orange", "purple")
 lwds <- c(2, 1, 1, 1, 1)
 
-plot_pvalues <- function(formula, data, ...) {
+plot_distr <- function(formula, data, ...) {
   xyplot(
     formula,
     data,
@@ -239,15 +238,15 @@ plot_pvalues <- function(formula, data, ...) {
 
 # Ошибка первого рода
 ```{r, fig.height=15}
-p_ev <- plot_pvalues(
+p_ev <- plot_distr(
   alphaI ~ signif.level, df_ev,
   xlab = "significance level", ylab = "type I error", main = "Eigenvectors (Toeplitz)"
 )
-p_ev_svd <- plot_pvalues(
+p_ev_svd <- plot_distr(
   alphaI_svd ~ signif.level, df_ev,
   xlab = "significance level", ylab = "type I error", main = "Eigenvectors (SVD)"
 )
-p_cos <- plot_pvalues(
+p_cos <- plot_distr(
   alphaI ~ signif.level, df_cos,
   xlab = "significance level", ylab = "type I error", main = "Cosines")
 
@@ -271,11 +270,11 @@ AUC <- function(x, y) {
 
 ## $\alpha=0$, $L$ делятся на $1/\omega$
 ```{r, fig.width=14}
-p_ev <- plot_pvalues(
+p_ev <- plot_distr(
   beta1 ~ alphaI, df_ev,
   xlab = "type I error", ylab = "power", main = "Eigenvectors (Toeplitz)"
 )
-p_cos <- plot_pvalues(
+p_cos <- plot_distr(
   beta1 ~ alphaI, df_cos,
   xlab = "type I error", ylab = "power", main = "Cosines"
 )
@@ -285,18 +284,18 @@ plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
 ```
 
 ```{r echo=FALSE}
-auc_ev1 <- df_ev |> group_by(L) |> dplyr::summarise(AUC.ev = AUC(alphaI, beta1))
-auc_cos1 <- df_cos |> group_by(L) |> dplyr::summarise(AUC.cos = AUC(alphaI, beta1))
+auc_ev1 <- df_ev |> group_by(L) |> summarise(AUC.ev = AUC(alphaI, beta1))
+auc_cos1 <- df_cos |> group_by(L) |> summarise(AUC.cos = AUC(alphaI, beta1))
 inner_join(auc_ev1, auc_cos1, by = "L")
 ```
 
 ## $\alpha=0$, $L$ не делятся на $1/\omega$
 ```{r, fig.width=14}
-p_ev <- plot_pvalues(
+p_ev <- plot_distr(
   beta2 ~ alphaI, df_ev,
   xlab = "type I error", ylab = "power", main = "Eigenvectors (Toeplitz)"
 )
-p_cos <- plot_pvalues(
+p_cos <- plot_distr(
   beta2 ~ alphaI, df_cos,
   xlab = "type I error", ylab = "power", main = "Cosines"
 )
@@ -306,18 +305,18 @@ plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
 ```
 
 ```{r echo=FALSE}
-auc_ev2 <- df_ev |> group_by(L) |> dplyr::summarise(AUC.ev = AUC(alphaI, beta2))
-auc_cos2 <- df_cos |> group_by(L) |> dplyr::summarise(AUC.cos = AUC(alphaI, beta2))
+auc_ev2 <- df_ev |> group_by(L) |> summarise(AUC.ev = AUC(alphaI, beta2))
+auc_cos2 <- df_cos |> group_by(L) |> summarise(AUC.cos = AUC(alphaI, beta2))
 inner_join(auc_ev2, auc_cos2, by = "L")
 ```
 
 ## $\alpha\ne0$, $L$ делятся на $1/\omega$
 ```{r, fig.width=14}
-p_ev <- plot_pvalues(
+p_ev <- plot_distr(
   beta3 ~ alphaI_svd, df_ev,
   xlab = "type I error", ylab = "power", main = "Eigenvectors (SVD)"
 )
-p_cos <- plot_pvalues(
+p_cos <- plot_distr(
   beta3 ~ alphaI, df_cos,
   xlab = "type I error", ylab = "power", main = "Cosines"
 )
@@ -327,18 +326,18 @@ plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
 ```
 
 ```{r echo=FALSE}
-auc_ev3 <- df_ev |> group_by(L) |> dplyr::summarise(AUC.ev = AUC(alphaI_svd, beta3))
-auc_cos3 <- df_cos |> group_by(L) |> dplyr::summarise(AUC.cos = AUC(alphaI, beta3))
+auc_ev3 <- df_ev |> group_by(L) |> summarise(AUC.ev = AUC(alphaI_svd, beta3))
+auc_cos3 <- df_cos |> group_by(L) |> summarise(AUC.cos = AUC(alphaI, beta3))
 inner_join(auc_ev3, auc_cos3, by = "L")
 ```
 
 ## $\alpha\ne0$, $L$ не делятся на $1/\omega$
 ```{r, fig.width=14}
-p_ev <- plot_pvalues(
+p_ev <- plot_distr(
   beta4 ~ alphaI_svd, df_ev,
   xlab = "type I error", ylab = "power", main = "Eigenvectors (SVD)"
 )
-p_cos <- plot_pvalues(
+p_cos <- plot_distr(
   beta4 ~ alphaI, df_cos,
   xlab = "type I error", ylab = "power", main = "Cosines"
 )
@@ -348,8 +347,8 @@ plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
 ```
 
 ```{r echo=FALSE}
-auc_ev4 <- df_ev |> group_by(L) |> dplyr::summarise(AUC.ev = AUC(alphaI_svd, beta4))
-auc_cos4 <- df_cos |> group_by(L) |> dplyr::summarise(AUC.cos = AUC(alphaI, beta4))
+auc_ev4 <- df_ev |> group_by(L) |> summarise(AUC.ev = AUC(alphaI_svd, beta4))
+auc_cos4 <- df_cos |> group_by(L) |> summarise(AUC.cos = AUC(alphaI, beta4))
 inner_join(auc_ev4, auc_cos4, by = "L")
 ```
 
