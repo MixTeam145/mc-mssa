@@ -1,0 +1,328 @@
+---
+title: "Reconstruct MC-SSA"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 10)
+
+library(parallel)
+library(doFuture)
+library(doRNG)
+library(progressr)
+library(lattice)
+
+source("../R/mc-mssa.R", chdir = TRUE)
+load("./data/reconstruct_mcssa_errors.RData")
+```
+
+# Алгоритм
+
+Алгоритм восстановления сигнала по наиболее значимому вектору MC-SSA:
+
+1. Найти индекс самомого значимого вектора, т.е. $k=\operatorname*{argmax}\limits_i (\widehat p_i - c_i)$, где $c_i$ --- верхняя граница предсказательного интервала, $\omega=(k-1)/(2L)$;
+
+2. Если $k-1$ и/или $k+1$-я компоненты тоже значимы, вычислить новое значение $\omega$ как взвешенная сумма частот с весами $w_i=\widehat p_i-c_i$;
+
+3. Провести SSA с некоторой длиной окна (либо SSA с проекцией на косинус с частотой $\omega$) и найти первые две элементарные компоненты с наибольшим вкладом периодограммы на интервале $\omega\pm 1 / (4L)$, где $L$ --- длина окна, с которой проводился MC-SSA.
+
+4. Выделить найденные элементарные компоненты.
+
+```{r}
+reconstruct.mcssa <- function(x, L = (N + 1) %/% 2, projection = c("none", "half", "full")) {
+  projection <- match.arg(projection)
+  
+  N <- x$length
+  idx <- which(x$statistic$contribution > x$predint$upper)
+  
+  if (length(idx) > 1) { 
+    max_idx <- idx[which.max(x$statistic$contribution[idx] - x$predint$upper[idx])]
+    
+    neighbors <- c()
+    if ((max_idx - 1) %in% idx)
+      neighbors <- c(neighbors, max_idx - 1)
+    if ((max_idx + 1) %in% idx)
+      neighbors <- c(neighbors, max_idx + 1)
+
+    idx <- c(max_idx, neighbors)
+
+    if (projection %in% c("none", "half")) {
+      w <- x$statistic$contribution[idx] - x$predint$upper[idx]
+      freq <- weighted.mean(x$statistic$freq[idx], w)
+    } else {
+      freq <- (max_idx - 1) / (2 * x$window)
+    }
+  } else {
+    freq <- (idx - 1) / (2 * x$window)
+  }
+  
+  delta <- 1 / (4 * x$window)
+  freq.bins <- lapply(freq, function(f) f + delta * c(-1, 1))
+  
+  if (projection == "none") {
+    s <- ssa(x$series, L, kind = "1d-ssa")
+    g <- grouping.auto(s, freq.bins = freq.bins, base = "eigen")
+    contrib <- attr(g, "contrib")
+    ind <- order(-contrib)[1:2]
+    
+  } else if (projection == "half") {
+    proj_vector <- cos(2 * pi * (1:L) * freq)
+    s <- ssa(x$series, L, kind = "1d-ssa", column.projector = proj_vector)
+    g <- grouping.auto(s, groups = 2:L, freq.bins = freq.bins, base = "eigen")
+    contrib <- attr(g, "contrib")
+    ind <- rownames(contrib)[order(-contrib)][1] |> as.numeric()
+    ind <- c(1, ind)
+  } else {
+     proj_vectors <-
+       lapply(
+         freq,
+         function(f) cbind(cos(2 * pi * (1:L) * f), sin(2 * pi * (1:L) * f))
+       )
+     proj_vectors <- do.call(cbind, proj_vectors)
+     s <- ssa(x$series, L, kind = "1d-ssa", column.projector = proj_vectors)
+     ind <- 1:ncol(proj_vectors)
+  }
+  r <- reconstruct(s, list(Signal = ind))
+  list(
+    reconstruction = r,
+    components = ind,
+    freq.bins = freq.bins
+  )
+}
+```
+
+```{r}
+phi <- 0.7
+sigma2 <- 1
+N <- 200
+model <- list(phi = phi, sigma2 = sigma2, N = N)
+```
+
+## Гармоника
+```{r}
+set.seed(1234)
+omega <- 0.125
+signal1 <- cos(2 * pi * (1:N) * omega)
+f1 <- generate_channel(model, signal1)
+xyplot.ts(
+  cbind(f1, signal1),
+  superpose = TRUE,
+  auto.key = list(
+    text = c("Original", "Signal"),
+    space = "top"
+  )
+)
+```
+
+```{r}
+set.seed(1)
+m1 <- mcssa(f1, 20, "cos", model = model)
+plot(m1)
+```
+
+
+```{r}
+r1 <- reconstruct(m1, projection = "full")
+xyplot.ts(
+  cbind(f1, signal1, r1$reconstruction$Signal),
+  superpose = TRUE,
+  auto.key = list(
+    text = c("Original", "True signal", "Estimated signal"),
+    space = "top"
+  )
+)
+cat("Selected components:", r1$components)
+```
+
+
+## Экспоненциально-модулированная гармоника
+```{r}
+set.seed(1234)
+signal2 <- 0.075 * exp(0.02 * (1:N)) * cos(2 * pi * (1:N) * omega)
+f2 <- generate_channel(model, signal2)
+xyplot.ts(
+  cbind(f2, signal2),
+  superpose = TRUE,
+  auto.key = list(
+    text = c("Original", "Signal"),
+    space = "top"
+  )
+)
+```
+
+```{r}
+set.seed(1)
+m2 <- mcssa(f2, 20, "cos", model = model)
+plot(m2)
+```
+
+```{r}
+r2 <- reconstruct(m2, projection = "none")
+xyplot.ts(
+  cbind(f2, signal2, r2$reconstruction$Signal),
+  superpose = TRUE,
+  auto.key = list(
+    text = c("Original", "True signal", "Estimated signal"),
+    space = "top"
+  )
+)
+cat("Selected components:", r2$components)
+```
+
+
+# Сравнение вариантов с проекцией и без
+```{r}
+mcssa_errors <- function(L, model, signal, M = 500) {
+  pb <- progressor(M)
+  result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+    pb()
+    f <- generate_channel(model, signal)
+    m <- mcssa(f, L, "cos", model = model, conf.level = 0.95)
+    if (m$reject) {
+      r.none <- reconstruct.mcssa(m)
+      r.half <- reconstruct.mcssa(m, projection = "half")
+      r.full <- reconstruct.mcssa(m, projection = "full")
+      mse.none <- mean((r.none$r$Signal - signal)^2)
+      mse.half <- mean((r.half$r$Signal - signal)^2)
+      mse.full <- mean((r.full$r$Signal - signal)^2)
+    }
+    else {
+      mse.none <- mse.half <- mse.full <- NA
+    }
+    c(mse.none, mse.half, mse.full)
+  }
+  result <- do.call(rbind, result) |> data.frame()
+  colnames(result) <- c("mse.none", "mse.half", "mse.full")
+  result
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- 15
+
+# Setting up parallel computing
+plan(multisession, workers = min(cores, detectCores() - 1))
+registerDoFuture()
+```
+
+Пусть $N=99$, $L=10$, $\phi=0.7$. Рассмотрим разную зашумленность ряда: $\sigma^2\in\{0.2, 0.4, 0.6, 0.8, 1\}$.
+```{r}
+N <- 99
+L <- 10
+
+phi <- 0.7
+sigma2s <- c(0.2, 0.4, 0.6, 0.8, 1)
+models <- lapply(sigma2s, function(sigma2) list(phi = 0.7, sigma2 = sigma2, N = N))
+```
+
+
+## $\alpha=0$, $L$ делится на $1/\omega$
+```{r, eval=FALSE}
+omega1 <- 0.1
+signal1 <- cos(2 * pi * (1:N) * omega1)
+
+mse.signal1 <- lapply(models, function(model) mcssa_errors(L, model, signal1))
+names(mse.signal1) <- paste0("sigma2 = ", sigma2s)
+```
+
+```{r}
+cols <- c("#0072B2", "#E69F00", "#FFB09C", "#EE2400", "#900000")
+xyplot(
+  mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2,
+  mse1,
+  type = "b",
+  ylab = "MSE",
+  col = cols,
+  par.settings = list(superpose.line = list(col = cols)),
+  auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)"))
+)
+```
+
+```{r}
+# Доля NA
+mse1 |> select(sigma2, NA_perc)
+```
+
+
+## $\alpha=0$, $L$ не делится на $1/\omega$
+```{r, eval=FALSE}
+omega2 <- 0.115
+signal2 <- cos(2 * pi * (1:N) * omega2)
+
+mse.signal2 <- lapply(models, function(model) mcssa_errors(L, model, signal2))
+names(mse.signal2) <- paste0("sigma2 = ", sigma2s)
+```
+
+```{r}
+xyplot(
+  mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2,
+  mse2,
+  type = "b",
+  ylab = "MSE",
+  col = cols,
+  par.settings = list(superpose.line = list(col = cols)),
+  auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)"))
+)
+```
+
+```{r}
+# Доля NA
+mse2 |> select(sigma2, NA_perc)
+```
+
+
+## $\alpha\ne0$, $L$ делится на $1/\omega$
+```{r, eval=FALSE}
+signal3 <- 0.025 * exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega1)
+
+mse.signal3 <- lapply(models, function(model) mcssa_errors(L, model, signal3))
+names(mse.signal3) <- paste0("sigma2 = ", sigma2s)
+```
+
+```{r}
+xyplot(
+  mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2,
+  mse3,
+  type = "b",
+  ylab = "MSE",
+  col = cols,
+  par.settings = list(superpose.line = list(col = cols)),
+  auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)"))
+)
+```
+
+```{r}
+# Доля NA
+mse3 |> select(sigma2, NA_perc)
+```
+
+
+## $\alpha\ne0$, $L$ не делится на $1/\omega$
+```{r, eval=FALSE}
+signal4 <- 0.025 * exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega2)
+
+mse.signal4 <- lapply(models, function(model) mcssa_errors(L, model, signal4))
+names(mse.signal4) <- paste0("sigma2 = ", sigma2s)
+```
+
+```{r}
+xyplot(
+  mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2,
+  mse4,
+  type = "b",
+  ylab = "MSE",
+  col = cols,
+  par.settings = list(superpose.line = list(col = cols)),
+  auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)"))
+)
+```
+
+```{r}
+# Доля NA
+mse4 |> select(sigma2, NA_perc)
+```
