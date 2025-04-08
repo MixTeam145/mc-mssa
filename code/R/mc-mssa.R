@@ -115,28 +115,38 @@ arfima_whittle <- function(x, fixed = NULL, freq.range = c(0, 0.5)) {
 }
 
 imvfft <- function(x) {
-  mvfft(x, inverse = TRUE) / length(x)
+  mvfft(x, inverse = TRUE) / nrow(x)
 }
 
+pad <- function(x, n, after = TRUE) {
+  x_padded <- matrix(0, nrow(x) + n, ncol(x))
+  if (after)
+    x_padded[1:nrow(x), ] <- x
+  else
+    x_padded[(n + 1):nrow(x_padded), ] <- x
+  x_padded
+}
+
+
 # Compute squared norms of projections
-projec <- function(x, ts = x$series) {
-  N <- x$length
-  L <- x$window
+projec <- function(x, L, W_ft, kind = c("columns", "rows")) {
+  kind <- match.arg(kind)
+  N <- nrow(x)
+  D <- ncol(x)
 
-  ts <- scale(ts, scale = FALSE)
-  ts_ft <- mvfft(ts[c((N - L + 1):N, 1:(N - L)), , drop = FALSE])
+  x_ft <- mvfft(x[c((N - L + 1):N, 1:(N - L)), , drop = FALSE])
 
-  if (x$proj.kind == "rows") {
-    v <- matrix(0, L, ncol(x$W_ft))
-    for (i in seq_len(x$channels)) {
-      p <- imvfft(x$W_ft[[i]] * ts_ft[, i])[1:L, , drop = FALSE]
+  if (kind == "rows") {
+    v <- matrix(0, L, ncol(W_ft[[1]]))
+    for (i in seq_len(D)) {
+      p <- imvfft(W_ft[[i]] * x_ft[, i])[1:L, , drop = FALSE]
       v <- v + p
     }
     v <- colSums(Mod(v)^2)
   } else {
-    v <- numeric(ncol(x$W_ft))
-    for (i in seq_len(x$channels)) {
-      p <- imvfft(x$W_ft * ts_ft[, i])[L:N, , drop = FALSE]
+    v <- numeric(ncol(W_ft))
+    for (i in seq_len(D)) {
+      p <- imvfft(W_ft * x_ft[, i])[L:N, , drop = FALSE]
       v <- v + colSums(Mod(p)^2)
     }
   }
@@ -144,7 +154,7 @@ projec <- function(x, ts = x$series) {
 }
 
 # Estimate vector main frequency by ESPRIT
-est_freq <- function(v) {
+estimate_freq <- function(v) {
   s <- ssa(v, neig = 2)
   p <- parestimate(s, list(1:2))
   freq <- p$frequencies[[1]]
@@ -236,43 +246,53 @@ what.reject <- function(x) {
 ### Main functions for multiple Monte Carlo SSA
 # Make multiple test
 do.test <- function(x, G, conf.level, two.tailed, freq.range) {
+  N <- x$length
+  L <- x$window
+  D <- x$channels
+  
   if (!is.null(freq.range)) {
     if (!length(x$proj_vectors$freq))
-      x$proj_vectors$freq <- apply(x$proj_vectors$W, 2, est_freq)
-    idx <-
+      x$proj_vectors$freq <- apply(x$proj_vectors$W, 2, estimate_freq)
+    mask <-
       x$proj_vectors$freq >=  freq.range[1] &
       x$proj_vectors$freq <= freq.range[2]
   } else {
-    idx <- rep(TRUE, ncol(x$proj_vectors$W))
+    mask <- rep(TRUE, ncol(x$proj_vectors$W))
   }
   
-  if (!any(idx))
+  if (!any(mask))
     stop("No vectors with given frequency range, aborting")
   
   x$freq.range <- freq.range
   
+  # Pre-compute FFT of the reversed vectors for the fast matrix-vector product
+  W <- x$proj_vectors$W
   if (x$proj.kind == "rows") {
-    K <- x$length - x$window + 1
-    m <- matrix(0, x$window - 1, sum(idx))
-    x$W_ft <- list()
-    for (channel in seq_len(x$channels)) {
-      ind <- (channel * K):((channel - 1) * K + 1)
-      x$W_ft[[channel]] <- mvfft(
-        rbind(x$proj_vectors$W[ind, idx, drop = FALSE], m)
-      )
+    K <- N - L + 1
+    W_ft <- list()
+    for (d in seq_len(D)) {
+      idx <- (d * K):((d - 1) * K + 1)
+      W_ft[[d]] <- mvfft(pad(W[idx, mask, drop = FALSE], L - 1))
     }
   } else {
-    m <- matrix(0, x$length - x$window, sum(idx))
-    x$W_ft <- mvfft(rbind(m, x$proj_vectors$W[x$window:1, idx, drop = FALSE]))
+    W_ft <- mvfft(pad(W[L:1, mask, drop = FALSE], N - L, after = FALSE))
   }
   
-  x$statistic <- list(freq = x$proj_vectors$freq[idx])
-  
-  P <- replicate(G, projec(x, generate(x$channels, x$model)), simplify = FALSE)
+  # Simulate surrogate data and calculate projection
+  P <- replicate(
+    G,
+    projec(generate(D, x$model, demean = TRUE), L, W_ft, x$proj.kind),
+    simplify = FALSE
+  )
   P <- do.call(cbind, P)
-  v <- projec(x)
   
-  x$statistic$contribution <- v
+  # Calculate projection of input time series
+  v <- projec(x$series, L, W_ft, x$proj.kind)
+  
+  x$statistic <- list(
+    freq = x$proj_vectors$freq[mask],
+    contribution = v
+  )
   
   means <- rowMeans(P)
   sds <- rowSds(P)
@@ -294,11 +314,11 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
     if (!two.tailed) {
       q.lower <- 0
       x$predint$lower <- 0
-      x$reject <- as.logical(t > q.upper)
+      x$reject <- t > q.upper
     } else {
       q.lower <- -q.upper
       x$predint$lower <- means + q.lower * sds
-      x$reject <- as.logical(t > q.upper | t < q.lower)
+      x$reject <- t > q.upper | t < q.lower
     }
     x$conf.level <- conf.level
   }
@@ -313,15 +333,14 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
 #' @param L Window length
 #' @param basis Type of vectors for projection
 #' @param proj.kind Projection on columns or rows of trajectory matrix
-#' @param decomposition.method Decomposition method (for basis = "ev" only)
+#' @param decomposition.method Decomposition method (for SSA)
 #' @param model A list of noise model parameters
 #' @param fixed A list of parameters to be fixed (if `model` is missing)
 #' @param G Number of surrogates
 #' @param conf.level Confidence level
-#' @param two.tailed If TRUE performs two-tailed test
-#' @param est.freq If TRUE estimates the main frequency of each projection vector
+#' @param two.tailed If `TRUE` performs two-tailed test
 #' @param freq.range Potential signal frequency range
-#' @param composite If TRUE performs test with composite null hypothesis (noise + nuisance signal)
+#' @param composite If `TRUE` performs test with composite null hypothesis (noise + nuisance signal)
 mcssa <- function(x,
                   L,
                   basis = c("ev", "t", "cos"),
@@ -332,7 +351,6 @@ mcssa <- function(x,
                   G = 1000,
                   conf.level = 0.8,
                   two.tailed = FALSE,
-                  est.freq = TRUE,
                   freq.range = c(0, 0.5),
                   composite = FALSE) {
   if (is.vector(x)) {
@@ -394,9 +412,6 @@ mcssa <- function(x,
   
   this$proj_vectors <- proj_vectors
   
-  if (!est.freq)
-    freq.range <- NULL
-  
   this <- do.test(
     this,
     G,
@@ -411,7 +426,7 @@ mcssa <- function(x,
 plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
   if (!length(x$freq.range)) {
     warning("The main frequencies of projection vectors are missing, estimating them now")
-    x$statistic$freq <- apply(x$proj_vectors$W, 2, est_freq)
+    x$statistic$freq <- apply(x$proj_vectors$W, 2, estimate_freq)
   }
   df <-
     data.frame(
@@ -455,7 +470,7 @@ print.mcssa <- function(x) {
   else
     cat("cosines with frequencies j / (2L) (exact test)")
   cat("\nType of projection: on", x$proj.kind, "of trajectory matrix")
-  cat("\nNumber of projection vectors:", ncol(x$W_ft))
+  cat("\nNumber of projection vectors:", length(x$statistic$contribution))
   cat("\np-value:", x$p.value)
   if (!is.null(x$conf.level))
     cat("\nNull hypothesis is", if (!x$reject) "not", "rejected")
@@ -550,12 +565,15 @@ generate_channel <- function(model, signal = 0) {
 }
 
 # Generates a multivariate ts
-generate <- function(D, model, signal = matrix(0, nrow = N, ncol = D)) {
+generate <- function(D, model, signal = matrix(0, nrow = N, ncol = D), demean = FALSE) {
   N <- model[[1]]$N
   res <- vector("list", D)
   for (channel in seq_len(D)) {
     res[[channel]] <- generate_channel(model[[channel]], signal[, channel])
   }
   f <- do.call(cbind, res)
+  if (demean) {
+    f <- sweep(f, 2, colMeans(f))
+  }
   f
 }
