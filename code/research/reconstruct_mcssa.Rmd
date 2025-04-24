@@ -18,97 +18,339 @@ library(progressr)
 library(lattice)
 
 source("../R/mc-mssa.R", chdir = TRUE)
-load("./data/reconstruct_mcssa_errors.RData")
+# source("../R/auto_ssa.R", chdir = TRUE)
+# load("./data/reconstruct_mcssa_errors.RData")
+load("./data/auto_mcssa_comp.RData")
 ```
 
 # Алгоритм
+Алгоритм восстановления сигнала по наиболее значимой частоте MC-SSA:
 
-Алгоритм восстановления сигнала по наиболее значимому вектору MC-SSA:
+1. Найти индекс наиболее значимой частоты (вектора), т.е. $k=\operatorname*{argmax}\limits_i (\widehat p_i - c_i)$, где $c_i$ --- верхняя граница предсказательного интервала, $\omega_k=k/(2L)$;
 
-1. Найти индекс самомого значимого вектора, т.е. $k=\operatorname*{argmax}\limits_i (\widehat p_i - c_i)$, где $c_i$ --- верхняя граница предсказательного интервала, $\omega=(k-1)/(2L)$;
+2. Если $k-1$ и/или $k+1$-я компоненты тоже значимы, вычислить новое значение $\omega_k$ как взвешенное среднее частот с весами $w_i=\widehat p_i-c_i$;
 
-2. Если $k-1$ и/или $k+1$-я компоненты тоже значимы, вычислить новое значение $\omega$ как взвешенная сумма частот с весами $w_i=\widehat p_i-c_i$;
-
-3. Провести SSA с некоторой длиной окна (либо SSA с проекцией на косинус с частотой $\omega$) и найти первые две элементарные компоненты с наибольшим вкладом периодограммы на интервале $\omega\pm 1 / (4L)$, где $L$ --- длина окна, с которой проводился MC-SSA.
+3. Провести SSA с некоторой длиной окна (либо SSA с проекцией на косинус с частотой $\omega_k$) и найти первые две элементарные компоненты с вкладом периодограммы $>0.5$ на интервале $\omega_k\pm 1 / (2L)$, где $L$ --- длина окна, с которой проводился MC-SSA.
 
 4. Выделить найденные элементарные компоненты.
 
+
+Алгоритм автоматического выделения сигнала с помощью MC-SSA:
+
+1. Применить MC-SSA с длиной окна $L$, если гипотеза отвергается, STOP;
+
+2. Инициализировать массив значимых частот $\omega$, $i=1$;
+
+3. Найти наиболее значимый вектор, сохранить частоту $\omega_i$.
+
+5. Из исходного ряда выделить сигнал по частотам $\omega_1,\ldots,\omega_i$ (см. предыдущий алгоритм), вычислить остаток;
+
+4. Применить MC-SSA с длиной окна $L$ к остатку, $i+1$.
+
+5. Если гипотеза отвергается или $i > \mathrm{maxiter}$, STOP, иначе перейти к пункту $3$.
+
+После завершения итераций есть два пути:
+
+1. Использовать последний восстановленный сигнал как оценку исходного;
+
+2. Применить MC-SSA еще один раз, используя модель с параметрами, оцененными по последнему остатку, и выделить сигнал по всем значимым частотам.
+
 ```{r}
-reconstruct.mcssa <- function(x, L = (N + 1) %/% 2, projection = c("none", "half", "full")) {
-  projection <- match.arg(projection)
+signif_freq <- function(x, n_periodics) {
+  significance <- x$statistic$contribution - x$predint$upper
+  idx <- which(significance > 0)
   
-  N <- x$length
-  idx <- which(x$statistic$contribution > x$predint$upper)
+  if (missing(n_periodics))
+    n_periodics <- length(idx)
   
-  if (length(idx) > 1) { 
-    max_idx <- idx[which.max(x$statistic$contribution[idx] - x$predint$upper[idx])]
+  n_periodics <- min(n_periodics, length(idx))
+  
+  if (n_periodics == 1) {
+    max_idx <- idx[which.max(significance[idx])]
     
     neighbors <- c()
     if ((max_idx - 1) %in% idx)
       neighbors <- c(neighbors, max_idx - 1)
     if ((max_idx + 1) %in% idx)
       neighbors <- c(neighbors, max_idx + 1)
-
+    
     idx <- c(max_idx, neighbors)
+    freq <- weighted.mean(x$proj_vectors$freq[idx], significance[idx])
+  } else {
+    o <- order(-significance[idx])[1:n_periodics]
+    idx <- idx[o]
+    freq <- x$proj_vectors$freq[idx]
+  }
+  
+  freq
+}
 
-    if (projection %in% c("none", "half")) {
-      w <- x$statistic$contribution[idx] - x$predint$upper[idx]
-      freq <- weighted.mean(x$statistic$freq[idx], w)
-    } else {
-      freq <- (max_idx - 1) / (2 * x$window)
+reconstruct.mcssa <- function(x,
+                              L = (N + 1) %/% 2,
+                              groups,
+                              projection = c("none", "half", "full"),
+                              n_periodics) {
+  projection <- match.arg(projection)
+  
+  eps <- 1e-9
+  delta <- 1 / (2 * x$window) + eps
+  freq <- signif_freq(x, n_periodics)
+  freq.bins <- lapply(freq, function(f) c(f - delta, f + delta))
+  
+  params <- list(x = as.vector(x$series), kind = "1d-ssa", L = L, svd.method = "svd") 
+  if (projection %in% c("half", "full")) {
+    proj_vectors <- vector("list", length(freq))
+    for (i in seq_along(freq)) {
+      if (projection == "half" || freq[i] == 0.5)
+        proj_vectors[[i]] <- cos(2 * pi * (1:L) * freq[i])
+      else
+        proj_vectors[[i]] <- cbind(
+          cos(2 * pi * (1:L) * freq[i]),
+          sin(2 * pi * (1:L) * freq[i])
+        )
+    } 
+    params$column.projector <- do.call(cbind, proj_vectors)
+  }
+  s <- do.call(ssa, params)
+  
+  if (projection %in% c("none", "half")) {
+    if (missing(groups))
+      groups <- 1:nu(s)
+    n_triples <- ifelse(freq == 0.5, 1, 2)
+    g <- grouping.auto.pgram(s, groups, "series", freq.bins, 0.5)
+    components <- integer()
+    for (j in seq_along(freq.bins)) {
+      gg <- setdiff(g[[paste0("F", j)]], components)
+      len <- min(length(gg), n_triples[j])
+      components <- c(components, gg[seq_len(len)])
     }
   } else {
-    freq <- (idx - 1) / (2 * x$window)
+    components <- seq_len(nspecial(s))
   }
   
-  delta <- 1 / (4 * x$window)
-  freq.bins <- lapply(freq, function(f) f + delta * c(-1, 1))
+  r <- reconstruct(s, list(components))
   
-  if (projection == "none") {
-    s <- ssa(x$series, L, kind = "1d-ssa")
-    g <- grouping.auto(s, freq.bins = freq.bins, base = "eigen")
-    contrib <- attr(g, "contrib")
-    ind <- order(-contrib)[1:2]
-    
-  } else if (projection == "half") {
-    proj_vector <- cos(2 * pi * (1:L) * freq)
-    s <- ssa(x$series, L, kind = "1d-ssa", column.projector = proj_vector)
-    g <- grouping.auto(s, groups = 2:L, freq.bins = freq.bins, base = "eigen")
-    contrib <- attr(g, "contrib")
-    ind <- rownames(contrib)[order(-contrib)][1] |> as.numeric()
-    ind <- c(1, ind)
-  } else {
-     proj_vectors <-
-       lapply(
-         freq,
-         function(f) cbind(cos(2 * pi * (1:L) * f), sin(2 * pi * (1:L) * f))
-       )
-     proj_vectors <- do.call(cbind, proj_vectors)
-     s <- ssa(x$series, L, kind = "1d-ssa", column.projector = proj_vectors)
-     ind <- 1:ncol(proj_vectors)
-  }
-  r <- reconstruct(s, list(Signal = ind))
-  list(
-    reconstruction = r,
-    components = ind,
-    freq.bins = freq.bins
-  )
+  list(signal = r$F1, components = components, freq.bins = freq.bins)
 }
+
+auto_mcssa <- function(x,
+                       L,
+                       conf.level = 0.95,
+                       rank = 20,
+                       projection = c("none", "half", "full"),
+                       maxit = 10,
+                       ...) {
+  
+  projection <- match.arg(projection)
+  m <- mcssa(x, L, "cos", conf.level = conf.level, ...)
+  
+  params <- list(x = x - mean(x), kind = "1d-ssa", svd.method = "svd")
+  if (projection == "none")
+    s <- do.call(ssa, params)
+  
+  r <- list()
+  # groups <- periodic_grouping_angle_reg(s, 1:rank, Inf)
+  
+  eps <- 1e-9
+  delta <- 1 / (2 * L) + eps
+
+  freq <- numeric()
+  freq.bins <- list()
+  n_triples <- integer()
+  proj_vectors <- list()
+  i <- 1
+  while (m$reject && i <= maxit) {
+    freq[i] <- signif_freq(m, n_periodics = 1)
+    freq.bins[[i]] <- c(freq[i] - delta, freq[i] + delta)
+    
+    if (projection %in% c("half", "full")) {
+      len <- 1:((N + 1) %/% 2)
+      if (projection == "half" || freq[i] == 0.5)
+        proj_vectors[[i]] <- cos(2 * pi * len * freq[i])
+      else if (projection == "full")
+        proj_vectors[[i]] <- cbind(
+          cos(2 * pi * len * freq[i]),
+          sin(2 * pi * len * freq[i])
+        )
+      params$column.projector <- do.call(cbind, proj_vectors)
+      s <- do.call(ssa, params)
+    }
+    
+    if (projection %in% c("none", "half")) {
+      n_triples[i] <- ifelse(freq[i] == 0.5, 1, 2)
+      g <- grouping.auto.pgram(s, 1:rank, "series", freq.bins, 0.5)
+      components <- integer()
+      for (j in seq_along(freq.bins)) {
+        gg <- setdiff(g[[paste0("F", j)]], components)
+        len <- min(length(gg), n_triples[j])
+        components <- c(components, gg[seq_len(len)])
+      }
+    } else {
+      components <- seq_len(nspecial(s))
+    }
+    
+    r <- reconstruct(s, list(components))
+    x_resid <- resid(r)
+    m <- mcssa(x_resid, L, "cos", conf.level = conf.level, ...)
+    
+    i <- i + 1
+  }
+  
+  out <- list()
+  if (!identical(r, list))
+    out$iterative <- list(signal = r$F1, components = components, freq.bins = freq.bins)
+  else
+    out$iterative <- list(signal = rep(0, length(x)), components = integer(), freq.bins = numeric())
+  
+  args <- list(...)
+  model <- as.list(arfima_whittle(x, c(args$fixed$phi, args$fixed$d), freq.bins))
+  model$N <- length(x)
+  
+  m <- mcssa(x, L, "cos", model = model, conf.level = conf.level, ...)
+  if (m$reject)
+    out$one <- reconstruct.mcssa(m, groups = 1:rank, projection = projection)
+  else
+    out$one <- list(signal = rep(0, length(x)), components = integer(), freq.bins = numeric())
+  
+  
+  # if (iterative) {
+  #   r <- reconstruct(s, list(c(seq_len(nspecial(s)), components)))
+  #   out <- list(signal = r$F1, components = components, freq.bins = freq.bins)
+  # } else {
+  #   m <- mcssa(x, L, "cos", model = m$model[[1]], conf.level = conf.level, ...)
+  #   if (m$reject)
+  #     out <- reconstruct.mcssa(m, groups = 1:rank, projection = projection)
+  #   else
+  #     out <- list(signal = rep(0, length(x)), components = integer(), freq.bins = numeric())
+  # }
+  
+  out
+}
+```
+
+```{r, include=FALSE}
+periodic_grouping_angle_reg <- function(ssa_obj,
+                                        groups,
+                                        threshold = 0.01,
+                                        eps = 1e-9,
+                                        s_0 = 1,
+                                        rho_0 = 0.9,
+                                        p_0 = 0.05,
+                                        ...) {
+  groups <- sort(unique(unlist(groups)))
+
+  if (missing(groups)) {
+    groups <- 1:nu(ssa_obj)
+  }
+
+  # Identification of periodics with frequency 0.5
+  L <- ssa_obj$window
+  Fs <- ssa_obj$U[, groups, drop = FALSE]
+  if (length(groups) == 1){
+    Fs <- matrix(Fs, ncol = 1)
+    sums <- sum(abs(sign(Fs[1:(L - 1),]) + sign(Fs[2:L,])) / 2)
+  } else {
+    sums <- colSums(abs(sign(Fs[1:(L - 1),]) + sign(Fs[2:L,])) / 2)
+  }
+  one_el_gamma <- sums / (L - 1)
+  one_el_gamma <- one_el_gamma[one_el_gamma < p_0]
+  I_2_final <- groups[sums / (L - 1) < p_0]
+
+  groups <- setdiff(groups, I_2_final)
+
+  if (length(groups) >= 2){
+    filter_mask <- rep(FALSE, length(groups) - 1)
+    tau <- numeric(length(groups) - 1)
+    I_1_freqs <- numeric(length(groups) - 1)
+    for (j in seq_along(groups)[-length(groups)]) {
+      res <- angle.fun(P = ssa_obj$U[, groups[j]],
+                       Q = ssa_obj$U[, groups[j + 1]])
+      tau[j] <- res$tau_value
+      I_1_freqs[j] <- res$mean_angle / (2 * pi)
+    }
+
+    o <- order(tau)
+    mask <- rep(TRUE, length(groups) - 1)
+    for (i in o) {
+      if (mask[i]) {
+        if (i > 1)
+          mask[i - 1] <- FALSE
+        if (i < length(mask))
+          mask[i + 1] <- FALSE
+      }
+    }
+
+    mask <- mask & tau - threshold < eps
+    tau_raw <- tau
+    two_el_tau <- tau[mask]
+    I_1_final <- groups[c(mask, FALSE)]
+    I_1_final <- sort(c(I_1_final, I_1_final + 1))
+    I_1_freqs <- I_1_freqs[mask]
+
+    # sorted_indices <- order(tau)
+    # for (j in seq_along(sorted_indices)) {
+    #   left_taken <- FALSE
+    #   if (sorted_indices[j] > 1){
+    #     if ((groups[sorted_indices[j]] == groups[sorted_indices[j] - 1]) &
+    #         (filter_mask[sorted_indices[j] - 1] == TRUE))
+    #       left_taken <- TRUE
+    #   }
+    #
+    #   right_taken <- FALSE
+    #   if (sorted_indices[j] < length(sorted_indices)){
+    #     if ((groups[sorted_indices[j]] == groups[sorted_indices[j] + 1]) &
+    #         (filter_mask[sorted_indices[j] + 1] == TRUE))
+    #       right_taken <- TRUE
+    #   }
+    #
+    #   if (!left_taken & !right_taken & (tau[sorted_indices[j]] - threshold < eps))
+    #     filter_mask[sorted_indices[j]] <- TRUE
+    # }
+
+    # tau_raw <- tau
+    # two_el_tau <- tau[c(filter_mask, FALSE)]
+    # I_1_final <- groups[c(filter_mask, FALSE)]
+    # I_1_final <- sort(c(I_1_final, I_1_final + 1))
+    # I_1_freqs <- I_1_freqs[filter_mask]
+  } else{
+    I_1_final <- numeric(0)
+    I_1_freqs <- numeric(0)
+    two_el_tau <- numeric(0)
+    tau_raw <- numeric(0)
+  }
+
+  list(I_1 = I_1_final,
+       two_el_tau = two_el_tau,
+       I_1_freqs = I_1_freqs,
+       I_2 = I_2_final,
+       tau_raw = tau_raw,
+       one_el_gamma = one_el_gamma)
+}
+
 ```
 
 ```{r}
 phi <- 0.7
-sigma2 <- 1
+sigma2 <- 0.5
 N <- 200
 model <- list(phi = phi, sigma2 = sigma2, N = N)
 ```
 
-## Гармоника
 ```{r}
-set.seed(1234)
+em_harmonic <- function(N, freq, A = 1, a = 0) {
+  A * exp(a * (1:N)) * cos(2 * pi * (1:N) * freq)
+}
+```
+
+
+## Сумма гармоник
+```{r}
 omega <- 0.125
-signal1 <- cos(2 * pi * (1:N) * omega)
+signal1 <- mapply(em_harmonic, N, (1:4) * omega, c(1, 0.8, 0.6, 0.2)) |> rowSums()
+
+set.seed(1234)
 f1 <- generate_channel(model, signal1)
+
 xyplot.ts(
   cbind(f1, signal1),
   superpose = TRUE,
@@ -117,34 +359,46 @@ xyplot.ts(
     space = "top"
   )
 )
+
+s1 <- ssa(f1 - mean(f1), svd.method = "svd")
+plot(s1, "vectors", idx = 1:20)
 ```
 
 ```{r}
 set.seed(1)
-m1 <- mcssa(f1, 20, "cos", model = model)
+m1 <- mcssa(f1, 20, "cos", fixed = list(phi = NA, d = 0), conf.level = 0.95)
 plot(m1)
 ```
 
 
 ```{r}
-r1 <- reconstruct(m1, projection = "full")
+set.seed(1)
+r1 <- auto_mcssa(f1, L = 20, fixed = list(phi = NA, d = 0))
+
 xyplot.ts(
-  cbind(f1, signal1, r1$reconstruction$Signal),
-  superpose = TRUE,
-  auto.key = list(
-    text = c("Original", "True signal", "Estimated signal"),
-    space = "top"
-  )
+  cbind(
+    Original = f1,
+    Signal = signal1,
+    Iterative = r1$iterative$signal,
+    One = r1$one$signal
+  ),
 )
-cat("Selected components:", r1$components)
+
+cat(
+  "Selected components:",
+  "\nIterative:", r1$iterative$components,
+  "\nOne:", r1$one$components
+)
 ```
 
 
-## Экспоненциально-модулированная гармоника
+## Сумма экспоненциально-модулированной и обычной гармоники
 ```{r}
+signal2 <- mapply(em_harmonic, N, (1:2) * omega, c(0.075, 1), c(0.02, 0)) |> rowSums()
+
 set.seed(1234)
-signal2 <- 0.075 * exp(0.02 * (1:N)) * cos(2 * pi * (1:N) * omega)
 f2 <- generate_channel(model, signal2)
+
 xyplot.ts(
   cbind(f2, signal2),
   superpose = TRUE,
@@ -153,51 +407,428 @@ xyplot.ts(
     space = "top"
   )
 )
+
+s2 <- ssa(f2 - mean(f2), svd.method = "svd")
+plot(s2, "vectors", idx = 1:20)
 ```
 
 ```{r}
 set.seed(1)
-m2 <- mcssa(f2, 20, "cos", model = model)
+m2 <- mcssa(f2, 20, "cos", fixed = list(phi = NA, d = 0), conf.level = 0.95)
 plot(m2)
 ```
 
 ```{r}
-r2 <- reconstruct(m2, projection = "none")
+set.seed(1)
+r2 <- auto_mcssa(f2, 20, fixed = list(phi = NA, d = 0))
+
 xyplot.ts(
-  cbind(f2, signal2, r2$reconstruction$Signal),
-  superpose = TRUE,
-  auto.key = list(
-    text = c("Original", "True signal", "Estimated signal"),
-    space = "top"
+  cbind(
+    Original = f2,
+    Signal = signal2,
+    Iterative = r2$iterative$signal,
+    One = r2$one$signal
   )
 )
-cat("Selected components:", r2$components)
+
+cat(
+  "Selected components:",
+  "\nIterative:", r2$iterative$components,
+  "\nOne:", r2$one$components
+)
 ```
 
+TODO: наверное, надо сравнить вариант auto_mcssa с проекцией и без нее
+<!-- # Сравнение вариантов с проекцией и без -->
+<!-- ```{r} -->
+<!-- mcssa_errors <- function(L, model, signal, M = 500, n_periodics = 1) { -->
+<!--   pb <- progressor(M) -->
+<!--   result <- foreach (i = 1:M, .options.RNG = 1) %dorng% { -->
+<!--     pb() -->
+<!--     f <- generate_channel(model, signal) -->
+<!--     m <- mcssa(f, L, "cos", model = model, conf.level = 0.95) -->
+<!--     if (m$reject) { -->
+<!--       r.none <- reconstruct.mcssa(m, n_periodics = n_periodics) -->
+<!--       r.half <- reconstruct.mcssa(m, projection = "half", n_periodics = n_periodics) -->
+<!--       r.full <- reconstruct.mcssa(m, projection = "full", n_periodics = n_periodics) -->
+<!--       mse.none <- mean((r.none$r$Signal - signal)^2) -->
+<!--       mse.half <- mean((r.half$r$Signal - signal)^2) -->
+<!--       mse.full <- mean((r.full$r$Signal - signal)^2) -->
+<!--     } -->
+<!--     else { -->
+<!--       mse.none <- mse.half <- mse.full <- NA -->
+<!--     } -->
+<!--     c(mse.none, mse.half, mse.full) -->
+<!--   } -->
+<!--   result <- do.call(rbind, result) |> data.frame() -->
+<!--   colnames(result) <- c("mse.none", "mse.half", "mse.full") -->
+<!--   result -->
+<!-- } -->
+<!-- ``` -->
 
-# Сравнение вариантов с проекцией и без
+<!-- ```{r eval=FALSE, include=FALSE} -->
+<!-- cores <- 15 -->
+
+<!-- # Setting up parallel computing -->
+<!-- plan(multisession, workers = min(cores, detectCores() - 1)) -->
+<!-- registerDoFuture() -->
+<!-- ``` -->
+
+<!-- Пусть $N=99$, $L=10$, $\phi=0.7$. Рассмотрим разную зашумленность ряда: $\sigma^2\in\{0.2, 0.4, 0.6, 0.8, 1\}$. -->
+<!-- ```{r} -->
+<!-- N <- 99 -->
+<!-- L <- 10 -->
+
+<!-- phi <- 0.7 -->
+<!-- sigma2s <- c(0.2, 0.4, 0.6, 0.8, 1) -->
+<!-- models <- lapply(sigma2s, function(sigma2) list(phi = 0.7, sigma2 = sigma2, N = N)) -->
+<!-- ``` -->
+
+
+<!-- ## $\alpha=0$, $L$ делится на $1/\omega$ -->
+<!-- ```{r, eval=FALSE} -->
+<!-- omega1 <- 0.1 -->
+<!-- signal1 <- cos(2 * pi * (1:N) * omega1) -->
+
+<!-- mse.signal1 <- lapply(models, function(model) mcssa_errors(L, model, signal1)) -->
+<!-- names(mse.signal1) <- paste0("sigma2 = ", sigma2s) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- cols <- c("#0072B2", "#E69F00", "#FFB09C", "#EE2400", "#900000") -->
+<!-- xyplot( -->
+<!--   mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2, -->
+<!--   mse1, -->
+<!--   type = "b", -->
+<!--   ylab = "MSE", -->
+<!--   col = cols, -->
+<!--   par.settings = list(superpose.line = list(col = cols)), -->
+<!--   auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)")) -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Доля NA -->
+<!-- mse1 |> select(sigma2, NA_perc) -->
+<!-- ``` -->
+
+
+<!-- ## $\alpha=0$, $L$ не делится на $1/\omega$ -->
+<!-- ```{r, eval=FALSE} -->
+<!-- omega2 <- 0.115 -->
+<!-- signal2 <- cos(2 * pi * (1:N) * omega2) -->
+
+<!-- mse.signal2 <- lapply(models, function(model) mcssa_errors(L, model, signal2)) -->
+<!-- names(mse.signal2) <- paste0("sigma2 = ", sigma2s) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- xyplot( -->
+<!--   mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2, -->
+<!--   mse2, -->
+<!--   type = "b", -->
+<!--   ylab = "MSE", -->
+<!--   col = cols, -->
+<!--   par.settings = list(superpose.line = list(col = cols)), -->
+<!--   auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)")) -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Доля NA -->
+<!-- mse2 |> select(sigma2, NA_perc) -->
+<!-- ``` -->
+
+
+<!-- ## $\alpha\ne0$, $L$ делится на $1/\omega$ -->
+<!-- ```{r, eval=FALSE} -->
+<!-- signal3 <- 0.025 * exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega1) -->
+
+<!-- mse.signal3 <- lapply(models, function(model) mcssa_errors(L, model, signal3)) -->
+<!-- names(mse.signal3) <- paste0("sigma2 = ", sigma2s) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- xyplot( -->
+<!--   mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2, -->
+<!--   mse3, -->
+<!--   type = "b", -->
+<!--   ylab = "MSE", -->
+<!--   col = cols, -->
+<!--   par.settings = list(superpose.line = list(col = cols)), -->
+<!--   auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)")) -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Доля NA -->
+<!-- mse3 |> select(sigma2, NA_perc) -->
+<!-- ``` -->
+
+
+<!-- ## $\alpha\ne0$, $L$ не делится на $1/\omega$ -->
+<!-- ```{r, eval=FALSE} -->
+<!-- signal4 <- 0.025 * exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega2) -->
+
+<!-- mse.signal4 <- lapply(models, function(model) mcssa_errors(L, model, signal4)) -->
+<!-- names(mse.signal4) <- paste0("sigma2 = ", sigma2s) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- xyplot( -->
+<!--   mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2, -->
+<!--   mse4, -->
+<!--   type = "b", -->
+<!--   ylab = "MSE", -->
+<!--   col = cols, -->
+<!--   par.settings = list(superpose.line = list(col = cols)), -->
+<!--   auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)")) -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # Доля NA -->
+<!-- mse4 |> select(sigma2, NA_perc) -->
+<!-- ``` -->
+
+
+<!-- # Сравнение с get_periodics -->
+```{r eval=FALSE, include=FALSE}
+get_periodics <- function(time_series,
+                          L,
+                          signal_rank,
+                          method,
+                          basis = NULL,
+                          sign_level = 0.05,
+                          tau_threshold = 0.05,
+                          p_0 = 0.03,
+                          stop_flag = TRUE,
+                          trace = FALSE,
+                          fixed = list(phi = 0, d = 0)) {
+  result_df <- data.frame(matrix(nrow = 0, ncol = 0))
+  result_df[1, "periodic_index"] <- 0
+  result_df[1, "measure"] <- -1
+  result_df[1, "measure_type"] <- -1
+  result_df[1, "mss"] <- -1
+  result_df[1, "index1"] <- 0
+  result_df[1, "index2"] <- 0
+  
+  noise_estimate <- time_series
+  true_two_el_indices <- numeric(0)
+  true_one_el_indices <- numeric(0)
+  
+  if (method == "mc") {
+    pval <- mcssa(
+      x = noise_estimate,
+      L = L,
+      basis = basis,
+      fixed = fixed,
+      conf.level = NULL
+    )$p.value
+  } else if (method == "box") {
+    pval <- Box.test(noise_estimate)$p.value
+  } else if (method == "wavelet") {
+    pval <- genwwn.test(noise_estimate, filter.number = 10)$p.value
+  }
+  
+  result_df[1, "pval"] <- pval
+  result_df[1, "period"] <- 0
+  
+  end_flag <- FALSE
+  
+  if (pval > sign_level)
+    end_flag <- TRUE
+  
+  j <- 1
+  s <- ssa(time_series, L = L, svd.method = "svd")
+  model_obj <- eossa_new(
+    s,
+    nested.groups = 1:signal_rank,
+    clust_type = "distance",
+    delta = 0.0001
+  )
+  
+  model <- auto_periodic_model(
+    ssa_obj = model_obj,
+    groups = 1:signal_rank,
+    method = "angle_reg",
+    threshold = tau_threshold,
+    p_0 = p_0
+  )
+  
+  indices <- c(model$two_el_indices, model$one_el_indices)
+  raw_two_el_indices <- model$two_el_indices
+  raw_one_el_indices <- model$one_el_indices
+  measure <- c(rep(model$two_el_tau, each = 2), model$one_el_gamma)
+  measure_type <- c(rep(1, length(raw_two_el_indices)), rep(2, length(raw_one_el_indices)))
+  
+  if (trace) {
+    print("All periodic indices: ")
+    print(indices)
+    
+    print("All identified two el periodics: ")
+    print(raw_two_el_indices)
+    
+    print("All identified one el periodics: ")
+    print(raw_one_el_indices)
+    
+    print("All measure values: ")
+    print(measure)
+    
+    print("Measure type: ")
+    print(measure_type)
+  }
+  
+  i <- 1
+  mss <- numeric(0)
+  while (i < length(raw_two_el_indices)) {
+    mss <- c(mss, mean(reconstruct(model_obj, groups = list(
+      c(raw_two_el_indices[i], raw_two_el_indices[i + 1])
+    ))$F1^2))
+    i <- i + 2
+  }
+  mss <- rep(mss, each = 2)
+  
+  i <- 1
+  while (i <= length(raw_one_el_indices)) {
+    mss <- c(mss, mean(reconstruct(model_obj, groups = list(
+      c(raw_one_el_indices[i])
+    ))$F1^2))
+    i <- i + 1
+  }
+  
+  if (trace) {
+    print("MSS: ")
+    print(mss)
+    
+    print("Start filtering...")
+  }
+  
+  combined_matrix <- cbind(indices, mss, measure, measure_type)
+  
+  sorted_matrix <- combined_matrix[order(combined_matrix[, 2], decreasing = TRUE), , drop = FALSE]
+  indices <- sorted_matrix[, 1]
+  mss <- sorted_matrix[, 2]
+  measure <- sorted_matrix[, 3]
+  measure_type <- sorted_matrix[, 4]
+  i <- 1
+  j <- 1
+  
+  periodic_estimate <- rep(0, length(time_series))
+  
+  while (i <= length(indices)) {
+    if (trace & (!stop_flag)) {
+      if (measure_type[i] == "tau")
+        print(paste0("Indices: ", i, ", ", i + 1))
+      else
+        print(paste0("Index: ", i))
+      if (measure_type[i] == "tau")
+        print(paste0("Decomposition indices: ", indices[i], ", ", indices[i + 1]))
+      else
+        print(paste0("Decomposition index: ", indices[i]))
+      print(
+        paste0(
+          "Measure: ",
+          measure_type[i],
+          ", value: ",
+          measure[i],
+          ", MSS: ",
+          mss[i],
+          ", periodic index: ",
+          j
+        )
+      )
+    }
+    if (!end_flag) {
+      if (measure_type[i] == 1) {
+        true_two_el_indices <- c(true_two_el_indices, indices[i], indices[i + 1])
+      } else {
+        true_one_el_indices <- c(true_one_el_indices, indices[i])
+      }
+    }
+    else{
+      if (stop_flag)
+        break
+    }
+    
+    result_df[j + 1, "periodic_index"] <- j
+    result_df[j + 1, "measure"] <- measure[i]
+    result_df[j + 1, "measure_type"] <- measure_type[i]
+    result_df[j + 1, "mss"] <- mss[i]
+    
+    if (measure_type[i] == 1) {
+      periodic <- reconstruct(model_obj, groups = list(c(indices[i], indices[i + 1])))$F1
+      result_df[j + 1, "period"] <- parestimate(model_obj, groups = list(c(indices[i], indices[i + 1])))$period[1]
+      result_df[j + 1, "index1"] <- indices[i]
+      result_df[j + 1, "index2"] <- indices[i + 1]
+      i <- i + 2
+    } else {
+      periodic <- reconstruct(model_obj, groups = list(c(indices[i])))$F1
+      result_df[j + 1, "period"] <- 2
+      result_df[j + 1, "index1"] <- indices[i]
+      i <- i + 1
+    }
+    
+    periodic_estimate <- periodic_estimate + periodic
+    noise_estimate <- noise_estimate - periodic
+    
+    if (method == "mc") {
+      pval <- mcssa(
+        x = noise_estimate,
+        L = L,
+        basis = basis,
+        fixed = fixed,
+        conf.level = NULL
+      )$p.value
+    } else if (method == "box") {
+      pval <- Box.test(noise_estimate)$p.value
+    } else if (method == "wavelet") {
+      pval <- genwwn.test(noise_estimate, filter.number = 10)$p.value
+    }
+    result_df[j + 1, "pval"] <- pval
+    if (pval > sign_level)
+      end_flag <- TRUE
+    j <- j + 1
+  }
+  
+  if ((length(true_two_el_indices) > 0) & trace)
+    print(parestimate(model_obj, groups = list(true_two_el_indices)))
+  
+  return (
+    list(
+      "raw_two_el_indices" = raw_two_el_indices,
+      "true_two_el_indices" = true_two_el_indices,
+      "raw_one_el_indices" = raw_one_el_indices,
+      "true_one_el_indices" = true_one_el_indices,
+      "result_df" = result_df,
+      "periodics" = periodic_estimate
+    )
+  )
+  
+}
+
+```
+
+# Сравнение подходов к выделению сигнала
 ```{r}
-mcssa_errors <- function(L, model, signal, M = 500) {
+auto_mcssa_comp <- function(L, model, signal, noise_type, M = 500) {
+  fixed <- list(phi = NA, d = 0)
+  if (noise_type == "wn")
+      fixed$phi <- 0
+    
   pb <- progressor(M)
   result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
     pb()
+    
     f <- generate_channel(model, signal)
-    m <- mcssa(f, L, "cos", model = model, conf.level = 0.95)
-    if (m$reject) {
-      r.none <- reconstruct.mcssa(m)
-      r.half <- reconstruct.mcssa(m, projection = "half")
-      r.full <- reconstruct.mcssa(m, projection = "full")
-      mse.none <- mean((r.none$r$Signal - signal)^2)
-      mse.half <- mean((r.half$r$Signal - signal)^2)
-      mse.full <- mean((r.full$r$Signal - signal)^2)
-    }
-    else {
-      mse.none <- mse.half <- mse.full <- NA
-    }
-    c(mse.none, mse.half, mse.full)
+    r <- auto_mcssa(f, L, fixed = fixed)
+    mse1 <- mean((signal - r$iterative$signal)^2)
+    mse2 <- mean((signal - r$one$signal)^2)
+    c(mse1, mse2)
+  
   }
   result <- do.call(rbind, result) |> data.frame()
-  colnames(result) <- c("mse.none", "mse.half", "mse.full")
+  colnames(result) <- c("Iterative", "One")
   result
 }
 ```
@@ -210,119 +841,91 @@ plan(multisession, workers = min(cores, detectCores() - 1))
 registerDoFuture()
 ```
 
-Пусть $N=99$, $L=10$, $\phi=0.7$. Рассмотрим разную зашумленность ряда: $\sigma^2\in\{0.2, 0.4, 0.6, 0.8, 1\}$.
-```{r}
-N <- 99
-L <- 10
-
-phi <- 0.7
-sigma2s <- c(0.2, 0.4, 0.6, 0.8, 1)
-models <- lapply(sigma2s, function(sigma2) list(phi = 0.7, sigma2 = sigma2, N = N))
+```{r eval=FALSE, include=FALSE}
+# Run this in R console to enable progress bar
+handlers(global = TRUE)
 ```
 
-
-## $\alpha=0$, $L$ делится на $1/\omega$
-```{r, eval=FALSE}
-omega1 <- 0.1
-signal1 <- cos(2 * pi * (1:N) * omega1)
-
-mse.signal1 <- lapply(models, function(model) mcssa_errors(L, model, signal1))
-names(mse.signal1) <- paste0("sigma2 = ", sigma2s)
+Пусть $N=100$, $L=20$, $\phi=0.5$, $\sigma^2=1$.
+```{r}
+N <- 100
+L <- 20
+phi <- 0.5
+sigma2 <- 1
+model_wn <- list(sigma2 = sigma2, N = N)
+model_rn <- list(phi = phi, sigma2 = sigma2, N = N)
 ```
 
+## Пример 1
+$$
+s_n=\cos(2\pi n/4) + 2\cos(2\pi n / 3) + 0.8\cos(2\pi n / 2)
+$$
 ```{r}
-cols <- c("#0072B2", "#E69F00", "#FFB09C", "#EE2400", "#900000")
-xyplot(
-  mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2,
-  mse1,
-  type = "b",
-  ylab = "MSE",
-  col = cols,
-  par.settings = list(superpose.line = list(col = cols)),
-  auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)"))
+signal1 <- cos(2 * pi * (1:N) / 4) + 2 * cos(2 * pi * (1:N) / 3) + 0.8 * cos(2 * pi * (1:N) / 2)
+
+set.seed(1234)
+f <- generate_channel(model_rn, signal1)
+
+xyplot.ts(
+  cbind(f, signal1),
+  superpose = TRUE,
+  lwd = c(1, 2),
+  auto.key = list(
+    text = c("Original", "Signal"),
+    space = "top"
+  )
 )
 ```
 
+```{r eval=FALSE}
+mse1_wn <- auto_mcssa_comp(L, model_wn, signal1, noise_type = "wn", M = 100)
+mse1_rn <- auto_mcssa_comp(L, model_rn, signal1, noise_type = "rn", M = 100)
+```
+
+Модель белого шума:
 ```{r}
-# Доля NA
-mse1 |> select(sigma2, NA_perc)
+data.frame(Mean = colMeans(mse1_wn), Median = colMedians(as.matrix(mse1_wn)))
+```
+
+Модель красного шума:
+```{r}
+data.frame(Mean = colMeans(mse1_rn), Median = colMedians(as.matrix(mse1_rn)))
 ```
 
 
-## $\alpha=0$, $L$ не делится на $1/\omega$
-```{r, eval=FALSE}
-omega2 <- 0.115
-signal2 <- cos(2 * pi * (1:N) * omega2)
-
-mse.signal2 <- lapply(models, function(model) mcssa_errors(L, model, signal2))
-names(mse.signal2) <- paste0("sigma2 = ", sigma2s)
-```
+## Пример 2
+$$
+s_n=3\cos(2\pi n/3) + 4\cos(2\pi n / 2)
+$$
 
 ```{r}
-xyplot(
-  mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2,
-  mse2,
-  type = "b",
-  ylab = "MSE",
-  col = cols,
-  par.settings = list(superpose.line = list(col = cols)),
-  auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)"))
+signal2 <- 3 * cos(2 * pi * (1:N) / 3) + 4 * cos(2 * pi * (1:N) / 2)
+
+set.seed(1234)
+f <- generate_channel(model_rn, signal2)
+
+xyplot.ts(
+  cbind(f, signal2),
+  superpose = TRUE,
+  lwd = c(1, 2),
+  auto.key = list(
+    text = c("Original", "Signal"),
+    space = "top"
+  )
 )
 ```
 
+```{r eval=FALSE}
+mse2_wn <- auto_mcssa_comp(L, model_wn, signal2, noise_type = "wn", M = 100)
+mse2_rn <- auto_mcssa_comp(L, model_rn, signal2, noise_type = "rn", M = 100)
+```
+
+Модель белого шума:
 ```{r}
-# Доля NA
-mse2 |> select(sigma2, NA_perc)
+data.frame(Mean = colMeans(mse2_wn), Median = colMedians(as.matrix(mse2_wn)))
 ```
 
-
-## $\alpha\ne0$, $L$ делится на $1/\omega$
-```{r, eval=FALSE}
-signal3 <- 0.025 * exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega1)
-
-mse.signal3 <- lapply(models, function(model) mcssa_errors(L, model, signal3))
-names(mse.signal3) <- paste0("sigma2 = ", sigma2s)
-```
-
+Модель красного шума:
 ```{r}
-xyplot(
-  mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2,
-  mse3,
-  type = "b",
-  ylab = "MSE",
-  col = cols,
-  par.settings = list(superpose.line = list(col = cols)),
-  auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)"))
-)
-```
-
-```{r}
-# Доля NA
-mse3 |> select(sigma2, NA_perc)
-```
-
-
-## $\alpha\ne0$, $L$ не делится на $1/\omega$
-```{r, eval=FALSE}
-signal4 <- 0.025 * exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega2)
-
-mse.signal4 <- lapply(models, function(model) mcssa_errors(L, model, signal4))
-names(mse.signal4) <- paste0("sigma2 = ", sigma2s)
-```
-
-```{r}
-xyplot(
-  mse.none + mse.half + mse.full.mean + mse.full.all + mse.full.max ~ sigma2,
-  mse4,
-  type = "b",
-  ylab = "MSE",
-  col = cols,
-  par.settings = list(superpose.line = list(col = cols)),
-  auto.key = list(title = "projection", text = c("none", "half", "full (mean)", "full (all)", "full (max)"))
-)
-```
-
-```{r}
-# Доля NA
-mse4 |> select(sigma2, NA_perc)
+data.frame(Mean = colMeans(mse2_rn), Median = colMedians(as.matrix(mse2_rn)))
 ```
