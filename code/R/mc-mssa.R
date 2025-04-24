@@ -69,7 +69,7 @@ arfima_mle <- function(x, fixed = NULL) {
 }
 
 # Whittle estimation of ARFIMA(1, d, 0) model
-arfima_whittle <- function(x, fixed = NULL, freq.range = c(0, 0.5)) {
+arfima_whittle <- function(x, fixed = NULL, freq.exclude) {
   n <- length(x)
   m <- (n - 1) %/% 2
   
@@ -77,8 +77,15 @@ arfima_whittle <- function(x, fixed = NULL, freq.range = c(0, 0.5)) {
   per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
   freq <- 1:m / n
   
-  per <- per[freq >= freq.range[1] & freq <= freq.range[2]]
-  freq <- freq[freq >= freq.range[1] & freq <= freq.range[2]]
+  if (!missing(freq.exclude)) {
+    idx <- sapply(freq.exclude, function(fb) freq < fb[1] | freq > fb[2])
+    idx <- which(rowSums(idx) == length(freq.exclude))
+    per <- per[idx]
+    freq <- freq[idx]
+  }
+  
+  # per <- per[freq >= freq.range[1] & freq <= freq.range[2]]
+  # freq <- freq[freq >= freq.range[1] & freq <= freq.range[2]]
  
   if (is.null(fixed))
     fixed <- rep(NA, 2)
@@ -110,6 +117,7 @@ arfima_whittle <- function(x, fixed = NULL, freq.range = c(0, 0.5)) {
   coef <- fixed
   coef[mask] <- opt$par
   names(coef) <- c("phi", "d")
+  coef["phi"] <- max(coef["phi"], 0)
   
   c(coef, sigma2 = mean(per / spec_arfima(freq, coef[1], coef[2])))
 }
@@ -194,7 +202,7 @@ basis.ev <- function(ts, L, decomposition.method, vectors = c("U", "V")) {
 basis.cos <- function(L) {
   W <- matrix(0, nrow = L, ncol = L)
   separat <- 1 / (2 * L)
-  freq <- seq(0, 0.5 - separat, separat) # Grid of frequencies
+  freq <- seq(separat, 0.5, separat) # Grid of frequencies
   for (i in seq_along(freq)) {
     W[, i] <- cos(2 * pi * freq[i] * (1:L))
     W[, i] <- W[, i] / Norm(W[, i])
@@ -373,11 +381,13 @@ mcssa <- function(x,
     model <- vector("list", D)
     for (channel in seq_len(D)) {
       model[[channel]] <- as.list(
-        arfima_whittle(x[, channel], c(fixed$phi, fixed$d), freq.range)
+        arfima_whittle(x[, channel], c(fixed$phi, fixed$d))
       )
       model[[channel]]$N <- N 
     }
   }
+  
+  call <- match.call()
   
   this <- list(
     series = x,
@@ -386,7 +396,8 @@ mcssa <- function(x,
     window = L,
     model = model,
     basis = basis,
-    proj.kind = proj.kind
+    proj.kind = proj.kind,
+    call = call
   )
   class(this) <- "mcssa"
   
@@ -460,9 +471,10 @@ plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
 }
 
 print.mcssa <- function(x) {
-  cat("Series length:", rep(x$length, x$channels))
-  cat("\nWindow length:", x$window)
-  cat("\nProjection vectors: ")
+  cat("\nCall:\n", deparse(m1$call), "\n\n", sep = "")
+  cat("Series length:", paste(rep(x$length, x$channels), collapse = ", "))
+  cat(",\tWindow length:", x$window)
+  cat("\n\nProjection vectors: ")
   if (x$basis == "ev")
     cat("based on series (liberal test)")
   else if (x$basis == "t")
@@ -471,7 +483,7 @@ print.mcssa <- function(x) {
     cat("cosines with frequencies j / (2L) (exact test)")
   cat("\nType of projection: on", x$proj.kind, "of trajectory matrix")
   cat("\nNumber of projection vectors:", length(x$statistic$contribution))
-  cat("\np-value:", x$p.value)
+  cat("\n\nP-value:", x$p.value)
   if (!is.null(x$conf.level))
     cat("\nNull hypothesis is", if (!x$reject) "not", "rejected")
   invisible(x)
