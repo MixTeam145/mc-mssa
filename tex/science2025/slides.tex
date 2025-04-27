@@ -1,0 +1,45 @@
+\documentclass[notheorems, handout]{beamer}
+\usetheme[numbers,totalnumbers,compress, nologo]{Statmod}
+\usefonttheme[onlymath]{serif}
+\setbeamertemplate{navigation symbols}{}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T2A]{fontenc}
+\usepackage[russian]{babel}
+
+\usepackage{graphicx,subcaption,ragged2e}
+\usepackage{tikz}
+\usepackage{hhline}
+
+\setbeamercolor{bluetext_color}{fg=blue}
+\newcommand{\bluetext}[1]{{\usebeamercolor[fg]{bluetext_color}#1}}
+
+\usetikzlibrary{shapes.geometric, arrows}
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+\newcommand{\bfxi}{\boldsymbol{\xi}}
+\newtheorem{definition}{Определение}
+\newtheorem{remark}{Замечание}
+
+\title[Выделение сигнала на основе MC-SSA]{Выделение сигнала на основе критерия Monte Carlo SSA}
+
+\author[Потешкин\,Е.\,П., Голяндина\,Н.\,Э.]{\underline{Потешкин Егор Павлович}, Голяндина Нина Эдуардовна}
+
+\institute[Санкт-Петербургский Государственный Университет]{%
+	\small
+	Санкт-Петербургский государственный университет\\
+	Кафедра статистического моделирования}
+
+\date{\\Мат-Мех. Наука 2025\\30 апреля 2025, Санкт-Петербург}
+
+\subject{Talks}	
+
+\input{letters_series_mathbb.tex}
+
+\begin{document}
+\begin{frame}[plain]
+	\titlepage
+	\note{Научный руководитель  д.ф.-м.н., профессор Голяндина\,Н.\,Э.,\\
+		кафедра статистического моделирования}
+\end{frame}
+\end{document}
