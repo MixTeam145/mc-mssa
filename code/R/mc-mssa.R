@@ -135,7 +135,6 @@ pad <- function(x, n, after = TRUE) {
   x_padded
 }
 
-
 # Compute squared norms of projections
 projec <- function(x, L, W_ft, kind = c("columns", "rows")) {
   kind <- match.arg(kind)
@@ -209,6 +208,7 @@ basis.cos <- function(L) {
   }
   list(W = W, freq = freq)
 }
+
 
 autocov.mat <- function(model, L) {
   r <- tacvfARFIMA(
@@ -361,7 +361,7 @@ mcssa <- function(x,
                   two.tailed = FALSE,
                   freq.range = c(0, 0.5),
                   composite = FALSE) {
-  if (is.vector(x)) {
+  if (!is.matrix(x)) {
     x <- as.matrix(x)
     if (!missing(model))
       model <- list(model)
@@ -379,9 +379,10 @@ mcssa <- function(x,
   
   if (missing(model)) {
     model <- vector("list", D)
+    freq.exclude <- list(c(0, freq.range[1]), c(freq.range[2], 0.5))
     for (channel in seq_len(D)) {
       model[[channel]] <- as.list(
-        arfima_whittle(x[, channel], c(fixed$phi, fixed$d))
+        arfima_whittle(x[, channel], c(fixed$phi, fixed$d), freq.exclude)
       )
       model[[channel]]$N <- N 
     }
@@ -470,6 +471,7 @@ plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
   p
 }
 
+
 print.mcssa <- function(x) {
   cat("\nCall:\n", deparse(m1$call), "\n\n", sep = "")
   cat("Series length:", paste(rep(x$length, x$channels), collapse = ", "))
@@ -489,8 +491,7 @@ print.mcssa <- function(x) {
   invisible(x)
 }
 
-
-# There is implemenatation of correction liberal/conservative criteria
+# Correction of liberal/conservative criteria
 correction <- function(p.values, alphas = 0:1000 / 1000) {
   alphaI <- sapply(alphas, function(a) mean(p.values < a))
   alphas.fun <- approxfun(alphaI, alphas, rule = 2)
@@ -547,16 +548,6 @@ DH.sim <- function(n, acvf, ...) {
   
   # Truncate the resulted series
   x[1:n]
-}
-
-# Generates sinusoidal signal with specified frequency
-signal.one.channel <- function(N, omega, A = 1) {
-  num <- 1:N
-  if (is.null(omega))
-    signal <- 0 * num
-  else
-    signal <- A * cos(2 * pi * num * omega + runif(1, 0, pi))
-  signal
 }
 
 # Generates a time series according to the model signal + noise
