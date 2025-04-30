@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2">
   <diagram name="Page-1" id="2YBvvXClWsGukQMizWep">
-    <mxGraphModel dx="1227" dy="906" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="1" shadow="0">
+    <mxGraphModel dx="1265" dy="858" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="1" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -8,7 +8,7 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="_jZCNcSZv8bQu8wCcKrz-1" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Временной ряд `\mathsf{X}`, Оценка сигнала `\tilde{\mathsf{S}}=0`, `\Omega^\star=\{\}`&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;" parent="1" vertex="1">
-          <mxGeometry x="170" y="30" width="380" height="80" as="geometry" />
+          <mxGeometry x="170" y="30" width="390" height="80" as="geometry" />
         </mxCell>
         <mxCell id="5HMmkszmsvIhnjPhtP4D-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="_jZCNcSZv8bQu8wCcKrz-7" target="5HMmkszmsvIhnjPhtP4D-2" edge="1">
           <mxGeometry relative="1" as="geometry" />
@@ -16,8 +16,8 @@
         <mxCell id="5HMmkszmsvIhnjPhtP4D-8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="_jZCNcSZv8bQu8wCcKrz-7" target="5HMmkszmsvIhnjPhtP4D-7" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="_jZCNcSZv8bQu8wCcKrz-7" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Проверка гипотезы об отсутствии сигнала с помощью `\text{MC-SSA}(L_1)` для `\mathsf{X}-\tilde{\mathsf{S}}`&lt;br&gt;&lt;/font&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;" parent="1" vertex="1">
-          <mxGeometry x="170" y="150" width="380" height="80" as="geometry" />
+        <mxCell id="_jZCNcSZv8bQu8wCcKrz-7" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Проверка гипотезы об отсутствии сигнала с помощью MC-SSA`(L_1)` для `\mathsf{X}-\tilde{\mathsf{S}}`&lt;br&gt;&lt;/font&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;" parent="1" vertex="1">
+          <mxGeometry x="170" y="150" width="390" height="80" as="geometry" />
         </mxCell>
         <mxCell id="5HMmkszmsvIhnjPhtP4D-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.008;exitY=0.43;exitDx=0;exitDy=0;exitPerimeter=0;" parent="1" source="_jZCNcSZv8bQu8wCcKrz-11" target="_jZCNcSZv8bQu8wCcKrz-7" edge="1">
           <mxGeometry relative="1" as="geometry">
@@ -31,11 +31,11 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="_jZCNcSZv8bQu8wCcKrz-11" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Новая оценка сигнала `\tilde{\mathsf{S}}` с помощью `\text{SSA}(L_2)` к ряду `\mathsf{X}`: первые компоненты с $$T(\cdot, \omega - \delta, \omega + \delta)&amp;gt;T_0, \ \omega\in\Omega^\star$$&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;" parent="1" vertex="1">
-          <mxGeometry x="170" y="400" width="380" height="120" as="geometry" />
+        <mxCell id="_jZCNcSZv8bQu8wCcKrz-11" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Новая оценка сигнала `\tilde{\mathsf{S}}` с помощью SSA`(L_2)` к ряду `\mathsf{X}`: первые компоненты с $$T(\cdot; \omega - \delta, \omega + \delta)&amp;gt;T_0, \ \omega\in\Omega^\star$$&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DAE8FC;" parent="1" vertex="1">
+          <mxGeometry x="170" y="400" width="390" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="5HMmkszmsvIhnjPhtP4D-2" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Результат: оценка сигнала `\tilde{\mathsf{S}}`&lt;/font&gt;" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#E1D5E7;" parent="1" vertex="1">
-          <mxGeometry x="720" y="150" width="160" height="80" as="geometry" />
+        <mxCell id="5HMmkszmsvIhnjPhtP4D-2" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;&lt;b&gt;Результат&lt;/b&gt;: оценка сигнала `\tilde{\mathsf{S}}`&lt;/font&gt;" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#E1D5E7;" parent="1" vertex="1">
+          <mxGeometry x="720" y="150" width="170" height="80" as="geometry" />
         </mxCell>
         <mxCell id="5HMmkszmsvIhnjPhtP4D-4" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;`H_0` не отвергается&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="560" y="160" width="160" height="30" as="geometry" />
@@ -46,11 +46,11 @@
         <mxCell id="5HMmkszmsvIhnjPhtP4D-9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="5HMmkszmsvIhnjPhtP4D-7" target="_jZCNcSZv8bQu8wCcKrz-11" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="5HMmkszmsvIhnjPhtP4D-7" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Определение максимально значимой частоты `\omega^\star`, `Omega^\star\leftarrow\Omega^\star\cup\{\omega^\star\}`&lt;/font&gt;" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#DAE8FC;" parent="1" vertex="1">
-          <mxGeometry x="170" y="280" width="380" height="80" as="geometry" />
+        <mxCell id="5HMmkszmsvIhnjPhtP4D-7" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Определение максимально значимой&amp;nbsp; частоты `\omega^\star`, `Omega^\star\leftarrow\Omega^\star\cup\{\omega^\star\}`&lt;/font&gt;" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#DAE8FC;" parent="1" vertex="1">
+          <mxGeometry x="170" y="280" width="390" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="5HMmkszmsvIhnjPhtP4D-13" value="&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 18px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Параметры:&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); font-size: 18px;&quot;&gt;`L_1,L_2\in(1, N)`,&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); font-size: 18px;&quot;&gt;`T_0\in[0, 1]`,&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); font-size: 18px;&quot;&gt;`\delta&amp;gt;0`&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#D5E8D4;strokeColor=#36393d;fillStyle=auto;gradientColor=none;spacingLeft=5;" parent="1" vertex="1">
-          <mxGeometry x="610" y="30" width="270" height="80" as="geometry" />
+        <mxCell id="5HMmkszmsvIhnjPhtP4D-13" value="&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;font-size: 18px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;b&gt;Параметры&lt;/b&gt;:&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); font-size: 18px;&quot;&gt;`L_1,L_2\in(1, N)`,&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); font-size: 18px;&quot;&gt;`T_0\in[0, 1]`,&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); font-size: 18px;&quot;&gt;`\delta&amp;gt;0`&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#D5E8D4;strokeColor=#36393d;fillStyle=auto;gradientColor=none;spacingLeft=5;" parent="1" vertex="1">
+          <mxGeometry x="620" y="30" width="270" height="80" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

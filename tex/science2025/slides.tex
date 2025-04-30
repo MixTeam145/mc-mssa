@@ -1,13 +1,10 @@
 \documentclass[notheorems, handout]{beamer}
-% \usetheme[numbers,totalnumbers,compress, nologo]{Statmod}
-\usefonttheme[onlymath]{serif}
-\setbeamertemplate{navigation symbols}{}
 
 \usetheme{warsaw}
 \setbeamertemplate{page number in head/foot}[totalframenumber]
-%\usetheme[numbers, totalnumbers, nonav, compress]{Statmod}
 \setbeamertemplate{headline}{}
 \setbeamertemplate{navigation symbols}{}
+\usefonttheme[onlymath]{serif}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T2A]{fontenc}
@@ -15,23 +12,13 @@
 
 \usepackage{graphicx,subcaption,ragged2e}
 \usepackage{tikz}
-\usepackage{hhline}
-
 \usepackage{bm}
-\usepackage{algorithm}
-\usepackage{algorithmic}
 
 \setbeamercolor{bluetext_color}{fg=blue}
 \newcommand{\bluetext}[1]{{\usebeamercolor[fg]{bluetext_color}#1}}
 
 \usetikzlibrary{shapes.geometric, arrows}
 \tikzstyle{arrow} = [thick,->,>=stealth]
-
-\newtheorem{definition}{Определение}
-\newtheorem{remark}{Замечание}
-
-\newcommand{\Input}{\textbf{Входные данные: }}
-\newcommand{\Output}{\textbf{Результат: }}
 
 \title[Выделение сигнала на основе MC-SSA]{Выделение сигнала на основе критерия Monte Carlo SSA}
 
@@ -64,9 +51,9 @@
 \end{frame}
 
 \begin{frame}{Постановка задачи}
-	$\tX=(x_1,\ldots,x_N)$, $x_i\in \mathbb{R}$ "--- временной ряд.\medskip
+	$\tX=(x_1,\ldots,x_N)$, $x_i\in \mathbb{R}$~--- временной ряд.\medskip
 
-	\bluetext{Дано}: $\tX=\tT + \tH + \tR$, где $\tT$ "--- тренд, $\tH$ "--- периодическая компонента и $\tR$ "--- шум.\medskip
+	\bluetext{Дано}: $\tX=\tT + \tH + \tR$, где $\tT$~--- тренд, $\tH$~--- периодическая компонента и $\tR$~--- шум.\medskip
 
 	\bluetext{Проблемы}:
 	\begin{enumerate}
@@ -96,7 +83,7 @@
 	\end{equation*}
 	где $K=N-L+1$.\medskip
 
-	\emph{Оператор ганкелизации} $\cH$ "--- усреднение матрицы по побочным диагоналям.
+	\emph{Оператор ганкелизации} $\cH$~--- усреднение матрицы по побочным диагоналям.
 \end{frame}
 
 \begin{frame}{Обозначения и известные результаты: алгоритм SSA}
@@ -106,10 +93,10 @@
 
 	\bluetext{Выходные данные}: оценка сигнала.\medskip
 
-	% \begin{figure}
+	\begin{figure}
 		\scalebox{0.5}{
 			\begin{tikzpicture}[node distance=2cm]
-				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm](1){{\LARGE\textbf{Входные данные}: $\tX$} "---\\\LARGE временной ряд};
+				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm](1){{\LARGE\textbf{Входные данные}: $\tX$}~---\\\LARGE временной ряд};
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=1, yshift=-2cm](2){{\LARGE Траекторная матрица}\\ \LARGE $\bf{X}=\cT_{\text{SSA}}(\tX)$};
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, right of=2, xshift=10cm](3){\LARGE Сумма матриц\\ \LARGE единичного ранга\\ \LARGE$\bfX=\sum\limits_{j=1}^d\bfX_j$};
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=3, yshift=-2cm](4){\LARGE Группировка матриц,\\ \LARGE соответствующих сигналу\\ \LARGE$\bfX=\bfX_{I}+(\bfX-\bfX_{I})$\\\LARGE$\bfX_{I}=\sum\limits_{i\in I}\bfX_i$};
@@ -120,8 +107,7 @@
 				\draw[arrow](3)--node[anchor=west]{\large3. Группировка}(4);
 				\draw[arrow](4)--node[anchor=south]{\large4. Восстановление}(5);
 			\end{tikzpicture}}
-		% \caption{Алгоритм SSA}
-	% \end{figure}
+	\end{figure}
 \end{frame}
 
 \begin{frame}{Пример: применение SSA}
@@ -134,11 +120,9 @@
 \end{frame}
 
 \begin{frame}{Обозначения и известные результаты: Monte-Carlo SSA}
-	\bluetext{Входные данные}: $\tX=\tS+\tR$, где $\tS$ "--- сигнал, $\tR$ "--- реализация стационарного процесса $\bm\xi$ с нулевым средним и со спектральной плотностью $f_{\bm\theta}$.\medskip
+	\bluetext{Входные данные}: $\tX=\tS+\tR$, где $\tS$~--- сигнал, $\tR$~--- реализация стационарного процесса $\bm\xi$ с нулевым средним и со спектральной плотностью $f_{\bm\theta}$.\medskip
 
-	\bluetext{Параметры}: длина окна $L$, $W_1,\ldots, W_M\in \mathbb R^L$ "--- нормированные векторы, соответствующие определенным частотам.\medskip
-
-	% \bluetext{Результат}: решение, отвергать $H_0$ или нет.\medskip
+	\bluetext{Параметры}: длина окна $L$, $W_1,\ldots, W_M\in \mathbb R^L$~--- нормированные векторы, соответствующие определенным частотам.\medskip
 
 	\bluetext{Статистика критерия}: величины
 	$$
@@ -150,12 +134,6 @@
 	Multiple MC-SSA~[Golyandina, 2023]: модификация MC-SSA с поправкой на множественные сравнения.\medskip
 
 	В качестве $W_k$ рассматриваются косинусы с равностоящими частотами $\omega_k=k/(2L)$, $k=1,\ldots, L$.
-
-	% \begin{enumerate}
-	% 	\item Построить статистику критерия $\widehat{p}=\|\bfX^\rmT W\|^2$.\medskip
-	% 	\item Построить доверительную область случайной величины $p=\|\mathbf\Xi^\rmT W\|^2$: распределение $p$ оценивается методом Монте-Карло.\medskip
-	% 	\item Если $\widehat p$	не попадает в построенный интервал, то $H_0$ отвергается.
-	% \end{enumerate}
 \end{frame}
 
 \begin{frame}{Обозначения и известные результаты: оценка параметров шума}
@@ -165,7 +143,7 @@
 	$$
 	\ell_W(\bm\theta)=-\frac{1}{m}\sum_{j=1}^m\left(\ln f_{\bm\theta}(\omega_j)+\frac{I_N(\omega_j)}{f_{\bm\theta}(\omega_j)}\right),
 	$$
-	где $m=\lfloor (N-1)/2\rfloor$, $f_{\bm\theta}$~--- спектральная плотность $\bm\xi$, $I_N$ --- периодограмма исходного ряда, $\omega_j=j/N$.\medskip
+	где $m=\lfloor (N-1)/2\rfloor$, $f_{\bm\theta}$~--- спектральная плотность $\bm\xi$, $I_N$~--- периодограмма исходного ряда, $\omega_j=j/N$.\medskip
 
 	Оценивать параметры можно по части спектра: пусть $J=\{j_1, \ldots, j_p\}$~--- индексы частот, которые мы не хотим учитывать при оценке параметров. Тогда при вычислении $\ell_W(\bm\theta)$ рассматриваются только индексы $j\not\in J$.
 \end{frame}
@@ -191,8 +169,7 @@
 		\minipage{0.5\textwidth}
 			\includegraphics[width=0.9\textwidth]{img/mcssa_estimated.pdf}
 			\caption{Оцененная модель шума}
-		\endminipage\hfill
-		%\caption{Результат работы метода MC-SSA}
+		\endminipage
 	\end{figure}
 	\textcolor{red}{Проблема}: при оценивании параметров обнаруживаются не все частоты.
 
@@ -208,7 +185,7 @@
 	
 	Величину $T(\tX; \omega_1, \omega_2)$ можно рассматривать как долю вклада частот, содержащегося в интервале $[\omega_1, \omega_2]$.\bigskip
 
-	Пусть $\omega^*$~--- значимая частота. Тогда $[\omega_1, \omega_2]=[\omega^*-\delta, \omega^* + \delta]$.
+	Пусть $\omega^\star$~--- значимая частота. Тогда $[\omega_1, \omega_2]=[\omega^\star-\delta, \omega^\star + \delta]$.
 \end{frame}
 
 \begin{frame}{Алгоритм autoMCSSA}
@@ -233,7 +210,6 @@
 	\begin{figure}
 		\centering
 		\includegraphics[width=\textwidth]{img/auto_mcssa_result.pdf}
-		% \caption{Оценка сигнала}
 	\end{figure}
 	Параметры: $L_1=50$, $L_2=100$, $\delta=1/80$, $T_0=0.5$.\medskip
 
