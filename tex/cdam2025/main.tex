@@ -58,9 +58,9 @@
 }
 
 % To remove after translation
-\usepackage[T2A]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage[english,russian]{babel}
+%\usepackage[T2A]{fontenc}
+%\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
 \usepackage{bm}
 
 \begin{document}
@@ -73,89 +73,58 @@
 St.Petersburg, Russia\\} e-mail: {\tt $^1$egor.poteshkin@yandex.ru,
 $^2$n.golyandina@spbu.ru}
 
-\abskeyw{В работе рассматривается задача выделения сигнала из шума методом анализа сингулярного спектра (SSA). Предлагается алгоритм автоматического выделения значимых модулированных гармоник без задания их периодов, который на основе критерия Monte Carlo SSA определяет значимые частоты и затем выделяет их.}{time series, signal extraction, signal detection, singular spectrum analysis}
+\abskeyw{The paper addresses the issue of extracting signals from noise using singular spectrum analysis (SSA). We propose an algorithm that automatically selects significant modulated harmonics without specifying their periods. This algorithm is based on the Monte Carlo SSA criterion and determines and then extracts the significant frequencies.}{time series, signal extraction, signal detection, singular spectrum analysis}
 \end{center}
 
-\section{Введение}
+\section{Introduction}
 
-Рассмотрим следующую модель: $\mathsf{X}=\mathsf{S}+\mathsf{R}$, где $\mathsf{X} = (x_1,\ldots,x_N)$~--- наблюдаемый временной ряд, $\mathsf{S}$~--- сигнал, $\mathsf{R}$~--- шум, т.е. реализация некоторого стационарного процесса. В работе рассматриваются две проблемы: проблема обнаружения сигнала $\mathsf{S}$ и проблема выделения сигнала при его наличии.
+Consider the following model: $\mathsf{X}=\mathsf{S}+\mathsf{R}$, where $\mathsf{X} = (x_1,\ldots,x_N)$ is the observed time series, $\mathsf{S}$ is the signal and $\mathsf{R}$ is the noise, i.e., the realisation of some stationary process.  This paper considers two problems: signal detection and signal extraction in cases where the signal is present.
 
-Для решения первой проблемы используется метод Monte Carlo SSA (MC-SSA)~\cite{AllenSmith96}, проверяющий гипотезу $H_0:\mathsf{S}=0$, а для решения второй~--- метод анализа сингулярного спектра (singular spectrum analysis, SSA)~\cite{Broomhead1986, ssa2001}, раскладывающий ряд на элементарные компоненты, после группировки которых получается разложение ряда на тренд, периодические компоненты и шум. Один из шагов SSA подразумевает визуальный анализ для определения компонент сигнала, поэтому возникает потребность в автоматизации этого шага, этой проблеме посвящены, например, работы~\cite{alexandrov, Kalantari2019, circSSA, autoSSA}, посвященные, главным образом, выделению тренда или сглаживанию. Целью работы является определение подхода к автоматическому выделению слабых осциллирующих сигналов, обнаруживаемых критерием MC-SSA.
+To solve the first problem, we use the Monte Carlo SSA (MC-SSA)~\cite{AllenSmith96} method, which tests the hypothesis $H_0:\mathsf{S}=0$. The second problem is solved by applying singular spectrum analysis (SSA)~\cite{Broomhead1986, ssa2001}, which decomposes the series into elementary components. After grouping these components, we obtain a decomposition of the series into trend, periodic components, and noise.   As one of the SSA steps involves visual analysis to identify the signal components, there is a need to automate this step. This problem has been addressed in works such as~\cite{alexandrov, Kalantari2019, circSSA, autoSSA}, which are mainly devoted to trend extraction or smoothing. This paper aims to define an approach to the automatic extraction of weak oscillating signals detected by the MC-SSA criterion.
 
-% \section{Метод SSA}
+\section{The autoMCSSA algorithm}
+Let us introduce some notation and assumptions.
 
-% Пусть $\mathsf{X}=(x_1,\ldots,x_N)$, $x_i\in \mathbb{R}$,~--- временной ряд длины $N$. Зафиксируем параметр $L$, $1<L<N$, называемый длиной окна и построим так называемую траекторную матрицу $\mathbf{X}=[X_1:\ldots:X_K]$, состоящую из $K=N-L+1$ векторов вложения $X_i=(x_i,\ldots,x_{i+L-1})^{\mathrm{T}}\in \mathbb R^L$.
+The proposed algorithm uses a modified version of MC-SSA that corrects for multiple comparisons~\cite{Golyandina2023}. Sine waves with equidistant frequencies $\omega_k=k/(2L)$, $k=1,\ldots,L$, were chosen as the projection vectors needed to construct the criterion statistics. With this choice of projection vectors, we can identify significant frequencies present in the signal.
 
-% Следующий шаг~--- разложение в сумму матриц единичного ранга $\mathbf{X}=\sum_{i=1}^d \mathbf{X}_i$. В базовом SSA используется сингулярное разложение матрицы $\mathbf{X}$, где столбцы $\mathbf{X}_i$ состоят из проекций столбцов матрицы $\mathbf{X}$ на порождаемые ею  самой левые сингулярные векторы.
-
-% Далее компоненты полученного матричного разложения группируются на основе свойств левых сингулярных векторов, и каждая сгруппированная матрица преобразуется во временной ряд. Таким образом, результатом SSA является разложение временного ряда.
-
-% \section{Метод Monte Carlo SSA}
-
-% Рассмотрим задачу поиска сигнала во временном ряде. Модель временного ряда имеет вид
-% \[
-%     \mathsf{X}=\mathsf{S} + \bm\xi,
-% \]
-% где $\mathsf{S}$~--- сигнал, $\bm\xi$~--- стационарный процесс с нулевым средним. Тогда нулевая гипотеза $H_0:\mathsf{S}=0$ и альтернатива $H_1:\mathsf{S}\ne0$.
-
-% Зафиксируем длину окна $L$ и обозначим траекторную матрицу ряда $\boldsymbol\xi$ как $\mathbf\Xi$. Рассмотрим вектор $W\in \mathbb R^L$ единичной длины, называемый проекционным вектором. Введем величину
-% \[
-%     p=\left\|\mathbf\Xi^{\mathrm{T}} W\right\|^2.
-% \]
-% Статистикой критерия является величина
-% \[
-%     \widehat p = \left\|{\mathbf{X}}^{\mathrm{T}} W\right\|^2.
-% \]
-% Распределение статистики критерия оценивается с помощью моделирования согласно нулевой гипотезе, отсюда и название метода.
-
-% Если вектор $W$~--- синусоида с частотой $\omega$, то $\widehat{p}$ отражает вклад частоты $\omega$ в исходный ряд. Так как частота ожидаемого сигнала неизвестна, то необходимо рассматривать несколько векторов $W_k$, $k=1,\ldots,H$. Решение возникающей при этом проблемы множественного тестирования рассматривается в~\cite{Golyandina2023}.
-% Гипотеза об отсутствии сигнала отвергается, если хотя бы для одного вектора $W=W_k$ значение $\widehat p$ оказывается значимым.
-
-% Важной частью метода MC-SSA является способ выбора векторов $W_k$. В данной работе в качестве векторов для проекции берутся косинусы с равноотстоящими частотами $\omega_k=k/(2L)$, $k=1,\ldots,L$. В этом случае можно говорить о значимых частотах, присутствующих в сигнале.
-
-\section{Метод autoMCSSA}
-Для описания разработанного метода необходимо ввести некоторые обозначения и предположения.
-
-В предлагаемом алгоритме используется модификация MC-SSA с поправкой на множественные сравнения~\cite{Golyandina2023}. В качестве векторов для проекции, необходимых для построения статистики критерия, были выбраны косинусы с равноотстоящими частотами $\omega_k=k/(2L)$, $k=1,\ldots,L$. В этом случае можно говорить о значимых частотах, присутствующих в сигнале.
-
-Для ряда $\mathsf{X}$ длины $N$ и $0\leqslant\omega_1\leqslant\omega_2\leqslant0.5$ будем использовать ту же меру, что в~\cite{alexandrov} для выделения тренда.
-Пусть мера $T(\mathsf{X};\omega_1,\omega_2)$ отражает долю вклада частот из интервала $[\omega_1,\omega_2)$, сосчитанную на основе значения периодограммы ряда. 
+For a series $\mathsf{X}$ of length $N$ and $0\leqslant\omega_1\leqslant\omega_2\leqslant0.5$, we will use the same frequency measure used in~\cite{alexandrov} for trend extraction.
+Let the measure $T(\mathsf{X};\omega_1,\omega_2)$ reflect the contribution of frequencies from the interval $[\omega_1,\omega_2)$ calculated from the periodogram of the series.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{img/auto_mcssa_alg.pdf}
-    \caption{Алгоритм autoMCSSA}
+    \caption{Algorithm autoMCSSA}
     \label{fig:autoMCSSA_alg}
 \end{figure}
 
-На рис.~\ref{fig:autoMCSSA_alg} изображена блок-схема алгоритма autoMCSSA. Заключается он в последовательном применении критерия MC-SSA до тех пор, пока гипотеза не перестанет отвергаться. Если на очередной итерации алгоритма гипотеза отвергается, определяется максимально значимая частота $\omega^\star$ и вычисляется новая оценка сигнала с помощью SSA,примененного к исходному ряду: для каждой частоты $\omega$ из множества значимых частот $\Omega^\star$ выбираются первые компоненты с мерой $T$ превышающей порог $T_0$. Как только гипотеза перестает отвергаться, алгоритм завершает свою работу и тогда $\widetilde{\mathsf{S}}$~--- итоговая оценка сигнала.
+Figure ~\ref{fig:autoMCSSA_alg} shows the flowchart of the autoMCSSA algorithm. It consists of applying the MC-SSA criterion sequentially until the hypothesis is no longer rejected. If the hypothesis is rejected at the next iteration of the algorithm, the maximum significant frequency $\omega^\star$ is determined and a new signal estimate is calculated using SSA applied to the original series: for each frequency $\omega$, the leading components with a measure $T$ exceeding the threshold $T_0$ are selected from the set of significant frequencies $\Omega^\star$. Once the null hypothesis is no longer rejected, the algorithm terminates, with the final signal estimate being given by$\widetilde{\mathsf{S}}$ .
 
-Оценивать частоту $\omega^\star$ будем с помощью взвешенного среднего ближайщих значимых частот с весами, определяемыми их значимостью. 
-Такой способ оценки позволяет получить более точную оценку $\omega$ в случае, когда она не попадает в решетку $k/(2L)$.
+We will estimate the frequency $\omega^\star$ using a weighted average of the nearest significant frequencies, where the weights are determined by the frequencies' significance.
+This estimation method enables us to obtain a more accurate estimate of $\omega$ in the case when it does not fall in the $k/(2L)$ lattice.
 
-Рассмотрим пример работы рассмотренного алгоритма. Пусть $\mathsf{X}=\mathsf{S}+\bm{\xi}$, где $\bm\xi$~--- модель AR(1) с параметрами $\phi=0.7$ и $\sigma^2=1$, $N=200$, $\mathsf{S}=(s_1,\ldots, s_N)$,
+Let us consider an example of the work of the considered algorithm. Let $\mathsf{X}=\mathsf{S}+\bm{\xi}$, where $\bm\xi$ is the AR(1) model with parameters $\phi=0.7$ and $\sigma^2=1$, $N=200$, $\mathsf{S}=(s_1,\ldots, s_N)$,
 \[
 s_n=0.075\, e^{0.02n}\cos(2\pi n/8) + 2\cos(2\pi n / 4) + 0.2\cdot(-1)^n.
 \]
 
 \begin{figure}[!h]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/reconstructed_ts.pdf}
-    \caption{Элементарные восстановленные компоненты}
+    \includegraphics[width=\textwidth]{img/reconstructed_ts.pdf}
+    \caption{Elementary series components}
     \label{fig:reconstructed_ts}
 \end{figure}
 
 \begin{figure}[!h]
     \centering
     \includegraphics[width=0.8\textwidth]{img/auto_mcssa_result.pdf}
-    \caption{Результат autoMCSSA ($L_1=50$, $L_2=100$, $\delta=1/80$, $T_0=0.5$)}
+    \caption{Estimated signal using autoMCSSA ($L_1=50$, $L_2=100$, $\delta=1/80$, $T_0=0.5$)}
     \label{fig:autoMCSSA_res}
 \end{figure}
 
-На рис.~\ref{fig:reconstructed_ts} представлены первые $15$ элементарных восстановленных с помощью SSA компонент. Сигналу соответствуют компоненты с индексами $1$, $2$, $5$, $6$ и $13$. Не видя формулы, по которой этот сигнал задается, сказать наверняка, какие компоненты неслучайные, проблематично, поскольку компоненты $3$, $4$ и $11$, $12$ похожи на пары гармоник. Мы применили алгоритм autoMCSSA к этому ряду и получили, что разработанный метод правильно идентифицировал компоненты, соответствующие сигналу, на рис.~\ref{fig:autoMCSSA_res} представлены истинная форма сигнала $\mathsf{S}$ и его оценка методом autoMCSSA.
+Figure~\ref{fig:reconstructed_ts} shows the first $15$ elementary components reconstructed using SSA. The signal corresponds to components with indices $1$, $2$, $5$, $6$, and $13$. Without knowing the formula by which this signal is generated, it is difficult to say with certainty which components are non-random, since the components ($3$, $4$) and ($11$, $12$) look like pairs of harmonics. We applied the autoMCSSA algorithm to this series and found that the developed method correctly identified the components corresponding to the signal. Figure~\ref{fig:autoMCSSA_res} shows the signal $\mathsf{S}$ and its estimation by the autoMCSSA method.
 
-\section{Заключение}
-Таким образом, в работе предлагается алгоритм, способный выделить только значимые компоненты, при этом не требуется задавать период для периодической компоненты, периодик может быть несколько с неизмеримыми периодами и они могут быть модулированными с разной амплитудной модуляцией. 
+\section{Conclusion}
+Thus, the paper proposes an algorithm capable of extracting only the significant components. It is not necessary to specify a period for the periodic component; the periodic components can be multiple and modulated with different amplitude modulation.
 
 %% please make bibitems content in a style below !!!
 %% papers with "free style" bibitems content will be rejected !!!
