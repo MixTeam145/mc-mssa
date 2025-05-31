@@ -69,7 +69,7 @@
 St.\,Petersburg, Russia\\} e-mail: {\tt $^1$egor.poteshkin@yandex.ru,
 $^2$n.golyandina@spbu.ru}
 
-\abskeyw{The paper addresses the issue of extracting signals from noise using singular spectrum analysis (SSA). We propose an algorithm that automatically selects significant modulated harmonics without specifying their periods. This algorithm is based on the Monte Carlo SSA criterion and determines and then extracts the significant frequencies.}{time series, signal extraction, signal detection, singular spectrum analysis}
+\abskeyw{The paper addresses the issue of extracting signals from noise using singular spectrum analysis (SSA). We propose an algorithm that automatically selects significant modulated harmonics without specifying their periods. This algorithm relies on the Monte Carlo SSA criterion to identify the significant frequencies, which are then extracted.}{time series, signal extraction, signal detection, singular spectrum analysis}
 \end{center}
 
 \section{Introduction}
@@ -89,11 +89,11 @@ Let the measure $T(\mathsf{X};\omega_1,\omega_2)$ reflect the contribution of fr
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{img/auto_mcssa_alg.pdf}
-    \caption{Flowchart of the autoMCSSA algorithm}
+    \caption{Flowchart of autoMCSSA}
     \label{fig:autoMCSSA_alg}
 \end{figure}
 
-Figure ~\ref{fig:autoMCSSA_alg} shows the flowchart of the autoMCSSA algorithm. It consists of applying the MC-SSA criterion sequentially until the hypothesis is no longer rejected. If the hypothesis is rejected at the next iteration of the algorithm, the maximum significant frequency $\omega^\star$ is determined and a new signal estimate is calculated using SSA applied to the original series: for each frequency $\omega$ from the set of significant frequencies $\Omega^\star$, the leading components with a measure $T$ exceeding the threshold $T_0$ are selected. Once the null hypothesis is no longer rejected, the algorithm terminates, with the final signal estimate being given by $\widetilde{\mathsf{S}}$ .
+Figure ~\ref{fig:autoMCSSA_alg} shows the flowchart of the autoMCSSA algorithm. It consists of applying the MC-SSA criterion sequentially until the hypothesis is no longer rejected. If the hypothesis is rejected at the next iteration of the algorithm, the most significant frequency $\omega^\star$ is determined and a new signal estimate is calculated using SSA applied to the original series: for each frequency $\omega$ from the set of significant frequencies $\Omega^\star$, the leading components with a measure $T$ exceeding the threshold $T_0$ are selected. Once the null hypothesis is no longer rejected, the algorithm terminates, with the final signal estimate being given by $\widetilde{\mathsf{S}}$ .
 
 We will estimate the frequency $\omega^\star$ using a weighted average of the nearest significant frequencies, where the weights are determined by the frequencies' significance.
 This estimation method enables us to obtain a more accurate estimate of $\omega$ in cases when it does not fall on the $k/(2L)$ frequency grid.
@@ -120,7 +120,7 @@ s_n=0.075\, e^{0.02n}\cos(2\pi n/8) + 2\cos(2\pi n / 4) + 0.2\cdot(-1)^n.
 Figure~\ref{fig:reconstructed_ts} shows the first $15$ elementary components reconstructed using SSA. The signal corresponds to components with indices $1$, $2$, $5$, $6$, and $13$. Without knowing the formula by which this signal is generated, it is difficult to say with certainty which components are non-random, since the components ($3$, $4$) and ($11$, $12$) look like pairs of harmonics. We applied the autoMCSSA algorithm to this series and found that the developed method correctly identified the components corresponding to the signal. Figure~\ref{fig:autoMCSSA_res} shows the signal $\mathsf{S}$ and its estimate by the autoMCSSA method.
 
 \section{Conclusion}
-The paper proposes an algorithm capable of extracting only the significant components without specifying the period of a periodic component. Multiple modulated periodic components may be present, each with different amplitude modulation.
+The paper proposes an algorithm capable of extracting only the significant time series components without specifying the period of a periodic component. Multiple modulated periodic components may be present, each with different amplitude modulation.
 
 %% please make bibitems content in a style below !!!
 %% papers with "free style" bibitems content will be rejected !!!
@@ -130,16 +130,16 @@ The paper proposes an algorithm capable of extracting only the significant compo
     \bibitem{alexandrov} Alexandrov Th. (2009). A method of trend extraction using singular spectrum analysis. {\sl RevStat}. Vol.~{\bf 7}, Num.~{\bf 1}, pp.~1-22.
 
     \bibitem{AllenSmith96} Allen~M., Smith~L. (1996). Monte Carlo SSA: detecting irregular oscillations in the presence of coloured noise. {\sl Journal of Climate}. Vol.~{\bf 9}, pp.~3373-3404.
-    
-    \bibitem{circSSA} Bogalo~J., Poncela~P., Senra~E. (2021). Circulant singular spectrum analysis: A new automated procedure for signal extraction. {\sl Signal Processing}. Vol.~{\bf 179}.
+
+    \bibitem{circSSA} Bogalo~J., Poncela~P., Senra~E. (2021). Circulant singular spectrum analysis: A new automated procedure for signal extraction. {\sl Signal Processing}. Vol.~{\bf 179}, 107824.
 
     \bibitem{Broomhead1986} Broomhead~D., King~G. (1986). Extracting qualitative dynamics from experimental data. {\sl Physica D: Nonlinear Phenomena}. Vol.~{\bf 20}, Num.~{\bf 2}-{\bf 3}, pp.~217-236.
 
     \bibitem{Golyandina2023} Golyandina~N. (2023). Detection of signals by Monte Carlo singular spectrum analysis: multiple testing. {\sl Statistics and Its Interface}. Vol.~{\bf 16}, Num.~{\bf 1}, pp.~147-157.
 
-    \bibitem{autoSSA} Golyandina~N., Dudnik~P., Shlemov~A. (2023). Intelligent Identification of Trend Components in Singular Spectrum Analysis. {\sl Algorithms}. Vol.~{\bf 16}, Num.~{\bf 7}, ID~353.
+    \bibitem{autoSSA} Golyandina~N., Dudnik~P., Shlemov~A. (2023). Intelligent identification of trend components in singular spectrum analysis. {\sl Algorithms}. Vol.~{\bf 16}, Num.~{\bf 7}, 353.
 
-    \bibitem{ssa2001} Golyandina~N., Nekrutkin~V., Zhigljavsky~A. (2001). {\sl Analysis of Time Series Structure: SSA and Related Techniques}. Chapman and Hall/CRC.
+    \bibitem{ssa2001} Golyandina~N., Nekrutkin~V., Zhigljavsky~A. (2001). {\sl Analysis of Time Series Structure: SSA and Related Techniques}. Chapman and Hall/CRC: New York.
 
     \bibitem{Kalantari2019} Kalantari~M., Hassani.~H. (2019). Automatic grouping in singular spectrum analysis. {\sl Forecasting}. Vol.~{\bf 1}, Num.~{\bf 1}, pp.~189-204.
 
