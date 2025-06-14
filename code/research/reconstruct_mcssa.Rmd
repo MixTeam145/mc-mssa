@@ -19,7 +19,6 @@ library(progressr)
 library(tidyr)
 library(latex2exp)
 library(ggpubr)
-library(fpp)
 
 source("../R/mc-mssa.R", chdir = TRUE)
 load("./data/reconstruct_mcssa_errors.RData")
@@ -561,9 +560,9 @@ plot_mse <- function(data, plot.right = FALSE) {
     theme(legend.title = element_blank()) +
     xlab(TeX("$\\sigma^2$"))
   if (plot.right)
-    p <- p + ggtitle(TeX(r"(\alpha\ne{0})")) + ylim_p2
+    p <- p + ggtitle(TeX(r"(a\ne{0})")) + ylim_p2
   else
-    p <- p + ggtitle(TeX(r"(\alpha=0)")) + ylim_p1
+    p <- p + ggtitle(TeX(r"(a=0)")) + ylim_p1
   p
 }
 ```
@@ -572,7 +571,7 @@ plot_mse <- function(data, plot.right = FALSE) {
 p1 <- plot_mse(mse1)
 p2 <- plot_mse(mse2, TRUE)
 (p <- ggarrange(p1, p2, ncol = 2, common.legend = TRUE, legend = "bottom"))
-# ggsave("../../tex/science2025/paper/img/mse.pdf", p, device = "pdf", width = 10, height = 4)
+ggsave("../../tex/master/img/mse.pdf", p, device = "pdf", width = 10, height = 4)
 ```
 
 Теперь пусть $\delta=0.0125$.
@@ -580,7 +579,7 @@ p2 <- plot_mse(mse2, TRUE)
 p1 <- plot_mse(mse1_delta_smaller)
 p2 <- plot_mse(mse2_delta_smaller, TRUE)
 (p <- ggarrange(p1, p2, ncol = 2, common.legend = TRUE, legend = "bottom"))
-# ggsave("../../tex/science2025/paper/img/mse_delta_smaller.pdf", p, device = "pdf", width = 10, height = 4)
+ggsave("../../tex/master/img/mse_delta_smaller.pdf", p, device = "pdf", width = 10, height = 4)
 ```
 
 Теперь пусть $\delta=0.05$.
@@ -588,7 +587,7 @@ p2 <- plot_mse(mse2_delta_smaller, TRUE)
 p1 <- plot_mse(mse1_delta_bigger)
 p2 <- plot_mse(mse2_delta_bigger, TRUE)
 (p <- ggarrange(p1, p2, ncol = 2, common.legend = TRUE, legend = "bottom"))
-# ggsave("../../tex/science2025/paper/img/mse_delta_bigger.pdf", p, device = "pdf", width = 10, height = 4)
+ggsave("../../tex/master/img/mse_delta_bigger.pdf", p, device = "pdf", width = 10, height = 4)
 ```
 
 
