@@ -220,50 +220,35 @@ cols <- c('black', 'red', 'green', "orange", "purple")
 lwds <- c(2, 1, 1, 1, 1)
 
 plot_distr <- function(formula, data, ...) {
-  xyplot(
-    formula,
-    data,
-    groups = L,
-    type = "l",
-    auto.key = list(corner = c(1, 0), x = 0.95, y = 0.05, padding.text = 2),
-    par.settings = simpleTheme(col = cols, lwd = lwds, lty = 1),
-    panel = function(x, y, ...) {
-      panel.xyplot(x, y, ...)
-      panel.abline(0, 1, col = "blue", lty = 2)
-    },
-    ...
-  )
+  plot(c, col = 'blue', lty = 2, ...)
+  for (i in seq_along(Ls)) {
+    lines(formula, subset(data, L == Ls[i]), col = cols[i], lwd = lwds[i])
+  }
+  legend(x = "bottomright", as.character(Ls), col = cols, lty = 1, lwd = lwds)
 }
 ```
 
 # Ошибка первого рода
-```{r, fig.height=15}
-p_ev <- plot_distr(
+```{r}
+pdf("../../tex/master/img/mcssa_comp_alphaI_ev.pdf", width = 8, height = 4)
+plot_distr(
   alphaI ~ signif.level, df_ev,
   xlab = "significance level", ylab = "type I error"
 )
-p_ev_svd <- plot_distr(
-  alphaI_svd ~ signif.level, df_ev,
-  xlab = "significance level", ylab = "type I error"
-)
-p_cos <- plot_distr(
-  alphaI ~ signif.level, df_cos,
-  xlab = "significance level", ylab = "type I error")
-
-# plot(p_ev, split = c(1, 1, 1, 3), more = TRUE)
-# plot(p_ev_svd, split = c(1, 2, 1, 3), more = TRUE)
-# plot(p_cos, split = c(1, 3, 1, 3), more = FALSE)
-
-pdf("../../tex/master/img/mcssa_comp_alphaI_ev.pdf", width = 8, height = 4)
-p_ev
 dev.off()
 
 pdf("../../tex/master/img/mcssa_comp_alphaI_ev_svd.pdf", width = 8, height = 4)
-p_ev_svd
+plot_distr(
+  alphaI_svd ~ signif.level, df_ev,
+  xlab = "significance level", ylab = "type I error"
+)
 dev.off()
 
 pdf("../../tex/master/img/mcssa_comp_alphaI_cos.pdf", width = 8, height = 4)
-p_cos
+plot_distr(
+  alphaI ~ signif.level, df_cos,
+  xlab = "significance level", ylab = "type I error"
+)
 dev.off()
 ```
 
@@ -281,18 +266,15 @@ AUC <- function(x, y) {
 ```
 
 ## $\alpha=0$, $L$ делятся на $1/\omega$
-```{r, fig.width=14}
-p_ev <- plot_distr(
+```{r}
+plot_distr(
   beta1 ~ alphaI, df_ev,
   xlab = "type I error", ylab = "power", main = "Eigenvectors (Toeplitz)"
 )
-p_cos <- plot_distr(
+plot_distr(
   beta1 ~ alphaI, df_cos,
   xlab = "type I error", ylab = "power", main = "Cosines"
 )
-
-plot(p_ev, split = c(1, 1, 2, 1), more = TRUE)
-plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
 ```
 
 ```{r echo=FALSE, warning=TRUE}
@@ -308,18 +290,15 @@ inner_join(beta_ev1, beta_cos1, by = "L")
 ```
 
 ## $\alpha=0$, $L$ не делятся на $1/\omega$
-```{r, fig.width=14}
-p_ev <- plot_distr(
+```{r}
+plot_distr(
   beta2 ~ alphaI, df_ev,
   xlab = "type I error", ylab = "power", main = "Eigenvectors (Toeplitz)"
 )
-p_cos <- plot_distr(
+plot_distr(
   beta2 ~ alphaI, df_cos,
   xlab = "type I error", ylab = "power", main = "Cosines"
 )
-
-plot(p_ev, split = c(1, 1, 2, 1), more = TRUE)
-plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
 ```
 
 ```{r echo=FALSE, warning=FALSE}
@@ -335,18 +314,15 @@ inner_join(beta_ev2, beta_cos2, by = "L")
 ```
 
 ## $\alpha\ne0$, $L$ делятся на $1/\omega$
-```{r, fig.width=14}
-p_ev <- plot_distr(
+```{r}
+plot_distr(
   beta3 ~ alphaI_svd, df_ev,
   xlab = "type I error", ylab = "power", main = "Eigenvectors (SVD)"
 )
-p_cos <- plot_distr(
+plot_distr(
   beta3 ~ alphaI, df_cos,
   xlab = "type I error", ylab = "power", main = "Cosines"
 )
-
-plot(p_ev, split = c(1, 1, 2, 1), more = TRUE)
-plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
 ```
 
 ```{r echo=FALSE, warning=FALSE}
@@ -362,18 +338,15 @@ inner_join(beta_ev3, beta_cos3, by = "L")
 ```
 
 ## $\alpha\ne0$, $L$ не делятся на $1/\omega$
-```{r, fig.width=14}
-p_ev <- plot_distr(
+```{r}
+plot_distr(
   beta4 ~ alphaI_svd, df_ev,
   xlab = "type I error", ylab = "power", main = "Eigenvectors (SVD)"
 )
-p_cos <- plot_distr(
+plot_distr(
   beta4 ~ alphaI, df_cos,
   xlab = "type I error", ylab = "power", main = "Cosines"
 )
-
-plot(p_ev, split = c(1, 1, 2, 1), more = TRUE)
-plot(p_cos, split = c(2, 1, 2, 1), more = FALSE)
 ```
 
 ```{r echo=FALSE, warning=FALSE}
