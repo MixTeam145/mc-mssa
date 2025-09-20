@@ -41,31 +41,41 @@
 		кафедра статистического моделирования}
 \end{frame}
 
+\begin{frame}{Motivation}
+
+	\begin{itemize}
+		\item There is a method for automatic trend and periodicity extraction~[Dudnik, 2025]. However, it only works if they dominate over noise.\bigskip
+		\item The main aim of this work is to develop a method for automatic signal extraction that does not necessarily dominate. 
+	\end{itemize}
+	
+	
+\end{frame}
+
 \begin{frame}{Is There a Signal?}
 	\begin{figure}
 		\centering
 		\includegraphics[width=\textwidth]{img/noise_ts.pdf}
 	\end{figure}
-	\bluetext{Question}: is it pure noise, or is there a signal?
+	\bluetext{Question}: is it pure noise, or is there a signal, and if so, how to extract it?
 \end{frame}
 
 \begin{frame}{Problem Statement}
-	Let $\tX=(x_1,\ldots,x_N)$, $x_i\in \mathbb{R}$ be a time series.\medskip
+	Let $\tX=(x_1,\ldots,x_N)$, $x_i\in \mathbb{R}$, be a time series.\medskip
 
-	\bluetext{Given}: $\tX=\tT + \tH + \tR$, where $\tT$ is a trend, $\tH$ is a periodic component, and $\tR$ is a noise.\medskip
+	\bluetext{Observed}: $\tX=\tT + \tH + \tR$, where $\tT$ is a trend, $\tH$ is a periodic component, and $\tR$ is a noise.\medskip
 
 	\bluetext{Problems}:
 	\begin{enumerate}
 		\item How to test for the presence of a signal $\tS=\tT + \tH$?
-		\item How to extract the signal $\tS$, if present?\medskip
+		\item How to extract the signal $\tS$, if it is present?\medskip
 	\end{enumerate}
 
 	\bluetext{Methods}:
 	\begin{enumerate}
-		\item Monte Carlo SSA (MC-SSA)~[Allen and Smith, 1996]~--- tests $H_0:\tS=0$.
+		\item Monte Carlo SSA (MC-SSA)~[Allen and Smith, 1996; Golyandina, 2023]~--- tests $H_0:\tS=0$.
 		\item Singular spectrum analysis\linebreak(SSA)~[Golyandina, Nekrutkin and Zhigljavsky, 2001].\medskip
 	\end{enumerate}
-	\bluetext{Goal}: to implement an algorithm for automatic signal extraction based on MC-SSA
+	\bluetext{Aim}: to develop an algorithm for automatic signal extraction based on MC-SSA
 \end{frame}
 
 \begin{frame}{Notations \& Known Results: Embedding and Hankelization}
@@ -90,21 +100,24 @@
 
 	\bluetext{Parameters}: window length $L$, index set $I\subset\{1,\ldots,d\}$. \\
 
-	\bluetext{Output}: signal estimate.\medskip
+	\bluetext{Output}: signal estimate $\widetilde{\tS}$.\medskip
 
 	\begin{figure}
 		\scalebox{0.5}{
 			\begin{tikzpicture}[node distance=2cm]
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm](1){{\LARGE\textbf{Input}: $\tX$}~---\\\LARGE time series};
-				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=1, yshift=-2cm](2){{\LARGE Trajectory matrix}\\ \LARGE $\bf{X}=\cT_{\text{SSA}}(\tX)$};
+				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=1, yshift=-2cm](2){{\LARGE Trajectory matrix}\\[0.4em] \LARGE $\bf{X}=\cT_{\text{SSA}}(\tX)$};
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, right of=2, xshift=10cm](3){\LARGE Sum of\\ \LARGE rank-one matrices\\ \LARGE$\bfX=\sum\limits_{j=1}^d\bfX_j$};
-				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=3, yshift=-2cm](4){\LARGE Grouping of matrices,\\ \LARGE corresponding to the signal\\ \LARGE$\bfX=\bfX_{I}+(\bfX-\bfX_{I})$\\\LARGE$\bfX_{I}=\sum\limits_{i\in I}\bfX_i$};
-				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=2, yshift=-2cm](5){\LARGE\textbf{Result}: SSA decomposition\\\LARGE$\tX=\widetilde\tS+\widetilde{\tR}$\\\LARGE$\widetilde\tS=\cT_\text{SSA}^{-1}\circ\cH(\bfX_{I})$};
+				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=3, yshift=-2cm](4){\LARGE Elementary \\ \LARGE  reconstructed components \\[0.2em] \LARGE $\widetilde \tX_j=\cT_\text{SSA}^{-1}\circ\cH(\bfX_{j})$};
+
+				% $\bfX=\bfX_{I}+(\bfX-\bfX_{I})$\\\LARGE$\bfX_{I}=\sum\limits_{i\in I}\bfX_i$};
+				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=2, yshift=-2cm](5){\LARGE Grouping components, \\ \LARGE corresponding to the signal \\ \\
+					\LARGE\textbf{Result}: SSA decomposition\\[0.2em]\LARGE$\tX=\widetilde\tS+\widetilde{\tR}$, $\widetilde\tS=\sum\limits_{i\in I}\widetilde{\tX}_i$};
 
 				\draw[arrow](1)--node[anchor=west]{\large1. Embedding}(2);
 				\draw[arrow](2)--node[anchor=south]{\large2. Decomposition}(3);
-				\draw[arrow](3)--node[anchor=west]{\large3. Grouping}(4);
-				\draw[arrow](4)--node[anchor=south]{\large4. Reconstruction}(5);
+				\draw[arrow](3)--node[anchor=west]{\large3. Reconstruction}(4);
+				\draw[arrow](4)--node[anchor=south]{\large4. Grouping}(5);
 			\end{tikzpicture}}
 	\end{figure}
 \end{frame}
@@ -115,27 +128,32 @@
 		\includegraphics[width=\textwidth]{../paper/img/reconstructed_ts.pdf}
 		\caption{Elementary reconstructed components ($L=100$)}
 	\end{figure}
-	Components corresponding to the signal: $1$, $2$, $5$, $6$ and $13$.
+	\bluetext{Insider information}: the components corresponding to the signal are $1$, $2$, $5$, $6$ and $13$.
 \end{frame}
 
 \begin{frame}{Notations \& Known Results: Monte Carlo SSA}
-	\bluetext{Input}: $\tX=\tS+\tR$, where $\tS$ is the signal and $\tR$ is a realization of a zero-mean stationary process $\bm\xi$ with spectral density $f_{\bm\theta}$.\medskip
+	\bluetext{Input}: $\tX=\tS+\tR$, where $\tS$ is the signal and $\tR$ is a realization of a zero-mean stationary process $\bm\xi$ with spectral density $f_{\bm\theta}$.\smallskip
 
-	\bluetext{Parameters}: window length $L$, normalized vectors corresponding to specific frequencies $W_1,\ldots, W_M\in \mathbb R^L$.\medskip
+	\bluetext{Parameter}: window length $L$. \smallskip
 
 	\bluetext{Test statistics}:
 	$$
-		\widehat p_k = \left\|\bfX^\rmT W_k\right\|^2.
+		\widehat p_k = \left\|\bfX^\rmT W_k\right\|^2,\quad k=1,\ldots,L,
 	$$
+	where $W_1,\ldots, W_L$ are normalized sine waves with equidistant frequencies $\omega_k=k/(2L)$: $V_k=\{\cos(2\pi\omega_k j)\}_{j=1}^L$, $W_k=V_k / \|V_k\|$.\smallskip
+	
+	Distribution of $\widehat p_k$ under $H_0$ is generally unknown and is estimated via Monte Carlo by modeling $\bm\xi$ with density $f_{\bm\theta}$ (what is $\bm\theta$ equal to?).\smallskip
+	
+	\bluetext{Result}: $(1-\alpha)$-confidence intervals for each $\widehat p_k$ under $H_0$.\smallskip
+	
+	\textcolor{red}{Problem}: intervals are liberal due to uncontrolled FWER. \smallskip
 
-	Its distribution under $H_0$ is generally unknown and is estimated via Monte Carlo.\medskip
+	Multiple MC-SSA~[Golyandina, 2023]: modification with multiple comparisons correction.
 
-	Multiple MC-SSA~[Golyandina, 2023]: modification with multiple comparisons correction.\medskip
-
-	We chose sine waves with equidistant frequencies $\omega_k=k/(2L)$, $k=1,\ldots, L$ as projection vectors.
+	%We chose sine waves with equidistant frequencies $\omega_k=k/(2L)$, $k=1,\ldots, L$ as projection vectors.
 \end{frame}
 
-\begin{frame}{Notations \& Known Results: Noise Parameters Estimation}
+\begin{frame}{Noise Parameters Estimation}
 	Noise parameters $\bm\theta$ are generally unknown and must be estimated.\medskip
 
 	Parameter estimates can be obtained by maximizing the Whittle's likelihood~[Whittle, 1953]:
@@ -144,10 +162,14 @@
 	$$
 	where $m=\lfloor (N-1)/2\rfloor$, $f_{\bm\theta}$ is the spectral density of $\bm\xi$, $I_N$ is the periodogram of the original series, and $\omega_j=j/N$.\medskip
 
-	Estimation can be done on part of the spectrum: let $J=\{j_1, \ldots, j_p\}$ be frequency indices we want to exclude when estimating parameters. Then $\ell_W(\bm\theta)$ is computed only over indices $j\not\in J$.
+	\textcolor{red}{Problem}: after detrending a time series, the periodogram values at very low frequencies are unreliable.\medskip
+
+	\bluetext{Solution}: estimate parameters on part of the spectrum.
+	
+	Let $J=\{j_1, \ldots, j_p\}$ be frequency indices we want to exclude when estimating parameters. Then $\ell_W(\bm\theta)$ is computed only over indices $j\not\in J$.
 \end{frame}
 
-\begin{frame}{Example: Applying Monte Carlo SSA}
+\begin{frame}{Example: Time series with signal}
 	$\tX=\tS+\boldsymbol{\xi}$, where $\boldsymbol{\xi}$ is red noise with parameters $\phi=0.7$ and $\sigma^2=1$, $N=200$,
 	$$
 		s_n=0.075\,e^{0.02n}\cos(2\pi n / 8) + 2\cos(2\pi n / 4) + 0.2\cdot (-1)^n.
@@ -170,19 +192,22 @@
 		\caption{Estimated noise model}
 		\endminipage
 	\end{figure}
-	\textcolor{red}{Problem}: not all frequencies are detected during parameter estimation.
+	\textcolor{red}{Problem}: not all frequencies are detected with estimated noise model.\medskip
 
 	\bluetext{Solution}: apply the test iteratively, extracting one harmonic at a time until $H_0:\tS=0$ is no longer rejected.
 \end{frame}
 
 \begin{frame}{Notations \& Known Results: Automatic Grouping in SSA}
+
+	If the frequencies corresponding to the signal are known, it can be extracted using Automatic Grouping in SSA~[Golyandina, Zhigljavsky, 2013].\medskip
+
 	For a series $\tX$ of length $N$ and $0\leqslant\omega_1\leqslant\omega_2\leqslant0.5$, define
 	$$
 		T(\tX; \omega_1,\omega_2)=\frac{1}{\|\tX\|^2}\sum_{k:\omega_1\leqslant k / N \leqslant \omega_2}I_N(k / N),
 	$$
-	where $I_N$ is the periodogram of $\tX$. \medskip
-
-	$T(\tX; \omega_1, \omega_2)$ may be interpreted as the fraction of total contribution of frequencies within $[\omega_1, \omega_2]$.\bigskip
+	where $I_N$ is the periodogram of $\tX$. $T(\tX; \omega_1, \omega_2)$ may be interpreted as the fraction of total contribution of frequencies within $[\omega_1, \omega_2]$.\medskip
+	
+	Let $T_0$, $0\leqslant T_0\leqslant1$, be a threshold. If $T(\cdot; \omega_1,\omega_2)>T_0$ for some elementary reconstructed component $\widetilde \tX_i$, then this component can be considered as a part of the signal. \bigskip
 
 	Let $\omega^\star$ be a significant frequency. Then we take $[\omega_1, \omega_2]=[\omega^\star-\delta, \omega^\star + \delta]$.
 \end{frame}
@@ -194,7 +219,7 @@
 	\end{figure}
 \end{frame}
 
-\begin{frame}{Example: Applying autoMCSSA}
+\begin{frame}{Example: Time series}
 	$\tX=\tS+\boldsymbol{\xi}$, where $\boldsymbol{\xi}$ is red noise with $\phi=0.7$ and $\sigma^2=1$, $N=200$,
 	$$
 		s_n=0.075\,e^{0.02n}\cos(2\pi n / 8) + 2\cos(2\pi n / 4) + 0.2\cdot (-1)^n.
@@ -210,9 +235,9 @@
 		\centering
 		\includegraphics[width=\textwidth]{../paper/img/auto_mcssa_result.pdf}
 	\end{figure}
-	\textbf{Parameters}: $L_1=50$, $L_2=100$, $\delta=1/80$, $T_0=0.5$.\medskip
+	\bluetext{Parameters}: $L_1=50$, $L_2=100$, $\delta=1/80$, $T_0=0.5$.\medskip
 
-	\textbf{Result}: autoMCSSA correctly identified significant components ($1$, $2$, $5$, $6$ and $13$).
+	\bluetext{Result}: autoMCSSA correctly identified significant components ($1$, $2$, $5$, $6$ and $13$).
 \end{frame}
 
 % \begin{frame}{Численное сравнение с autoSSA}
@@ -263,8 +288,8 @@
 \begin{frame}{Conclusions}
 	To sum up, we:
 	\begin{enumerate}
-		\item Implemented autoMCSSA, which automatically extracts a significant signal, plus a modification of the Whittle approach using part of the spectrum.\medskip
-		\item Found that autoMCSSA can extract signals whose SSA components are not necessarily dominant.\medskip
+		\item \bluetext{Developed and implemented} autoMCSSA, which automatically extracts a significant signal, plus a modification of the Whittle approach using part of the spectrum.\medskip
+		\item \bluetext{Advantage over autoSSA}: autoMCSSA can extract signals whose SSA components are not necessarily dominant.\medskip
 	\end{enumerate}
 	In the future, we plan to formulate a strategy for selecting autoMCSSA parameters.
 \end{frame}
