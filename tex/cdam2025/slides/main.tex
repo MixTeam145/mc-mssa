@@ -42,11 +42,17 @@
 \end{frame}
 
 \begin{frame}{Motivation}
+	Let $\tX=(x_1,\ldots,x_N)$, $x_i\in \mathbb{R}$, be a time series.\medskip
 
-	\begin{itemize}
-		\item There is a method for automatic trend and periodicity extraction~[Dudnik, 2025]. However, it only works if they dominate over noise.\bigskip
-		\item The main aim of this work is to develop a method for automatic signal extraction that does not necessarily dominate. 
-	\end{itemize}
+	\bluetext{Observed}: $\tX=\tT + \tH + \tR$, where $\tT$ is a trend, $\tH$ is a periodic component, and $\tR$ is a noise.\medskip
+
+	\bluetext{Problem}: How to extract the signal $\tS=\tT + \tH$, if it is present?\medskip
+
+	There is a method for automatic trend and periodicity extraction~[Golyandina, Dudnik and Shlemov, 2023].\medskip
+
+	\textcolor{red}{Disadvantage}: method only works if components dominate over noise.\medskip
+
+	\bluetext{Aim of this work}: to develop a method for automatic signal extraction that does not necessarily dominate. 
 	
 	
 \end{frame}
@@ -128,7 +134,7 @@
 		\includegraphics[width=\textwidth]{../paper/img/reconstructed_ts.pdf}
 		\caption{Elementary reconstructed components ($L=100$)}
 	\end{figure}
-	\bluetext{Insider information}: the components corresponding to the signal are $1$, $2$, $5$, $6$ and $13$.
+	\bluetext{Inside information}: the components corresponding to the signal are $1$, $2$, $5$, $6$ and $13$.
 \end{frame}
 
 \begin{frame}{Notations \& Known Results: Monte Carlo SSA}
@@ -140,13 +146,13 @@
 	$$
 		\widehat p_k = \left\|\bfX^\rmT W_k\right\|^2,\quad k=1,\ldots,L,
 	$$
-	where $W_1,\ldots, W_L$ are normalized sine waves with equidistant frequencies $\omega_k=k/(2L)$: $V_k=\{\cos(2\pi\omega_k j)\}_{j=1}^L$, $W_k=V_k / \|V_k\|$.\smallskip
+	where $W_1,\ldots, W_L$ are normalized sine waves with equidistant frequencies $\omega_k=k/(2L)$: $V_k=\{\cos(2\pi\omega_k j)\}_{j=1}^L$, $W_k=V_k / \|V_k\|$.\medskip
 	
-	Distribution of $\widehat p_k$ under $H_0$ is generally unknown and is estimated via Monte Carlo by modeling $\bm\xi$ with density $f_{\bm\theta}$ (what is $\bm\theta$ equal to?).\smallskip
+	Distribution of $\widehat p_k$ under $H_0$ is estimated via Monte Carlo by modeling $\bm\xi$ with density $f_{\bm\theta}$ (what is $\bm\theta$ equal to?).\medskip
 	
-	\bluetext{Result}: $(1-\alpha)$-confidence intervals for each $\widehat p_k$ under $H_0$.\smallskip
+	\bluetext{Result}: $(1-\alpha)$-confidence intervals for each $\widehat p_k$ under $H_0$.\medskip
 	
-	\textcolor{red}{Problem}: intervals are liberal due to uncontrolled FWER. \smallskip
+	\textcolor{red}{Problem}: intervals are liberal due to uncontrolled FWER. \medskip
 
 	Multiple MC-SSA~[Golyandina, 2023]: modification with multiple comparisons correction.
 
@@ -199,17 +205,29 @@
 
 \begin{frame}{Notations \& Known Results: Automatic Grouping in SSA}
 
-	If the frequencies corresponding to the signal are known, it can be extracted using Automatic Grouping in SSA~[Golyandina, Zhigljavsky, 2013].\medskip
+	\textcolor{red}{Problem}: how to automate signal extraction if the frequency range is known?\smallskip
+
+	\bluetext{Solution}: Automatic Grouping in SSA~[Golyandina, Zhigljavsky, 2013].\medskip
+	% If the frequencies corresponding to the signal are known, it can be extracted using Automatic Grouping in SSA~[Golyandina, Zhigljavsky, 2013].\medskip
 
 	For a series $\tX$ of length $N$ and $0\leqslant\omega_1\leqslant\omega_2\leqslant0.5$, define
 	$$
 		T(\tX; \omega_1,\omega_2)=\frac{1}{\|\tX\|^2}\sum_{k:\omega_1\leqslant k / N \leqslant \omega_2}I_N(k / N),
 	$$
-	where $I_N$ is the periodogram of $\tX$. $T(\tX; \omega_1, \omega_2)$ may be interpreted as the fraction of total contribution of frequencies within $[\omega_1, \omega_2]$.\medskip
+	where $I_N$ is the periodogram of $\tX$.\medskip
+	% $T(\tX; \omega_1, \omega_2)$ is the fraction of total contribution of frequencies within $[\omega_1, \omega_2]$.\medskip
 	
-	Let $T_0$, $0\leqslant T_0\leqslant1$, be a threshold. If $T(\cdot; \omega_1,\omega_2)>T_0$ for some elementary reconstructed component $\widetilde \tX_i$, then this component can be considered as a part of the signal. \bigskip
+	Let $T_0$, $0\leqslant T_0\leqslant1$, be a threshold, and $\widetilde \tX_i$ be $i$-th elementary reconstructed component. Then:
+	
+	\[
+	T\left(\widetilde \tX_i; \omega_1,\omega_2\right)>T_0~\Longrightarrow~\widetilde \tX_i\text{ correspond to the signal}.
+	\]
+	
+	
+	% For a given elementary reconstructed component $\widetilde \tX_i$, if $T(\cdot; \omega_1,\omega_2)>T_0$, then this component can be considered as a part of the signal. \bigskip
 
-	Let $\omega^\star$ be a significant frequency. Then we take $[\omega_1, \omega_2]=[\omega^\star-\delta, \omega^\star + \delta]$.
+	\bluetext{Idea}: for every significant frequency $\omega^\star$ take $\omega_{1, 2}=\omega^\star \mp \delta$.
+	% $[\omega_1, \omega_2]=[\omega^\star-\delta, \omega^\star + \delta]$.
 \end{frame}
 
 \begin{frame}{The autoMCSSA Algorithm}
@@ -286,10 +304,10 @@
 % \end{frame}
 
 \begin{frame}{Conclusions}
-	To sum up, we:
+	To sum up:
 	\begin{enumerate}
-		\item \bluetext{Developed and implemented} autoMCSSA, which automatically extracts a significant signal, plus a modification of the Whittle approach using part of the spectrum.\medskip
-		\item \bluetext{Advantage over autoSSA}: autoMCSSA can extract signals whose SSA components are not necessarily dominant.\medskip
+		\item \bluetext{Main results}: we developed and implemented autoMCSSA, which automatically extracts a significant signal, plus a modification of the Whittle approach using part of the spectrum.\medskip
+		\item \bluetext{Advantage over previous method}: autoMCSSA can extract signals whose SSA components are not necessarily dominant.\medskip
 	\end{enumerate}
 	In the future, we plan to formulate a strategy for selecting autoMCSSA parameters.
 \end{frame}
