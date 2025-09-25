@@ -30,15 +30,11 @@
 
 \date{\\CDAM'2025\\September 24, 2025, Minsk, Belarus}
 
-\subject{Talks}	
-
 \input{letters_series_mathbb.tex}
 
 \begin{document}
 \begin{frame}[plain]
 	\titlepage
-	\note{Научный руководитель  д.ф.-м.н., профессор Голяндина\,Н.\,Э.,\\
-		кафедра статистического моделирования}
 \end{frame}
 
 \begin{frame}{Motivation}
@@ -78,8 +74,8 @@
 
 	\bluetext{Methods}:
 	\begin{enumerate}
-		\item Monte Carlo SSA (MC-SSA)~[Allen and Smith, 1996; Golyandina, 2023]~--- tests $H_0:\tS=0$.
-		\item Singular spectrum analysis\linebreak(SSA)~[Golyandina, Nekrutkin and Zhigljavsky, 2001].\medskip
+		\item Monte Carlo SSA (MC-SSA)~[Allen \& Smith, 1996; Golyandina, 2023]~--- tests $H_0:\tS=0$.
+		\item Singular spectrum analysis (SSA)~[Broomhead \& King, 1985; Golyandina, Nekrutkin and Zhigljavsky, 2001].\medskip
 	\end{enumerate}
 	\bluetext{Aim}: to develop an algorithm for automatic signal extraction based on MC-SSA
 \end{frame}
@@ -102,9 +98,9 @@
 \end{frame}
 
 \begin{frame}{Notations \& Known Results: The SSA Algorithm}
-	\bluetext{Input}: time series $\tX=(x_1,\ldots,x_N)$.\\
+	\bluetext{Input}: time series $\tX=(x_1,\ldots,x_N)$.
 
-	\bluetext{Parameters}: window length $L$, index set $I\subset\{1,\ldots,d\}$. \\
+	\bluetext{Parameters}: window length $L$, index set $I\subset\{1,\ldots,d\}$. 
 
 	\bluetext{Output}: signal estimate $\widetilde{\tS}$.\medskip
 
@@ -115,8 +111,6 @@
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=1, yshift=-2cm](2){{\LARGE Trajectory matrix}\\[0.4em] \LARGE $\bf{X}=\cT_{\text{SSA}}(\tX)$};
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, right of=2, xshift=10cm](3){\LARGE Sum of\\ \LARGE rank-one matrices\\ \LARGE$\bfX=\sum\limits_{j=1}^d\bfX_j$};
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=3, yshift=-2cm](4){\LARGE Elementary \\ \LARGE  reconstructed components \\[0.2em] \LARGE $\widetilde \tX_j=\cT_\text{SSA}^{-1}\circ\cH(\bfX_{j})$};
-
-				% $\bfX=\bfX_{I}+(\bfX-\bfX_{I})$\\\LARGE$\bfX_{I}=\sum\limits_{i\in I}\bfX_i$};
 				\node[draw, align=center, minimum width=8.5cm, minimum height=3.25cm, below of=2, yshift=-2cm](5){\LARGE Grouping components, \\ \LARGE corresponding to the signal \\ \\
 					\LARGE\textbf{Result}: SSA decomposition\\[0.2em]\LARGE$\tX=\widetilde\tS+\widetilde{\tR}$, $\widetilde\tS=\sum\limits_{i\in I}\widetilde{\tX}_i$};
 
@@ -155,8 +149,6 @@
 	\textcolor{red}{Problem}: intervals are liberal due to uncontrolled FWER. \medskip
 
 	Multiple MC-SSA~[Golyandina, 2023]: modification with multiple comparisons correction.
-
-	%We chose sine waves with equidistant frequencies $\omega_k=k/(2L)$, $k=1,\ldots, L$ as projection vectors.
 \end{frame}
 
 \begin{frame}{Noise Parameters Estimation}
@@ -176,7 +168,7 @@
 \end{frame}
 
 \begin{frame}{Example: Time series with signal}
-	$\tX=\tS+\boldsymbol{\xi}$, where $\boldsymbol{\xi}$ is red noise with parameters $\phi=0.7$ and $\sigma^2=1$, $N=200$,
+	$\tX=\tS+\boldsymbol{\xi}$, where $\boldsymbol{\xi}$ is AR(1) with $\phi=0.7$ and $\sigma^2=1$ (red noise), $N=200$,
 	$$
 		s_n=0.075\,e^{0.02n}\cos(2\pi n / 8) + 2\cos(2\pi n / 4) + 0.2\cdot (-1)^n.
 	$$
@@ -207,27 +199,23 @@
 
 	\textcolor{red}{Problem}: how to automate signal extraction if the frequency range is known?\smallskip
 
-	\bluetext{Solution}: Automatic Grouping in SSA~[Golyandina, Zhigljavsky, 2013].\medskip
-	% If the frequencies corresponding to the signal are known, it can be extracted using Automatic Grouping in SSA~[Golyandina, Zhigljavsky, 2013].\medskip
+	\bluetext{Solution}: Automatic Grouping in SSA~[Golyandina and Zhigljavsky, 2013].\medskip
 
 	For a series $\tX$ of length $N$ and $0\leqslant\omega_1\leqslant\omega_2\leqslant0.5$, define
-	$$
-		T(\tX; \omega_1,\omega_2)=\frac{1}{\|\tX\|^2}\sum_{k:\omega_1\leqslant k / N \leqslant \omega_2}I_N(k / N),
-	$$
-	where $I_N$ is the periodogram of $\tX$.\medskip
-	% $T(\tX; \omega_1, \omega_2)$ is the fraction of total contribution of frequencies within $[\omega_1, \omega_2]$.\medskip
-	
-	Let $T_0$, $0\leqslant T_0\leqslant1$, be a threshold, and $\widetilde \tX_i$ be $i$-th elementary reconstructed component. Then:
-	
+
 	\[
-	T\left(\widetilde \tX_i; \omega_1,\omega_2\right)>T_0~\Longrightarrow~\widetilde \tX_i\text{ correspond to the signal}.
+		T(\tX; \omega_1,\omega_2)=\frac{1}{\|\tX\|^2}\sum_{k:\omega_1\leqslant k / N \leqslant \omega_2}I_N(k / N),
 	\]
-	
-	
-	% For a given elementary reconstructed component $\widetilde \tX_i$, if $T(\cdot; \omega_1,\omega_2)>T_0$, then this component can be considered as a part of the signal. \bigskip
+
+	where $I_N$ is the periodogram of $\tX$.\medskip
+
+	Let $T_0$, $0\leqslant T_0\leqslant1$, be a threshold, and $\widetilde \tX_i$ be $i$-th elementary reconstructed component. Then:
+
+	\[
+	T\left(\widetilde \tX_i; \omega_1,\omega_2\right)>T_0~\Longrightarrow~\widetilde \tX_i\text{ corresponds to the signal}.
+	\]
 
 	\bluetext{Idea}: for every significant frequency $\omega^\star$ take $\omega_{1, 2}=\omega^\star \mp \delta$.
-	% $[\omega_1, \omega_2]=[\omega^\star-\delta, \omega^\star + \delta]$.
 \end{frame}
 
 \begin{frame}{The autoMCSSA Algorithm}
@@ -238,7 +226,7 @@
 \end{frame}
 
 \begin{frame}{Example: Time series}
-	$\tX=\tS+\boldsymbol{\xi}$, where $\boldsymbol{\xi}$ is red noise with $\phi=0.7$ and $\sigma^2=1$, $N=200$,
+	$\tX=\tS+\boldsymbol{\xi}$, where $\boldsymbol{\xi}$ is AR(1) with $\phi=0.7$ and $\sigma^2=1$ (red noise), $N=200$,
 	$$
 		s_n=0.075\,e^{0.02n}\cos(2\pi n / 8) + 2\cos(2\pi n / 4) + 0.2\cdot (-1)^n.
 	$$\vspace{-2.5em}
@@ -257,51 +245,6 @@
 
 	\bluetext{Result}: autoMCSSA correctly identified significant components ($1$, $2$, $5$, $6$ and $13$).
 \end{frame}
-
-% \begin{frame}{Численное сравнение с autoSSA}
-% 	Сравним метод autoMCSSA с методом autoSSA~[Дудник, 2025].\medskip
-
-% 	Рассмотрим временной ряд $\tX = \tS + \bm\xi$ длины $N=100$, где
-% 	$$
-% 	s_n=0.2e^{0.05 n}\cos(2\pi n/4) + 2\cos(2\pi n / 3) + (-1)^n,
-% 	$$
-% 	$\bm\xi$~--- красный шум с параметрами $\phi\in\{0, 0.5\}$, $\sigma^2=1$. Для autoMCSSA были выбраны следующие параметры:\smallskip
-% 	\begin{itemize}
-% 		\item Длины окна $L_1=20$ и $L_2=50$;\smallskip
-% 		\item Радиус промежутка для вычисления меры $T$ $\delta = 1 / 80$;\smallskip
-% 		\item Порог для меры $T$ $T_0=0.5$;\smallskip
-% 		\item Максимальное количество итераций: $10$.
-% 	\end{itemize}
-% \end{frame}
-
-% \begin{frame}{Численное сравнение с autoSSA}
-% 	\begin{table}[h]
-% 		\centering
-% 		\caption{MSE выделения сигнала ($\phi=0$)}
-% 		\begin{tabular}{|r|r|r|}
-% 			\hline
-% 			& Mean MSE & Median MSE \\ 
-% 			\hline
-% 			autoMCSSA & 0.15196 & 0.13921 \\ 
-% 			\hline
-% 			autoSSA & 0.14872 & 0.14003 \\ 
-% 			\hline
-% 		\end{tabular}
-% 	\end{table}
-% 	\begin{table}[h]
-% 		\centering
-% 		\caption{MSE выделения сигнала ($\phi=0.5$)}
-% 		\begin{tabular}{|r|r|r|}
-% 			\hline
-% 			& Mean MSE & Median MSE \\ 
-% 			\hline
-% 			autoMCSSA & 0.11563 & 0.09038 \\ 
-% 			\hline
-% 			autoSSA & 0.09341 & 0.08795 \\ 
-% 			\hline
-% 		\end{tabular}
-% 	\end{table}
-% \end{frame}
 
 \begin{frame}{Conclusions}
 	To sum up:
