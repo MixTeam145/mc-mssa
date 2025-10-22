@@ -8,156 +8,74 @@
 # Toeplitz MC-MSSA (D > 1) is draft
 
 library("Rssa")
+library("torch")
 library("pracma")
 library("ggplot2")
 library("matrixStats")
 library("magic")
-library("arfima")
+library("here")
 
-source("toeplitz_mssa.R", TRUE)
+
+source(here("R", "toeplitz_mssa.R"), local = TRUE)
+source(here("R", "utils.R"), local = TRUE)
+
+
+device <- "cpu"
+batch_size <- 128
+
+torch::torch_set_num_threads(1)
+# torch::torch_set_num_interop_threads(1)
 
 # Quantile algorithm 
 type <- 8
 
 ### Functions for Monte Carlo SSA
 
-# Spectral density of ARFIMA(1, d, 0) model
-spec_arfima <- function(w,
-                        phi = 0,
-                        d = 0,
-                        sigma2 = 1) {
-  sigma2 * (2 * sin(pi * w)) ^ (-2 * d)  /
-    abs(1 - phi * exp(-2i * pi * w)) ^ 2
-}
+# imvfft <- function(x) {
+#   mvfft(x, inverse = TRUE) / nrow(x)
+# }
+# 
+# pad <- function(x, n, after = TRUE) {
+#   x_padded <- matrix(0, nrow = nrow(x) + n, ncol = ncol(x))
+#   if (after)
+#     x_padded[1:nrow(x), ] <- x
+#   else
+#     x_padded[(n + 1):nrow(x_padded), ] <- x
+#   x_padded
+# }
+# 
+# # Compute squared norms of projections
+# projec <- function(x, L, W_ft, kind = c("columns", "rows")) {
+#   kind <- match.arg(kind)
+#   N <- nrow(x)
+#   D <- ncol(x)
+# 
+#   x_ft <- mvfft(x[c((N - L + 1):N, 1:(N - L)), , drop = FALSE])
+# 
+#   if (kind == "rows") {
+#     v <- matrix(0, L, ncol(W_ft[[1]]))
+#     for (i in seq_len(D)) {
+#       p <- imvfft(W_ft[[i]] * x_ft[, i])[1:L, , drop = FALSE]
+#       v <- v + p
+#     }
+#     v <- colSums(Mod(v)^2)
+#   } else {
+#     v <- numeric(ncol(W_ft))
+#     for (i in seq_len(D)) {
+#       p <- imvfft(W_ft * x_ft[, i])[L:N, , drop = FALSE]
+#       v <- v + colSums(Mod(p)^2)
+#     }
+#   }
+#   v / N # divide by N to weaken the dependence on series length
+# }
 
-# Maximum likelihood estimation of ARFIMA(1, d, 0) model
-arfima_mle <- function(x, fixed = NULL) {
-  n <- length(x)
-  
-  if (is.null(fixed))
-    fixed <- rep(NA, 2)
-  
-  mask <- is.na(fixed)
-  
-  objective <- function(p) {
-    par <- fixed
-    par[mask] <- p
-    r <- tacvfARFIMA(phi = par[1], dfrac = par[2], maxlag = n - 1)
-    -DLLoglikelihood(r, x)
-  }
-  
-  init <- c(0, 0)
-  lower <- c(-1, -0.5) + 1e-4
-  upper <- c(1, 0.5) - 1e-4
-  
-  opt <- optim(
-    init[mask],
-    objective,
-    method = "L-BFGS-B",
-    lower = lower[mask],
-    upper = upper[mask]
-  )
-  
-  coef <- fixed
-  coef[mask] <- opt$par
-  names(coef) <- c("phi", "d")
-  
-  r <- tacvfARFIMA(phi = coef[1], dfrac = coef[2], maxlag = n - 1)
-  error <- DLResiduals(r, x)
-  
-  c(coef, sigma2 = mean(error^2))
-}
-
-# Whittle estimation of ARFIMA(1, d, 0) model
-arfima_whittle <- function(x, fixed = NULL, freq.exclude) {
-  n <- length(x)
-  m <- (n - 1) %/% 2
-  
-  # Periodogram
-  per <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
-  freq <- 1:m / n
-  
-  if (!missing(freq.exclude)) {
-    idx <- sapply(freq.exclude, function(fb) freq < fb[1] | freq > fb[2])
-    idx <- which(rowSums(idx) == length(freq.exclude))
-    per <- per[idx]
-    freq <- freq[idx]
-  }
-  
-  # per <- per[freq >= freq.range[1] & freq <= freq.range[2]]
-  # freq <- freq[freq >= freq.range[1] & freq <= freq.range[2]]
- 
-  if (is.null(fixed))
-    fixed <- rep(NA, 2)
-  
-  mask <- is.na(fixed)
-  
-  # Whittle loglikelihood
-  objective <- function(p) {
-    par <- fixed
-    par[mask] <- p
-    g <- spec_arfima(freq, par[1], par[2])
-    sigma2 <- mean(per / g)
-    loglike <- -log(sigma2) - mean(log(g)) - 1
-    - loglike
-  }
-  
-  init <- c(0, 0)
-  lower <- c(-1, -0.5) + 1e-4
-  upper <- c(1, 0.5) - 1e-4
-  
-  opt <- optim(
-    init[mask],
-    objective,
-    method = "L-BFGS-B",
-    lower = lower[mask],
-    upper = upper[mask]
-  )
-  
-  coef <- fixed
-  coef[mask] <- opt$par
-  names(coef) <- c("phi", "d")
-  coef["phi"] <- max(coef["phi"], 0)
-  
-  c(coef, sigma2 = mean(per / spec_arfima(freq, coef[1], coef[2])))
-}
-
-imvfft <- function(x) {
-  mvfft(x, inverse = TRUE) / nrow(x)
-}
-
-pad <- function(x, n, after = TRUE) {
-  x_padded <- matrix(0, nrow(x) + n, ncol(x))
-  if (after)
-    x_padded[1:nrow(x), ] <- x
-  else
-    x_padded[(n + 1):nrow(x_padded), ] <- x
-  x_padded
-}
-
-# Compute squared norms of projections
-projec <- function(x, L, W_ft, kind = c("columns", "rows")) {
-  kind <- match.arg(kind)
-  N <- nrow(x)
-  D <- ncol(x)
-
-  x_ft <- mvfft(x[c((N - L + 1):N, 1:(N - L)), , drop = FALSE])
-
-  if (kind == "rows") {
-    v <- matrix(0, L, ncol(W_ft[[1]]))
-    for (i in seq_len(D)) {
-      p <- imvfft(W_ft[[i]] * x_ft[, i])[1:L, , drop = FALSE]
-      v <- v + p
-    }
-    v <- colSums(Mod(v)^2)
-  } else {
-    v <- numeric(ncol(W_ft))
-    for (i in seq_len(D)) {
-      p <- imvfft(W_ft * x_ft[, i])[L:N, , drop = FALSE]
-      v <- v + colSums(Mod(p)^2)
-    }
-  }
-  v / N # divide by N to weaken the dependence on series length
+projec <- function(x, L, W) {
+  N <- x$shape[1]; D <- x$shape[2]; G <- x$shape[3]
+  x1 <- x$permute(c(3, 2, 1))$contiguous()  
+  hmats <- x1$as_strided(size = c(G, D, N - L + 1, L), stride = c(D * N, N, 1, 1))
+  Y <- torch::torch_matmul(hmats, W)
+  ssq <- Y$square()$sum(dim = 3)$sum(dim = 2)
+  ssq / N
 }
 
 # Estimate vector main frequency by ESPRIT
@@ -169,9 +87,11 @@ estimate_freq <- function(v) {
 }
 
 # Generate projection vectors corresponding to eigenvectors produced by ts
-basis.ev <- function(ts, L, decomposition.method, vectors = c("U", "V")) {
+basis.ev <- function(ts, L, neig, decomposition.method, vectors = c("U", "V")) {
   D <- dim(ts)[2]
-  neig <- min(L, D * (length(ts[, 1]) - L + 1))
+  if (is.null(neig)) {
+    neig <- min(L, D * (length(ts[, 1]) - L + 1))
+  }
   
   if (decomposition.method == "svd") {
     if (D == 1) {
@@ -211,7 +131,7 @@ basis.cos <- function(L) {
 
 
 autocov.mat <- function(model, L) {
-  r <- tacvfARFIMA(
+  r <- arfima::tacvfARFIMA(
     phi = model$phi,
     dfrac = model$d,
     sigma2 = model$sigma2,
@@ -273,61 +193,99 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
   
   x$freq.range <- freq.range
   
-  # Pre-compute FFT of the reversed vectors for the fast matrix-vector product
-  W <- x$proj_vectors$W
-  if (x$proj.kind == "rows") {
-    K <- N - L + 1
-    W_ft <- list()
-    for (d in seq_len(D)) {
-      idx <- (d * K):((d - 1) * K + 1)
-      W_ft[[d]] <- mvfft(pad(W[idx, mask, drop = FALSE], L - 1))
-    }
-  } else {
-    W_ft <- mvfft(pad(W[L:1, mask, drop = FALSE], N - L, after = FALSE))
+  # # Pre-compute FFT of the reversed vectors for the fast matrix-vector product
+  # W <- x$proj_vectors$W
+  # if (x$proj.kind == "rows") {
+  #   K <- N - L + 1
+  #   W_ft <- list()
+  #   for (d in seq_len(D)) {
+  #     idx <- (d * K):((d - 1) * K + 1)
+  #     W_ft[[d]] <- mvfft(pad(W[idx, mask, drop = FALSE], L - 1))
+  #   }
+  # } else {
+  #   W_ft <- mvfft(pad(W[L:1, mask, drop = FALSE], N - L, after = FALSE))
+  # }
+  #
+  # # Simulate surrogate data and calculate projection
+  # P <- replicate(
+  #   G,
+  #   projec(generate(D, x$model, demean = TRUE), L, W_ft, x$proj.kind),
+  #   simplify = FALSE
+  # )
+  # P <- do.call(cbind, P)
+  # 
+  # # Calculate projection of input time series
+  # v <- projec(x$series, L, W_ft, x$proj.kind)
+  #
+  # means <- rowMeans(P)
+  # stds <- rowSds(P)
+  #
+  # if (!two.tailed) {
+  #   eta <- apply(P, 2, function(p)
+  #     max((p - means) / stds))
+  #   t <- max((v - means) / stds)
+  # } else {
+  #   eta <- apply(P, 2, function(p)
+  #     max(abs(p - means) / stds))
+  #   t <- max(abs(v - means) / stds)
+  # }
+
+  
+  W_tensor <-  torch::torch_tensor(x$proj_vectors$W[, mask, drop = FALSE], device = device)
+  P <- torch::torch_tensor(matrix(0.0, nrow = G, ncol = W_tensor$shape[2]), device = device)
+  # browser()
+  pb <- progress::progress_bar$new(format = "[:bar] :percent :current/:total | ETA :eta", total = G)
+  for (i in seq(1, G, batch_size)) {
+    num <- min(batch_size, G - i + 1)
+    surrogates_batch <- replicate(num, generate(x$model, N, D, demean = TRUE)) |> torch::torch_tensor(device = device)  # (N, D, num)
+    P[i:(i + num - 1), ] <- projec(surrogates_batch, L, W_tensor)
+    
+    pb$tick(len = num)
   }
+  pb$terminate()
   
-  # Simulate surrogate data and calculate projection
-  P <- replicate(
-    G,
-    projec(generate(D, x$model, demean = TRUE), L, W_ft, x$proj.kind),
-    simplify = FALSE
-  )
-  P <- do.call(cbind, P)
-  
-  # Calculate projection of input time series
-  v <- projec(x$series, L, W_ft, x$proj.kind)
-  
-  x$statistic <- list(
-    freq = x$proj_vectors$freq[mask],
-    contribution = v
-  )
-  
-  means <- rowMeans(P)
-  sds <- rowSds(P)
+  # browser()
+  series_tensor <- torch::torch_tensor(x$series, device = device)$unsqueeze(3)
+  v <- projec(series_tensor, L, W_tensor)
+
+  means <- P$mean(dim = 1, keepdim = TRUE)
+  stds <- P$std(dim = 1, keepdim = TRUE)
+  P_std <- (P - means) / stds
   
   if (!two.tailed) {
-    eta <- apply(P, 2, function(p)
-      max((p - means) / sds))
-    t <- max((v - means) / sds)
+    eta <- P_std$max(dim = 2)[[1]]
+    t <- max((v - means) / stds)
   } else {
-    eta <- apply(P, 2, function(p)
-      max(abs(p - means) / sds))
-    t <- max(abs(v - means) / sds)
+    eta <- abs(P_std)$max(dim = 2)[[1]]
+    t <- max(abs(v - means) / stds)
   }
+  
+  v <- as.numeric(v$cpu())
+  means <- as.numeric(means$cpu())
+  stds <- as.numeric(stds$cpu())
+  eta <- as.numeric(eta$cpu())
+  t <- as.numeric(t$cpu())
+
+  x$statistic <- list(
+    freq = x$proj_vectors$freq[mask],
+    contribution = v,
+    t = t
+  )
   
   if (!is.null(conf.level)) {
     q.upper <- quantile(eta, probs = conf.level, type = type)
     x$predint <- list()
-    x$predint$upper <- means + q.upper * sds
+    x$predint$upper <- means + q.upper * stds
     if (!two.tailed) {
       q.lower <- 0
       x$predint$lower <- 0
-      x$reject <- t > q.upper
+      reject <- t > q.upper
     } else {
       q.lower <- -q.upper
-      x$predint$lower <- means + q.lower * sds
-      x$reject <- t > q.upper | t < q.lower
+      x$predint$lower <- means + q.lower * stds
+      reject <- t > q.upper | t < q.lower
     }
+    x$reject <- as.logical(reject)
     x$conf.level <- conf.level
   }
   x$p.value <- 1 - ecdf(eta)(t)
@@ -353,6 +311,7 @@ mcssa <- function(x,
                   L,
                   basis = c("ev", "t", "cos"),
                   proj.kind = c("columns", "rows"),
+                  neig = NULL,
                   decomposition.method = c("toeplitz", "svd"),
                   model,
                   fixed = list(phi = NA, d = NA),
@@ -363,8 +322,8 @@ mcssa <- function(x,
                   composite = FALSE) {
   if (!is.matrix(x)) {
     x <- as.matrix(x)
-    if (!missing(model))
-      model <- list(model)
+    # if (!missing(model))
+      # model <- list(model)
   } else if (composite) {
     stop("mc-ssa with nuisance signal for multivariate ts is not implemented")
   }
@@ -384,8 +343,10 @@ mcssa <- function(x,
       model[[channel]] <- as.list(
         arfima_whittle(x[, channel], c(fixed$phi, fixed$d), freq.exclude)
       )
-      model[[channel]]$N <- N 
+      # model[[channel]]$N <- N 
     }
+    if (D == 1)
+      model <- model[[1]]
   }
   
   call <- match.call()
@@ -413,7 +374,7 @@ mcssa <- function(x,
     # comment next 2 lines to project vectors of original series (another version of the nuisance algorithm)
     if (composite)
       x.basis <- x - model$signal
-    proj_vectors <- basis.ev(x.basis, L, decomposition.method, vectors)
+    proj_vectors <- basis.ev(x.basis, L, neig, decomposition.method, vectors)
   } else if (basis == "t") {
     proj_vectors <- basis.t(model, L, vectors)
   } else if (D == 1) {
@@ -473,7 +434,7 @@ plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
 
 
 print.mcssa <- function(x) {
-  cat("\nCall:\n", deparse(m1$call), "\n\n", sep = "")
+  cat("\nCall:\n", deparse(x$call), "\n\n", sep = "")
   cat("Series length:", paste(rep(x$length, x$channels), collapse = ", "))
   cat(",\tWindow length:", x$window)
   cat("\n\nProjection vectors: ")
@@ -515,68 +476,4 @@ conf.interval <- function(p.values, alpha) {
   right <- right.func(alpha)
   
   c(left, right)
-}
-
-###  Time series generation
-
-# Davies-Harte algorithm to simulate Gaussian process with given autocovariance function
-DH.sim <- function(n, acvf, ...) {
-  # Next power of two greater than 'n'
-  N <- nextn(n, 2)
-  
-  # Autocovariance sequence
-  acvs <- acvf(maxlag = N, ...)
-  
-  ak <- Re(fft(c(acvs, acvs[N:2])))
-  
-  if (any(ak < 0))
-    stop("Davies-Harte nonnegativity condition is not fulfilled")
-  
-  # Gaussian white noise
-  eps <- rnorm(2 * N)
-  
-  ks <- 2:N
-  
-  y0 <- sqrt(ak[1]) * eps[1]
-  yN <- sqrt(ak[N + 1]) * eps[2 * N]
-  yk <- sqrt(0.5 * ak[ks]) *
-    complex(real = eps[2 * ks - 2], imaginary = eps[2 * ks - 1])
-  
-  y <- c(y0, yk, yN, Conj(rev(yk)))
-  
-  x <- Re(fft(y, inverse = TRUE)) / sqrt(2 * N)
-  
-  # Truncate the resulted series
-  x[1:n]
-}
-
-# Generates a time series according to the model signal + noise
-generate_channel <- function(model, signal = 0) {
-  # r <- tacvfARFIMA(phi = model$phi, dfrac = model$dfrac, sigma2 = model$sigma2, maxlag = model$N - 1)
-  # xi <- ltsa::DLSimulate(model$N, r)
-  xi <- DH.sim(
-    model$N,
-    tacvfARFIMA,
-    phi = model$phi,
-    dfrac = model$d,
-    sigma2 = model$sigma2
-  )
-  if (!is.null(model$signal)) # composite null hypothesis
-    xi <- xi + model$signal
-  f <- xi + signal
-  as.vector(f)
-}
-
-# Generates a multivariate ts
-generate <- function(D, model, signal = matrix(0, nrow = N, ncol = D), demean = FALSE) {
-  N <- model[[1]]$N
-  res <- vector("list", D)
-  for (channel in seq_len(D)) {
-    res[[channel]] <- generate_channel(model[[channel]], signal[, channel])
-  }
-  f <- do.call(cbind, res)
-  if (demean) {
-    f <- sweep(f, 2, colMeans(f))
-  }
-  f
 }
