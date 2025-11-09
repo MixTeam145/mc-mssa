@@ -19,7 +19,6 @@ library(doRNG)
 library(progressr)
 library(here)
 
-# load("data/grouping_mse.RData")
 source(here("R/utils.R"))
 ```
 
@@ -287,9 +286,7 @@ model1 <- list(phi = phi, sigma2 = 1)
 C <- -2
 omega0 <- 0.25
 signal11 <- 2.26 * em_harmonic(N, omega0, C)
-# pdf(here("../tex/master/img/signal_C2.pdf"), width = 8, height = 4)
 xyplot(signal11, ylab = "")
-# dev.off()
 
 set.seed(123)
 x <- arfima.sim(model1, N) + signal1
@@ -299,16 +296,6 @@ spec.pgram(x, taper = 0, fast = FALSE, detrend = FALSE, log = "no")
 ```
 
 ```{r}
-# spec_signal <- abs(fft(signal1)[seq_len(N %/% 2 + 1)])^2 / N
-# 
-# omega <- seq(0, 0.5, 1 / N)
-# deltas <- omega[omega >= omega0] - omega0
-# 
-# S <- numeric(length(deltas))
-# for (i in seq_along(deltas)) {
-#   S[i] <- sum(spec_signal[abs(omega - omega0) <= deltas[i]]) / sum(spec_signal)
-# }
-# idx <- which.max(diff(S) < 1e-2) + 1
 out <- calculate_delta(C, omega0, N)
 S <- out$S
 delta <- out$delta
@@ -318,7 +305,6 @@ cat("delta =", delta)
 Зафиксируем $\delta = 2 / N$ (вклад считается по $5$ частотам периодограммы), посмотрим на поведение MSE от величины порога $T_0$.
 
 ```{r}
-# (delta <- deltas[idx])
 thresholds <- seq(0.05, 0.95, 0.05)
 
 omega <- seq(0, 0.5, 1 / N)

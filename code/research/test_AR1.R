@@ -24,7 +24,7 @@ test.ar1.wavelet <- function(ts0, phi) {
   # whiteNoiseTest(x.acf, h0 = "iid", x = x, method = "LjungBox")$test[3]
 }
 
-test.ar1 <- function(ts0) {
+test.ar1 <- function(ts0, phi) {
   # ar.par <- arima(
   #   ts0,
   #   order = c(1, 0, 0),
@@ -37,5 +37,10 @@ test.ar1 <- function(ts0) {
   s.svd <- eigen(Sigma)
   Sigma.root.inv <- s.svd$vectors %*% diag(sqrt(1 / s.svd$values)) %*% t(s.svd$vectors)
   ts.pre <- t(t(ts0) %*% Sigma.root.inv)
-  Box.test(ts.pre)$p.value
+  
+  # fit <- arima(ts0, c(1, 0, 0), include.mean = FALSE, fixed = phi.est)
+  
+  # Box.test(fit$residuals, min(10, length(ts0) / 5), "Ljung-Box")$p.value
+  
+  Box.test(ts.pre, min(10, length(ts0) / 5), "Ljung-Box")$p.value
 }
