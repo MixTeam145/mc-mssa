@@ -1,0 +1,776 @@
+---
+title: "Выбор параметров в autoMCSSA"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 2
+    number_sections: true
+---
+
+```{r message=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 10)
+
+library(Rssa)
+library(parallel)
+library(doFuture)
+library(doRNG)
+library(progressr)
+library(here)
+
+# load("data/grouping_mse.RData")
+source(here("R/utils.R"))
+```
+
+# Аппроксимация периодограммы 
+
+```{r}
+pgram_approx <- function(omega, omega0, C, N) {
+  k0 <- omega0 * N
+  k <- omega * N
+  1 / (C^2 + 4 * pi^2 * (k0 - k)^2 + 1e-10)
+}
+```
+
+Для $\omega_k=k/N$
+$$
+\frac{1}{N}\sum_{k=\omega_0N-\Delta k}^{\omega_0N+\Delta k}\frac{1}{C^2+4\pi^2N^2(\omega_0-\omega_k)^2}\approx 2\int_{0}^{\omega_0+\Delta k/N}\frac{d\omega}{C^2+4\pi^2(\omega_0-\omega)^2}=\frac{1}{\pi NC}\arctan\left(\frac{2\pi \Delta k}{C}\right)
+$$
+
+Проверим насколько корректна аппроксимация:
+
+```{r}
+N <- 1000
+C <- 1
+
+omega <- seq(0, 0.5, 1 / N)
+omega0 <- 0.25
+k <- omega * N
+k0 <- omega0 * N
+
+f <- function(omega0, delta_k, C) {
+  atan(2 * pi * delta_k / C) / pi / C / N
+}
+deltas <- omega[omega >= omega0] - omega0
+
+cat("Integral:", f(omega0, deltas[length(deltas)] * N, C) * N, "\n")
+
+# Сравнение с численным интегрированием (интервал [0, 0.5])
+all.equal(
+  f(omega0, deltas[length(deltas)] * N, C),
+  pracma::integral(pgram_approx, 0, 0.5, omega0 = omega0, C = C, N = N)
+)
+
+# Сумма значений периодограммы
+sum(pgram_approx(omega, omega0, C, N))
+```
+
+Как видим, для сетки $\omega_k=k/N$ значение суммы не равно значению интеграла. Частичные суммы:
+
+```{r}
+spec_approx <- pgram_approx(omega, omega0, C, N)
+
+deltas <- omega[omega >= omega0] - omega0
+S <- numeric(length(deltas))
+for (i in seq_along(deltas)) {
+  S[i] <- sum(spec_approx[abs(omega - omega0) <= deltas[i]])
+}
+
+S_f <- f(omega0, deltas * N, C) * N 
+plot(deltas, S, type = "b", ylim = c(min(S, S_f), max(S, S_f)))
+lines(deltas, S_f, col = "blue")
+legend(
+  "bottomright",
+  c("pgram (approximation)", "integral"),
+  col = c("black", "blue"),
+  lty = 1
+)
+```
+
+Если для фиксированного $N$ увеличивать количество узлов (например, $\omega_k=k / (10 N)$), то аппроксимация суммы интегралом становится верной:
+
+```{r}
+omega <- seq(0, 0.5, 1 / (10 * N))
+spec_approx <- pgram_approx(omega, omega0, C, N)
+
+deltas <- omega[omega >= omega0] - omega0
+S <- numeric(length(deltas))
+for (i in seq_along(deltas)) {
+  S[i] <- sum(spec_approx[abs(omega - omega0) <= deltas[i]])
+}
+
+S_f <- f(omega0, deltas * N, C) * N * 10
+plot(deltas, S, type = "b", ylim = c(min(S, S_f), max(S, S_f)))
+lines(deltas, S_f, col = "blue")
+legend(
+  "bottomright",
+  c("pgram (approximation)", "integral"),
+  col = c("black", "blue"),
+  lty = 1
+)
+```
+
+```{r}
+plot_S <- function(C, omega0, N, plot = TRUE, ...) {
+  a <- C / N
+  x <- exp(a * (1:N)) * cos(2 * pi * (1:N) * omega0) 
+  omega <- seq(0, 0.5, 1 / N)
+  spec <- abs(fft(x)[seq_len(N %/% 2 + 1)])^2 / N
+  
+  spec_approx <- pgram_approx(omega, omega0, C, N)
+  deltas <- omega[omega >= omega0] - omega0
+  S <- numeric(length(deltas))
+  S_approx <- numeric(length(deltas))
+  for (i in seq_along(deltas)) {
+    S[i] <- sum(spec[abs(omega - omega0) <= deltas[i]]) / sum(spec)
+    S_approx[i] <- sum(spec_approx[abs(omega - omega0) <= deltas[i]]) / sum(spec_approx)
+  }
+  
+  if (plot) {
+    plot(deltas, S, col = "blue", type = "b", ...)
+    lines(deltas, S_approx, type = "b", col = "red")
+    legend(
+      "bottomright",
+      c("pgram", "pgram (approximation)"),
+      col = c("blue", "red"),
+      lty = 1
+    )
+  }
+  
+  invisible(
+    list(
+      deltas = deltas,
+      pgram = S,
+      pgram_approx = S_approx
+    )
+  )
+}
+```
+
+$N=200$
+```{r}
+omega0 <- 0.25
+N <- 200
+plot_S(0.5, omega0, N, main = "C = 0.5")
+plot_S(1, omega0, N, main = "C = 1")
+plot_S(2, omega0, N, main = "C = 2")
+```
+
+$N=500$
+```{r}
+omega0 <- 0.25
+N <- 500
+plot_S(0.5, omega0, N, main = "C = 0.5")
+plot_S(1, omega0, N, main = "C = 1")
+plot_S(2, omega0, N, main = "C = 2")
+```
+
+Пусть $N=200$ и $C=2$. Определим оптимальные $T$ и $\delta$, найдя момент, c которого $S$ растет не более чем на $10^{-2}$.
+```{r}
+N <- 200
+C <- 2
+eps <- 1e-2
+res <- plot_S(C, omega0, N, plot = FALSE)
+idx1 <- which.max(diff(res$pgram) < eps) + 1
+idx2 <- which.max(diff(res$pgram_approx) < eps) + 1
+
+plot(res$deltas, res$pgram, col = "blue", type = "b", xlab = "delta", ylab = "S")
+lines(res$deltas, res$atan)
+lines(res$deltas, res$pgram_approx, type = "b", col = "red")
+abline(v = c(res$deltas[idx1], res$deltas[idx2]), col = c("blue", "red"))
+legend(
+  "bottomright",
+  c("pgram", "pgram (approximation)"),
+  col = c("blue", "red"),
+  lty = 1
+)
+
+```
+
+Как видим, оптимальное $\delta$ для периодограммы и ее аппроксимации значение $\delta$ одинаковое.
+
+```{r}
+res$pgram[idx1]
+res$pgram_approx[idx2]
+```
+
+# Добавление шума
+
+```{r eval=FALSE, include=FALSE}
+# Run this in R console to enable progress bar
+handlers(global = TRUE)
+```
+
+```{r}
+cores <- 15
+# Setting up parallel computing
+plan(multisession, workers = min(cores, detectCores() - 1))
+registerDoFuture()
+```
+
+```{r}
+grouping.auto_errors <- function(model, signal, omega0, delta, threshold, M = 500) {
+  N <- length(signal)
+  freq.bins <- lapply(
+    delta,
+    function(d) c(omega0 - d, omega0 + d + 1e-10)
+  )
+
+  pb <- progressor(M)
+  mse <- foreach (i = 1:M, .combine = "rbind") %dorng% {
+    pb()
+    x <- generate(model, N) + signal
+    s <- ssa(x, kind = "1d-ssa", svd.method = "svd")
+    g <- list()
+    if (length(threshold) > 1) {
+      for (k in seq_along(threshold)) {
+        gg <-
+          grouping.auto(
+            s,
+            freq.bins = freq.bins,
+            threshold = threshold[k],
+            drop = FALSE
+        )
+        g[[k]] <- gg[[1]][seq_len(min(2, length(gg[[1]])))]
+        }
+    }
+    else {
+      g <- grouping.auto(
+        s,
+        freq.bins = freq.bins,
+        threshold = threshold,
+        drop = FALSE
+      )
+      g <- lapply(g, function(gg) gg[seq_len(min(2, length(gg)))])
+    }
+    r <- reconstruct(s, g)
+    sapply(r, function(rr) mean((signal - rr)^2))
+  }
+  mse
+}
+
+em_harmonic <- function(N, omega, C) {
+  exp(C / N * (1:N)) * cos(2 * pi * (1:N) * omega)
+}
+
+calculate_delta <- function(C, omega0, N, eps = 1e-2) {
+    omega <- seq(0, 0.5, 1 / N)
+    if (omega0 > 0.25)
+      deltas <- omega0 - rev(omega[omega <= omega0])
+    else
+      deltas <- omega[omega >= omega0] - omega0
+    if (abs(C) < 1e-6)
+        idx <- 2
+    else {
+      x <- em_harmonic(N, omega0, C)
+      spec <- abs(fft(x)[seq_len(N %/% 2 + 1)])^2
+      # spec <- pgram_approx(omega, omega0, C, N)
+      S <- numeric(length(deltas))
+      for (i in seq_along(deltas)) {
+        S[i] <- sum(spec[abs(omega - omega0) <= deltas[i]]) / sum(spec)
+      }
+      idx <- which.max(diff(S) < eps) + 1
+    }
+    list(delta = deltas[idx], S = S)
+}
+```
+
+## Умеренная модуляция
+
+Пусть $N=200$, $C=2$. Добавим к ряду красный шум с параметрами $\phi=0.7$, $\sigma^2=1$.
+
+```{r}
+N <- 200
+phi <- 0.7
+model1 <- list(phi = phi, sigma2 = 1)
+C <- -2
+omega0 <- 0.25
+signal11 <- 2.26 * em_harmonic(N, omega0, C)
+# pdf(here("../tex/master/img/signal_C2.pdf"), width = 8, height = 4)
+xyplot(signal11, ylab = "")
+# dev.off()
+
+set.seed(123)
+x <- arfima.sim(model1, N) + signal1
+plot(x)
+lines(signal1, col = "red")
+spec.pgram(x, taper = 0, fast = FALSE, detrend = FALSE, log = "no")
+```
+
+```{r}
+# spec_signal <- abs(fft(signal1)[seq_len(N %/% 2 + 1)])^2 / N
+# 
+# omega <- seq(0, 0.5, 1 / N)
+# deltas <- omega[omega >= omega0] - omega0
+# 
+# S <- numeric(length(deltas))
+# for (i in seq_along(deltas)) {
+#   S[i] <- sum(spec_signal[abs(omega - omega0) <= deltas[i]]) / sum(spec_signal)
+# }
+# idx <- which.max(diff(S) < 1e-2) + 1
+out <- calculate_delta(C, omega0, N)
+S <- out$S
+delta <- out$delta
+cat("delta =", delta)
+```
+
+Зафиксируем $\delta = 2 / N$ (вклад считается по $5$ частотам периодограммы), посмотрим на поведение MSE от величины порога $T_0$.
+
+```{r}
+# (delta <- deltas[idx])
+thresholds <- seq(0.05, 0.95, 0.05)
+
+omega <- seq(0, 0.5, 1 / N)
+deltas <- omega[omega >= omega0] - omega0
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_threshold_signal1_1 <- grouping.auto_errors(model1, signal1, omega0, delta, thresholds)
+```
+
+Сплошной линией обозначен теоретический максимальный порог, который можно взять для такого $\delta$, чтобы вклад частот был выше этого порога. Пунктирной линией обозначен порог, после которого MSE начал расти (отличие становится больше, чем $10^{-3}$).
+
+```{r}
+mse_threshold_signal1_1_means <- mse_threshold_signal1_1 |> colMeans()
+plot(thresholds, mse_threshold_signal1_1_means, xlim = c(0, 1), ylab = "MSE", xlab = "threshold")
+abline(v = S[delta * N + 1])
+abline(v = thresholds[which.max(diff(mse_threshold_signal1_1_means) > 1e-3)], lty = 2)
+```
+
+Как видим, при добавлении шума оптимальный порог уменьшается.
+
+Теперь зафиксируем $T_0=0.5$ и будем варьировать $\delta$.
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_delta_1 <- grouping.auto_errors(model1, signal1, omega0, deltas, threshold = 0.5)
+```
+
+Сплошной линией обозначено оптимальное $\delta$ для выбранного $T_0$. Пунктирной линией обозначена наименьшая $\delta$, соответствующая минимальному MSE.
+
+```{r}
+mse_delta_1_means <- mse_delta_1 |> colMeans()
+plot(deltas, mse_delta_1_means)
+abline(v = deltas[which.max(S > 0.5)])
+abline(v = deltas[which.min(mse_delta_1_means)], lty = 2)
+```
+
+Можно заметить, что при добавлении шума оптимальное $\delta$ стало больше.
+
+Увеличим дисперсию белого шума до $\sigma^2=4$.
+```{r}
+model2 <- list(phi = phi, sigma2 = 4)
+set.seed(123)
+x <- generate(model2, N) + signal1
+plot.ts(x)
+lines(signal1, col = "red")
+spec.pgram(x, taper = 0, fast = FALSE, detrend = FALSE, log = "no")
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_threshold_signal1_2 <- grouping.auto_errors(model2, signal1, omega0, delta, thresholds)
+```
+
+```{r}
+mse_threshold_signal1_2_means <- mse_threshold_signal1_2 |> colMeans()
+plot(thresholds, mse_threshold_signal1_2_means, xlim = c(0, 1))
+abline(v = S[delta * N + 1])
+abline(v = thresholds[which.max(diff(mse_threshold_signal1_2_means) > 1e-3)], lty = 2)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_delta_2 <- grouping.auto_errors(model2, signal1, omega0, deltas, threshold = 0.5)
+```
+
+```{r}
+mse_delta_means_2 <- mse_delta_2 |> colMeans()
+plot(deltas, mse_delta_means_2)
+abline(v = deltas[which.max(S > 0.5)])
+abline(v = deltas[which.min(mse_delta_means_2)], lty = 2)
+```
+
+С увеличением шума оптимальное $\delta$ стало меньше.
+
+Увеличим дисперсию белого шума еще сильнее.
+
+```{r}
+model3 <- list(phi = 0.7, sigma2 = 9)
+set.seed(123)
+x <- generate(model3, N) + signal1
+plot(x)
+lines(signal1, col = "red")
+spec.pgram(x, taper = 0, fast = FALSE, detrend = FALSE, log = "no")
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_threshold_signal1_3 <- grouping.auto_errors(model3, signal1, omega0, delta, thresholds)
+```
+
+```{r}
+mse_threshold_signal1_3_means <- mse_threshold_signal1_3 |> colMeans()
+plot(thresholds, mse_threshold_signal1_3_means, xlim = c(0, 1))
+abline(v = S[delta * N + 1])
+abline(v = thresholds[which.max(diff(mse_threshold_signal1_3_means) > 1e-3)], lty = 2)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_delta_3 <- grouping.auto_errors(model3, signal1, omega0, deltas, threshold = 0.5)
+```
+
+```{r}
+mse_delta_means_3 <- mse_delta_3 |> colMeans()
+plot(deltas, mse_delta_means_3)
+abline(v = deltas[which.max(S > 0.5)])
+abline(v = deltas[which.min(mse_delta_means_3)], lty = 2)
+```
+
+
+## Слабая модуляция
+
+Пусть $C=1$. Подберем коэффициент $A$ так, чтобы SNR'ы совпадали.
+
+```{r}
+snr <- function(s, ...) {
+  n <- length(s)
+  per <- Mod(fft(s))^2 / n
+  freq <- 0:(n - 1) / n
+  mean(per / spec_arfima(freq, ...))
+}
+```
+
+```{r}
+snr_signal1 <- do.call(snr, c(list(signal1), model1))
+
+C <- 1
+omega0 <- 0.25
+signal2 <- em_harmonic(N, omega0, C)
+
+A2 <-
+  optimise(function(A)
+    abs(snr(A * signal2, phi = model1$phi) - snr_signal1), interval = c(0, 10))$minimum
+print(A2)
+
+signal2 <- A2 * signal2
+```
+
+```{r}
+out <- calculate_delta(C, omega0, N)
+S <- out$S
+delta <- out$delta
+cat("delta =", delta)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_threshold_signal2_1 <- grouping.auto_errors(model1, signal2, omega0, delta, thresholds)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_threshold_signal2_2 <- grouping.auto_errors(model2, signal2, omega0, delta, thresholds)
+```
+
+```{r}
+set.seed(123)
+mse_threshold_signal2_3 <- grouping.auto_errors(model3, signal2, omega0, delta, thresholds)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_delta_signal2_2 <- grouping.auto_errors(model2, signal2, omega0, deltas, threshold = 0.5)
+```
+
+```{r}
+# mse_delta_means_2 <- mse_delta_2 |> colMeans()
+plot(deltas, mse_delta_signal2_2 |> colMeans())
+abline(v = deltas[which.max(S > 0.5)])
+abline(v = deltas[which.min(mse_delta_means_2)], lty = 2)
+```
+
+
+
+```{r}
+mse_threshold_signal2_1_means <- mse_threshold_signal2_1 |> colMeans()
+plot(thresholds, mse_threshold_signal2_1_means, xlim = c(0, 1))
+abline(v = thresholds[which.max(diff(mse_threshold_signal2_1_means) > 1e-3)], lty = 2)
+abline(v = S[delta * N + 1])
+
+mse_threshold_signal2_2_means <- mse_threshold_signal2_2 |> colMeans()
+plot(thresholds, mse_threshold_signal2_2_means, xlim = c(0, 1))
+abline(v = thresholds[which.max(diff(mse_threshold_signal2_2_means) > 1e-3)], lty = 2)
+abline(v = S[delta * N + 1])
+
+mse_threshold_signal2_3_means <- mse_threshold_signal2_3 |> colMeans()
+plot(thresholds, mse_threshold_signal2_3_means, xlim = c(0, 1))
+abline(v = thresholds[which.max(diff(mse_threshold_signal2_3_means) > 1e-3)], lty = 2)
+abline(v = S[delta * N + 1])
+```
+
+## Отсутствие модуляции
+
+Пусть $C=0$.
+
+```{r}
+snr_signal1 <- do.call(snr, c(list(signal1), model1))
+
+C <- 0
+omega0 <- 0.25
+signal3 <- em_harmonic(N, omega0, C)
+
+A3 <-
+  optimise(function(A)
+    abs(do.call(snr, c(list(A * signal3), model1)) - snr_signal1), interval = c(0, 10))$minimum
+print(A3)
+
+signal3 <- A3 * signal3
+```
+
+```{r}
+out <- calculate_delta(C, omega0, N)
+S <- out$S
+delta <- out$delta
+cat("delta =", delta)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_threshold_signal3_1 <- grouping.auto_errors(model1, signal3, omega0, delta, thresholds)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_threshold_signal3_2 <- grouping.auto_errors(model2, signal3, omega0, delta, thresholds)
+```
+
+```{r}
+set.seed(123)
+mse_threshold_signal3_3 <- grouping.auto_errors(model3, signal3, omega0, delta, thresholds)
+```
+
+```{r}
+mse_threshold_signal3_1_means <- mse_threshold_signal3_1 |> colMeans()
+plot(thresholds, mse_threshold_signal3_1_means, xlim = c(0, 1))
+abline(v = thresholds[which.max(diff(mse_threshold_signal3_1_means) > 1e-3)], lty = 2)
+abline(v = S[delta * N + 1])
+
+mse_threshold_signal3_2_means <- mse_threshold_signal3_2 |> colMeans()
+plot(thresholds, mse_threshold_signal3_2_means, xlim = c(0, 1))
+abline(v = thresholds[which.max(diff(mse_threshold_signal3_2_means) > 1e-3)], lty = 2)
+abline(v = S[delta * N + 1])
+
+mse_threshold_signal3_3_means <- mse_threshold_signal3_3 |> colMeans()
+plot(thresholds, mse_threshold_signal3_3_means, xlim = c(0, 1))
+abline(v = thresholds[which.max(diff(mse_threshold_signal3_3_means) > 1e-3)], lty = 2)
+abline(v = S[delta * N + 1])
+```
+
+# Итеративный выбор ширины интервала
+
+Видим, что с увеличением шума нужно выбирать меньший порог при фиксированной ширине интервала и выбирать меньшую ширину интервала при фиксированном пороге соотственнно. Поэтому, чтобы избавиться от выбора ширины интервала, предлагается следующая идея:
+
+1. Взять некоторый порог
+
+2. Постепенно увеличивать ширину интервала до тех пор, пока не обнаружатся две элементарные компоненты при выбранном пороге
+
+```{r}
+grouping.auto.iter <- function(s, omega0, threshold) {
+  delta <- seq(1 / N, 0.25, 1 / N)
+  delta <- delta[(omega0 - delta >= 0) & (omega0 + delta) <= 0.5]
+  freq.bins <- lapply(delta, function(d)
+    c(omega0 - d, omega0 + d + 1e-10))
+  
+  g <- grouping.auto(s,
+                     freq.bins = freq.bins,
+                     threshold = threshold,
+                     drop = FALSE)
+  contrib <- attr(g, "contribution")
+  g <- lapply(g, function(gg)
+    gg[seq_len(min(2, length(gg)))])
+  
+  idx <- -1
+  for (i in seq_along(g)) {
+    if (length(g[[i]]) == 2) {
+      idx <- i
+      break
+    }
+  }
+  out <- g[[idx]]
+  attr(out, "contribution") <- contrib[, idx]
+  out
+}
+```
+
+```{r}
+set.seed(1)
+x <- arfima.sim(model2, N) + signal1
+s <- ssa(x, kind = "1d-ssa", svd.method = "svd")
+grouping.auto.iter(s, omega0, 0.5)
+```
+
+```{r}
+spec.pgram(s$U[, c(9, 10)], taper = 0, fast = FALSE, detrend = FALSE, log = "no", type = "h")
+plot(s, "vector", idx = 1:20)
+```
+
+
+```{r}
+grouping.auto.iter_errors <- function(model, signal, thresholds, M = 500) {
+  pb <- progressor(M)
+  mse <- foreach (i = 1:M, .combine = "rbind") %dorng% {
+    pb()
+    x <- arfima.sim(model, N) + signal
+    s <- ssa(x, kind = "1d-ssa", svd.method = "svd")
+    
+    g <- lapply(thresholds, function(threshold) grouping.auto.iter(s, omega0, threshold))
+    r <- reconstruct(s, g)
+    sapply(r, function(rr)
+      mean((signal - rr)^2))
+  }
+  mse
+}
+```
+
+Давайте также, как в предыдущих примерах рассмотрим сетку порогов и посчитаем среднее MSE.
+
+## $\sigma^2=1$
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_iter_1 <- grouping.auto.iter_errors(model1, signal1, thresholds)
+```
+
+```{r}
+plot(thresholds, mse_threshold_means, type = "l", xlim = c(0, 1), ylab = "MSE", main = "sigma2 = 1")
+lines(thresholds, mse_iter_1 |> colMeans(), type = "b", col = "blue")
+legend("topleft", c("delta = 0.02 (4 / N)", "iterative delta"), col = c("black", "blue"), lty = 1, )
+```
+
+## $\sigma^2=4$
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_iter_signal1_2 <- grouping.auto.iter_errors(model2, signal1, thresholds)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_iter_signal2_2 <- grouping.auto.iter_errors(model2, signal2, thresholds)
+```
+
+```{r, eval=FALSE, message=FALSE}
+set.seed(123)
+mse_iter_signal3_2 <- grouping.auto.iter_errors(model2, signal3, thresholds)
+```
+
+```{r}
+plot(
+  thresholds,
+  mse_threshold_signal1_2_means,
+  type = "l",
+  xlim = c(0, 1),
+  ylab = "MSE",
+  main = "sigma2 = 4"
+)
+lines(
+  thresholds,
+  mse_iter_signal1_2 |> colMeans(),
+  type = "b",
+  col = "blue"
+)
+legend(
+  "topleft",
+  c("delta = 0.02 (4 / N)", "iterative delta"),
+  col = c("black", "blue"),
+  lty = 1,
+)
+```
+
+```{r}
+plot(
+  thresholds,
+  mse_threshold_signal3_2_means,
+  type = "l",
+  xlim = c(0, 1),
+  ylab = "MSE",
+  main = "sigma2 = 4"
+)
+lines(
+  thresholds,
+  mse_iter_signal3_2 |> colMeans(),
+  type = "b",
+  col = "blue"
+)
+legend(
+  "topleft",
+  c("delta = 0.02 (4 / N)", "iterative delta"),
+  col = c("black", "blue"),
+  lty = 1,
+)
+```
+
+
+```{r}
+plot(
+  thresholds,
+  mse_threshold_signal2_2_means,
+  type = "l",
+  xlim = c(0, 1),
+  ylab = "MSE",
+  main = "sigma2 = 4"
+)
+lines(
+  thresholds,
+  mse_iter_signal2_2 |> colMeans(),
+  type = "b",
+  col = "blue"
+)
+legend(
+  "topleft",
+  c("delta = 0.02 (4 / N)", "iterative delta"),
+  col = c("black", "blue"),
+  lty = 1,
+)
+```
+
+Такой итеративный подбор $\delta$ снизил ошибку для больших порогов.
+
+## $\sigma^2=9$
+
+```{r, eval=FALSE}
+set.seed(123)
+mse_iter_3 <- grouping.auto.iter_errors(model3, signal1, thresholds)
+```
+
+```{r}
+mse_iter_3_means <- mse_iter_3 |> colMeans()
+plot(
+  thresholds,
+  mse_threshold_means_3,
+  type = "l",
+  xlim = c(0, 1),
+  ylim = c(
+    min(mse_iter_3_means, mse_threshold_means_3),
+    max(mse_iter_3_means, mse_threshold_means_3)
+  ),
+  ylab = "MSE",
+  main = "sigma2 = 9"
+)
+lines(
+  thresholds,
+  mse_iter_3_means,
+  type = "b",
+  col = "blue"
+)
+legend(
+  "topleft",
+  c("delta = 0.02", "iterative delta"),
+  col = c("black", "blue"),
+  lty = 1,
+)
+```

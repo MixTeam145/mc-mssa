@@ -19,8 +19,9 @@ library(progressr)
 library(tidyr)
 library(latex2exp)
 library(ggpubr)
+library(here)
 
-source("../R/mc-mssa.R", chdir = TRUE)
+source(here("R", "mc-mssa.R"))
 load("./data/reconstruct_mcssa_errors.RData")
 load("./data/auto_mcssa_comp.RData")
 
@@ -28,6 +29,7 @@ theme_set(theme_bw())
 ```
 
 # Алгоритм
+
 Алгоритм восстановления сигнала по наиболее значимой частоте MC-SSA:
 
 1. Найти индекс наиболее значимой частоты (вектора), т.е. $k=\operatorname*{argmax}\limits_i (\widehat p_i - c_i)$, где $c_i$ --- верхняя граница предсказательного интервала, $\omega^\star=\omega_k=k/(2L)$;
@@ -65,13 +67,13 @@ signif_freq <- function(x, n_periodics) {
   
   if (n_periodics == 1) {
     max_idx <- idx[which.max(significance[idx])]
-    
+
     neighbors <- c()
     if ((max_idx - 1) %in% idx)
       neighbors <- c(neighbors, max_idx - 1)
     if ((max_idx + 1) %in% idx)
       neighbors <- c(neighbors, max_idx + 1)
-    
+
     idx <- c(max_idx, neighbors)
     freq <- weighted.mean(x$statistic$freq[idx], significance[idx])
   } else {
@@ -86,16 +88,22 @@ signif_freq <- function(x, n_periodics) {
 reconstruct.mcssa <- function(x,
                               L = (N + 1) %/% 2,
                               delta,
-                              groups,
+                              groups = 1:50,
                               method = c("adaptive", "semi-adaptive", "fixed"),
                               n_periodics) {
   method <- match.arg(method)
+  
+  params <- list(x = x$series, L = L, kind = "1d-ssa", svd.method = "svd")
+  s <- do.call(ssa, params)
+  pe <- parestimate(s, groups = list(groups))
+  pe_freq <- abs(pe$freq)
   
   N <- nrow(x$series)
   eps <- 1e-9
   if (missing(delta))
     delta <- 1 / (4 * x$window) + eps
   freq <- signif_freq(x, n_periodics)
+  freq <- pe_freq[which.min(abs(pe_freq - freq))]
   freq.bins <- lapply(freq, function(f) c(f - delta, f + delta))
   
   params <- list(x = as.vector(x$series), kind = "1d-ssa", L = L, svd.method = "svd") 
@@ -137,7 +145,7 @@ reconstruct.mcssa <- function(x,
 auto_mcssa <- function(x,
                        L1,
                        L2 = (N + 1) %/% 2,
-                       delta = 1 / (4 * L1) + 1e-9,
+                       delta = NULL,
                        rank = 20,
                        conf.level = 0.95,
                        trend_freq = 1 / 24,
@@ -148,6 +156,12 @@ auto_mcssa <- function(x,
   
   method <- match.arg(method)
   
+  if (is.null(delta))
+    delta <- rep(1 / (4 * L1) + 1e-9, maxit)
+  if (length(delta) < maxit)
+    delta <- c(delta, rep(1 / (4 * L1) + 1e-9, maxit - length(delta)))
+  print(delta)
+  
   N <- length(x)
   
   args <- list(...)
@@ -156,10 +170,14 @@ auto_mcssa <- function(x,
   else
     fixed <- list(phi = NA, d = NA)
   
-  params <- list(x = x - mean(x), L = L2, svd.method = "svd")
+  params <- list(x = x - mean(x), L = L2, kind = "1d-ssa", svd.method = "svd")
   if (method == "adaptive") {
     s <- do.call(ssa, params)
   }
+  
+  # s <- do.call(ssa, params)
+  # pe <- parestimate(s, groups = list(seq_len(rank)))
+  # pe_freq <- abs(pe$freq)
   
   m <- mcssa(x, L1, "cos", fixed = fixed, conf.level = conf.level, freq.range = c(trend_freq, 0.5))
   
@@ -173,7 +191,10 @@ auto_mcssa <- function(x,
   i <- 1
   while (m$reject && i <= maxit) {
     freq[i] <- signif_freq(m, n_periodics = 1)
-    freq.bins[[i]] <- c(freq[i] - delta, freq[i] + delta)
+    
+    # freq[i] <- pe_freq[which.min(abs(pe_freq - freq[i]))]
+    
+    freq.bins[[i]] <- c(freq[i] - delta[i] - 1e-9, freq[i] + delta[i] + 1e-9)
     freq.exclude[[i + 1]] <- freq.bins[[i]]
     if (method %in% c("semi-adaptive", "fixed")) {
       len <- 1:params$L
@@ -339,9 +360,10 @@ periodic_grouping_angle_reg <- function(ssa_obj,
 
 ```
 
-
 # Пример
+
 Пусть $\phi=0.7$, $\sigma^2=1$, $N=200$.
+
 ```{r}
 phi <- 0.7
 sigma2 <- 1
@@ -349,22 +371,16 @@ N <- 200
 model <- list(phi = phi, sigma2 = sigma2, N = N)
 ```
 
-```{r}
-em_harmonic <- function(N, freq, A = 1, a = 0) {
-  A * exp(a * (1:N)) * cos(2 * pi * (1:N) * freq)
-}
-```
-
 Сигнал:
 $$
-s_n = 0.075 \exp(0.02n)\cos(2 \pi n / 8) + 2\cos(2 \pi n / 4) + 0.2\cdot (-1)^n.
+s_n = 0.075 \exp(0.02n)\cos(2 \pi n / 8) + \cos(2 \pi n / 4) + 0.2\cdot (-1)^n.
 $$
 ```{r}
 omega <- 0.125
-signal <- mapply(em_harmonic, N, c(1, 2, 4) * omega, c(0.075, 1, 0.2), c(0.02, 0, 0)) |> rowSums()
+signal <- mapply(em_harmonic, N, c(1, 2, 4) * omega,  c(0.02, 0, 0) * N, c(0.075, 1, 0.2)) |> rowSums()
 
 set.seed(1234)
-f <- generate_channel(model, signal)
+f <- arfima.sim(model, N) + signal
 
 # pdf("../../tex/science2025/img/noise_ts.pdf", width = 8, height = 4)
 xyplot.ts(f)
@@ -380,7 +396,7 @@ xyplot.ts(
 )
 # dev.off()
 
-s <- ssa(f - mean(f), svd.method = "svd")
+s <- ssa(f, kind = "1d-ssa", svd.method = "svd")
 # pdf("../../tex/science2025/img/reconstructed_ts.pdf", width = 8, height = 4)
 plot(s, "series", groups = 1:15)
 # dev.off()
@@ -410,7 +426,7 @@ m2 <- mcssa(f, L, "cos", fixed = list(phi = NA, d = 0), conf.level = 0.95)
 Последовательно применяя MC-SSA, весь сигнал выделяется:
 ```{r}
 set.seed(10)
-r <- auto_mcssa(f, L, trend_freq = 0, fixed = list(phi = NA, d = 0), delta = 1 / 80)
+r <- auto_mcssa(f, L, trend_freq = 0, fixed = list(phi = NA, d = 0), delta = c(0.025, 0.025, 0.025))
 
 # pdf("../../tex/science2025/img/auto_mcssa_result.pdf", width = 8, height = 4)
 xyplot.ts(
@@ -429,10 +445,13 @@ cat(
 # Сравнение вариантов с проекцией и без
 ```{r}
 mcssa_errors <- function(L, model, signal, M = 500, n_periodics = 1, ...) {
+  N <- length(signal)
   pb <- progressor(M)
   result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+  # for (i in 1:N) {
     pb()
-    f <- generate_channel(model, signal)
+    f <- arfima.sim(model, N) + signal
+    # f <- generate_channel(model, signal)
     m <- mcssa(f, L, "cos", model = model, conf.level = 0.95)
     if (m$reject) {
       r.adaptive <- reconstruct.mcssa(m, n_periodics = n_periodics, ...)
@@ -483,9 +502,9 @@ signal2 <- 0.025 * exp(0.05 * (1:N)) * cos(2 * pi * (1:N) * omega)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-mse1 <- lapply(models, function(model) mcssa_errors(L, model, signal1, delta = 0.025))
-mse1 <- 
-  lapply(mse1, function(mse) colMeans(mse, na.rm = TRUE)) |>
+mse1_1 <- lapply(models, function(model) mcssa_errors(L, model, signal1, delta = 0.025))
+mse1_1 <- 
+  lapply(mse1_1, function(mse) colMeans(mse, na.rm = TRUE)) |>
   bind_rows() |>
   mutate(sigma2 = sigma2s) |>
   pivot_longer(1:3, names_to = "method", values_to = "MSE") |>
