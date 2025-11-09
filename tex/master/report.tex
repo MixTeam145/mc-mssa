@@ -881,13 +881,13 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	T(\mathsf{X};\omega_1,\omega_2)=\frac{1}{\|\mathsf{X}\|^2}\sum_{k:\omega_1\leqslant k/N\leqslant \omega_2}I^\prime(k/N),
 \end{equation}
 где \
-\[
+\begin{equation}\label{eq:pgram_corrected}
 	I^\prime(k / N)=
 	\begin{cases}
 		I(k / N) + I(1 - k / N), & \text{для } 0<k<N/2, \\
 		I(k / N),                & \text{иначе},
 	\end{cases}
-\]
+\end{equation}
 $I(\omega)$~--- периодограмма~\eqref{eq:pgram} ряда $\mathsf{X}$. Величину $T(\mathsf{X},\omega_1,\omega_2)$ можно рассматривать как долю вклада частот, содержащегося в интервале $[\omega_1,\omega_2]$.
 
 Зафиксируем длину окна $L$, порог $T_0\in[0, 1]$ и $\delta>0$. Пусть
@@ -926,7 +926,7 @@ $I(\omega)$~--- периодограмма~\eqref{eq:pgram} ряда $\mathsf{X}
 
 Рассмотрим пример работы autoMCSSA. Пусть $\mathsf{X}=\mathsf{S}+\bm{\xi}$, где $\bm\xi$~--- красный шум с параметрами $\phi=0.7$ и $\sigma^2=1$, $N=200$, $\mathsf{S}=(s_1,\ldots, s_N)$,
 \[
-	s_n=0.075\, e^{0.02n}\cos(2\pi n/8) + 2\cos(2\pi n / 4) + 0.2\cdot(-1)^n.
+	s_n=0.075\, e^{0.02n}\cos(2\pi n/8) + \cos(2\pi n / 4) + 0.2\cdot(-1)^n.
 \]
 
 \begin{figure}[!h]
@@ -949,7 +949,7 @@ $I(\omega)$~--- периодограмма~\eqref{eq:pgram} ряда $\mathsf{X}
 	Для демонстрации работы алгоритма параметры $\delta$ и $T_0$ были подобраны так, чтобы autoMCSSA выделил весь сигнал. В общем случае выбор оптимальных $\delta$ и $T_0$ проблематичен. Эта проблема будет исследована в дальнейшем.
 \end{remark}
 
-\subsection{Подходы к выделению сигнала}
+\subsection{Подходы к выделению сигнала}\label{sect:signal_extraction_approaches}
 
 При описании алгоритма autoMCSSA для выделения сигнала $\tS$ использовался базовый вариант SSA. Можно обобщить этот подход на SSA с проекцией, зафиксировав подходящий базис.
 
@@ -1011,6 +1011,149 @@ $I(\omega)$~--- периодограмма~\eqref{eq:pgram} ряда $\mathsf{X}
 	\caption{MSE восстановления сигнала ($\delta=0.05$)}
 	\label{fig:mse3}
 \end{figure}
+
+\section{Выбор оптимальных параметров autoMCSSA}
+
+Как было показано в разделе~\ref{sect:signal_extraction_approaches}, оптимальная величина частотного интервала зависит от величины $|\alpha|$. Обозначим за $C=\alpha N$ величину амплитудной модуляции. Величина $C$ имеет следующий смысл: значение гармоники в конце временного промежутка увеличилось в $e^C$ раз.
+
+Пусть $\Pi(k / N) = I^\prime (k / N) / \sum_{k} I^\prime(k / N)$~--- нормированная периодограмма с $I^\prime(k / N)$ из формулы~\eqref{eq:pgram_corrected}. Обозначим за $\Pi^{C, \omega}$ нормированную периодограмму для сигнала с частотой $\omega$ и амплитудной модуляцией $C$. Отсортируем частоты $k/N$ по убыванию расстояния до частоты $\omega$, обозначим их за $\omega_{(1)}, \omega_{(2)}, \ldots.$ Рассмотрим следующие $\delta$:
+\begin{enumerate}
+	\item Если $\omega < \omega_{(1)}$, то
+	\[
+	\Delta=\{\omega - \omega_{(k)}~|~\omega_{(k)}\leqslant \omega\}
+	\]
+	\item В противном случае
+	\[
+	\Delta=\{\omega_{(k)} - \omega~|~\omega_{(k)}\geqslant \omega\}.
+	\]
+\end{enumerate}
+Упорядочим $\delta\in \Delta$ по возрастанию и обозначим их как $\delta_{(n)}$. Введем частичные суммы вокруг главной частоты:
+\[
+\Sigma^{C, \omega}_n=\sum_{k:~|\omega_{(k)} - \omega| \leqslant \delta_{(n)}} \Pi^{C, \omega}\left(\omega_{(k)}\right).
+\]
+Тогда рассмотрим следующий выбор $\delta$ в зависимости от величины $C$: берем такое $\delta^*=\delta_{(n)}$, чтобы $\Sigma^{C, \omega}_n > 0.9$ и $\Sigma^{C, \omega}_n - \Sigma^{C, \omega}_{n-1} < \varepsilon$. То есть выбираем такое $\delta$, чтобы захватывать б\'{о}льшую часть спектра и чтобы рост вклада при дальнейшем увеличении $\delta$ был относительно незначительным.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=\linewidth]{img/Delta_example.pdf}
+	\caption{$\Pi^{C, \omega}(k / N)$ и <<оптимальные>> границы частотного интервала при $N=200$, $C=2$, $\omega=0.253$, $\varepsilon=0.05$}
+	\label{fig:Delta_example}
+\end{figure}
+
+Рассмотрим пример. Пусть $N=200$, $C=2$, $\omega=0.253$. На рис.~\ref{fig:Delta_example} изображена нормированная периодограмма такого сигнала, красной пунктирной линией обозначена главная частота. Одним цветом покрашены значения $\Sigma^{C, \omega}_n - \Sigma^{C, \omega}_{n-1}$ для $n>1$ и $\Sigma^{C, \omega}_n$ для $n=1$, то есть при переходе от $n$ к $n+1$ количество частот, участвующих в сумме, увеличивается на $2$. Пусть $\varepsilon=0.05$ (рост вклада ниже $5\%$ считается незначительным), тогда $\delta^*(\omega, C)=0.013$, границы частотного интервала обозначены на графике черными пунктирными линиями.
+
+Для проверки, насколько такой выбор $\delta$ оптимален, сравним его с другим (итеративным) подходом к выбору $\delta$: будем увеличивать $n$ до тех пор, пока для $\delta=\delta_{n}$ не обнаружится $r(\omega)$ компонент.
+
+\subsection{Численное сравнение}\label{sect:delta_choice_numerical_research}
+
+Проведем численный эксперимент и посчитаем ошибку восстановления сигнала для обоих способов выбора $\delta$. Не ограничивая общности, будем считать, что $C\geqslant0$, поскольку форма периодограммы для $C$ и $-C$ совпадают. Для исследования были выбраны следующие $C$: $0$ (отсутствие модуляции), $1$ (слабая модуляция), $2$ (умеренная модуляция), $5$ (сильная модуляция). Учитывая, что, помимо $\delta$, существует параметр $T_0$, выбор которого тоже затруднителен, рассмотрим сетку из возможных значений порога. 
+
+Пусть $N=200$, $\omega=0.25$. Параметры шума $\phi=0.7$, $\sigma^2=4$. Амплитуды $A$ для гармоник выбирать будем так, чтобы их SNR по формуле~\eqref{eq:snr} совпадали и равнялись $0.25$. Для вычисления $\delta^*$ $\varepsilon=0.05$.
+
+\begin{remark}
+	Частота сигнала и дисперсия белого шума были выбраны так, чтобы сигнал был отделим от шума и чтобы компоненты сигнала в SSA не были доминирующими. При увеличении частоты сигнала и корректировке SNR компоненты сигнала выйдут на первые позиции из-за вида спектральной плотности красного шума (невозрастающая функция).
+\end{remark}
+
+\begin{figure}[h]
+	\centering
+	\begin{subfigure}{0.45\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega025_C0.pdf}
+		\caption{$C=0$}
+	\end{subfigure}
+	\begin{subfigure}{0.45\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega025_C1.pdf}
+		\caption{$C=1$}
+	\end{subfigure}
+	\begin{subfigure}{0.45\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega025_C2.pdf}
+		\caption{$C=2$}
+	\end{subfigure}
+	\begin{subfigure}{0.45\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega025_C5.pdf}
+		\caption{$C=5$}
+	\end{subfigure}
+	\caption{Ошибка восстановления сигнала для разных $C$ и $T_0$ ($\omega=0.25$)}
+	\label{fig:mse_omega025}
+\end{figure}
+
+На рис.~\ref{fig:mse_omega025} представлены MSE восстановления сигнала для двух подходов к выбору $\delta$ для разных значений порога $T_0$. Стоит отметить следующую зависимость ошибки от порога: при увеличении $T_0$ ошибки сначала уменьшаются, достигая минимума, а затем увеличиваются. Для $\delta=\delta^*$ этот минимум находится в интервале $[0.4, 0.5]$, но разница в ошибках внутри этого интервала незначительна. Можно заметить, что для $C\geqslant2$ графики для $\delta=\delta^*$ и итеративного $\delta$ практически совпадают, за исключением больших значений порога. Для сильной модуляции итеративный вариант дает меньшую ошибку для малых значений $T_0$, но наименьшее значение MSE примерно такое же, что и у первого варианта.
+
+\begin{figure}[h]
+	\centering
+	\begin{subfigure}{0.45\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega02525_C0.pdf}
+		\caption{$C=0$}
+	\end{subfigure}
+	\begin{subfigure}{0.45\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega02525_C1.pdf}
+		\caption{$C=1$}
+	\end{subfigure}
+	\begin{subfigure}{0.45\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega02525_C2.pdf}
+		\caption{$C=2$}
+	\end{subfigure}
+	\begin{subfigure}{0.45\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega02525_C5.pdf}
+		\caption{$C=5$}
+	\end{subfigure}
+	\caption{Ошибка восстановления сигнала для разных $C$ и $T_0$ ($\omega=0.2525$)}
+	\label{fig:mse_omega02525}
+\end{figure}
+
+Теперь пусть частота не попадает в решетку периодограммы: $\omega=0.2525$ (наихудший случай, частота попала ровно посередине между частотами). Результаты моделирования представлены на рис.~\ref{fig:mse_omega02525}. Как видно, по данным графикам можно сделать аналогичные случаю $\omega=0.25$ выводы.
+
+\subsubsection{Выводы}
+
+По результатам численного исследования можно сделать следующие выводы:
+
+\begin{enumerate}
+	\item Оба способа выбора $\delta$ дают примерно одинаковую минимальную ошибку.
+	\item Минимальная ошибка достигается при $T_0\in[0.4, 0.5]$.
+\end{enumerate}
+
+Учитывая это и некоторые вычислительные сложности итеративного метода, предпочтение отдается варианту с $\delta=\delta^*$.
+
+\subsection{Случай неизвестной амплитудной модуляции}
+
+В предыдущем разделе предполагалось, что истинная модуляция $C$ известна, что, конечно же, не верно на практике. Поэтому можно допустить максимально возможную (но не слишком большую) в ряде модуляцию $C_{\max}$ и брать $\delta=\delta^*(\omega, C_{\max})$. 
+
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.3\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega025_Cmax_0.pdf}
+		\caption{$C=0$}
+	\end{subfigure}
+	\begin{subfigure}{0.3\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega025_Cmax_1.pdf}
+		\caption{$C=1$}
+	\end{subfigure}
+	\begin{subfigure}{0.3\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega025_Cmax_2.pdf}
+		\caption{$C=2$}
+	\end{subfigure}
+	\caption{Ошибка восстановления сигнала для разных $C$ и $T_0$ ($\omega=0.25$, $C_{\max}=5$)}
+	\label{fig:mse_omega025_Cmax}
+\end{figure}
+
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.3\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega02525_Cmax_0.pdf}
+		\caption{$C=0$}
+	\end{subfigure}
+	\begin{subfigure}{0.3\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega02525_Cmax_1.pdf}
+		\caption{$C=1$}
+	\end{subfigure}
+	\begin{subfigure}{0.3\textwidth}
+		\includegraphics[width=\textwidth]{img/mse_omega02525_Cmax_2.pdf}
+		\caption{$C=2$}
+	\end{subfigure}
+	\caption{Ошибка восстановления сигнала для разных $C$ и $T_0$ ($\omega=0.2525$, $C_{\max}=5$)}
+	\label{fig:mse_omega02525_Cmax}
+\end{figure}
+
+Пусть $C_{\max}=5$. На примерах из раздела~\ref{sect:delta_choice_numerical_research} посмотрим на применимость данного подхода. На рис.~\ref{fig:mse_omega025_Cmax} и рис.~\ref{fig:mse_omega02525_Cmax} представлены результаты моделирования. Видно, что оптимальный порог $T_0$ совпадает со случаем истинного $C$. Можно сделать вывод, что выбор $\delta$ по верхней границе для амплитудной модуляции не портит оценку сигнала c $\delta=\delta^*$.
 
 \conclusion
 
