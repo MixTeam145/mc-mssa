@@ -56,6 +56,33 @@ theme_set(theme_bw())
 6. Если гипотеза отвергается или $i > \mathrm{maxiter}$, STOP, иначе $i\leftarrow i+1$ и перейти к пункту $3$.
 
 ```{r}
+calculate_delta <- function(N,
+                            omega0,
+                            C,
+                            eps = 5e-2,
+                            threshold = 0.9) {
+  omega <- seq(0, 0.5, 1 / N)
+  o <- order(abs(omega - omega0))
+  if (omega0 <= omega[o[1]])
+    deltas <- omega0 - rev(omega[omega <= omega0])
+  else
+    deltas <- omega[omega >= omega0] - omega0
+  
+  x <- em_harmonic(N, omega0, C)
+  
+  spec <- abs(fft(x)[seq_len(N %/% 2 + 1)])^2
+  spec <- spec / sum(spec)
+  S <- numeric(length(deltas))
+  
+  for (i in seq_along(deltas)) {
+    S[i] <- sum(spec[abs(omega - omega0) <= deltas[i]])
+  }
+  idx <- which.max(diff(S) < eps & S[-1] > threshold) + 1
+  
+  deltas[idx]
+}
+
+
 signif_freq <- function(x, n_periodics) {
   significance <- x$statistic$contribution - x$predint$upper
   idx <- which(significance > 0)
@@ -146,6 +173,7 @@ auto_mcssa <- function(x,
                        L1,
                        L2 = (N + 1) %/% 2,
                        delta = NULL,
+                       C_max = 5,
                        rank = 20,
                        conf.level = 0.95,
                        trend_freq = 1 / 24,
@@ -156,11 +184,11 @@ auto_mcssa <- function(x,
   
   method <- match.arg(method)
   
-  if (is.null(delta))
-    delta <- rep(1 / (4 * L1) + 1e-9, maxit)
-  if (length(delta) < maxit)
-    delta <- c(delta, rep(1 / (4 * L1) + 1e-9, maxit - length(delta)))
-  print(delta)
+  # if (is.null(delta))
+  #  delta <- rep(1 / (4 * L1) + 1e-9, maxit)
+  # if (length(delta) < maxit)
+  #   delta <- c(delta, rep(1 / (4 * L1) + 1e-9, maxit - length(delta)))
+  # print(delta)
   
   N <- length(x)
   
@@ -191,10 +219,11 @@ auto_mcssa <- function(x,
   i <- 1
   while (m$reject && i <= maxit) {
     freq[i] <- signif_freq(m, n_periodics = 1)
+    delta <- calculate_delta(N, freq[i], C_max)
     
     # freq[i] <- pe_freq[which.min(abs(pe_freq - freq[i]))]
     
-    freq.bins[[i]] <- c(freq[i] - delta[i] - 1e-9, freq[i] + delta[i] + 1e-9)
+    freq.bins[[i]] <- c(freq[i] - delta - 1e-9, freq[i] + delta + 1e-9)
     freq.exclude[[i + 1]] <- freq.bins[[i]]
     if (method %in% c("semi-adaptive", "fixed")) {
       len <- 1:params$L
@@ -426,7 +455,7 @@ m2 <- mcssa(f, L, "cos", fixed = list(phi = NA, d = 0), conf.level = 0.95)
 Последовательно применяя MC-SSA, весь сигнал выделяется:
 ```{r}
 set.seed(10)
-r <- auto_mcssa(f, L, trend_freq = 0, fixed = list(phi = NA, d = 0), delta = c(0.025, 0.025, 0.025))
+r <- auto_mcssa(f, L, trend_freq = 0, fixed = list(phi = NA, d = 0))
 
 # pdf("../../tex/science2025/img/auto_mcssa_result.pdf", width = 8, height = 4)
 xyplot.ts(

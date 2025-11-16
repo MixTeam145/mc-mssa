@@ -42,7 +42,7 @@ opt_delta <- function(N,
                       threshold = 0.9) {
   omega <- seq(0, 0.5, 1 / N)
   o <- order(abs(omega - omega0))
-  if (omega0 < omega[o[1]])
+  if (omega0 <= omega[o[1]])
     deltas <- omega0 - rev(omega[omega <= omega0])
   else
     deltas <- omega[omega >= omega0] - omega0
@@ -63,7 +63,7 @@ opt_delta <- function(N,
   # }
   
   
-  # list(delta = deltas[idx], delta = deltas, spec = spec, S = S)
+  # list(delta = deltas[idx], deltas = deltas, spec = spec, S = S)
   # max(1 / N, deltas[idx])
   deltas[idx]
 }
@@ -365,8 +365,8 @@ dev.off()
 Теперь уменьшим частоту сигнала: пусть $\omega=0.1$.
 
 ```{r}
-SNR2 <- snr(0.3 * em_harmonic(N, 0.1, 2), phi = model$phi, sigma2 = model$sigma2)
-cat("SNR =", SNR2)
+# SNR2 <- snr(0.3 * em_harmonic(N, 0.1, 2), phi = model$phi, sigma2 = model$sigma2)
+# cat("SNR =", SNR2)
 ```
 
 ```{r}
@@ -379,21 +379,69 @@ plot(s, "vectors")
 
 
 ```{r, eval=FALSE, message=FALSE}
-set.seed(123)
-mse_signal2_moderate <- grouping.auto_errors(model, N, 0.1, C_moderate, A_moderate, thresholds, calc.iter = TRUE)
+A_moderate_2 <- optimise(
+  function(A)
+    abs(snr(
+      em_harmonic(N, 0.1, C_moderate, A), phi = model$phi, sigma2 = model$sigma2) - SNR1),
+  interval = c(0, 10), tol = 1e-10
+)$minimum
+print(A_moderate_2)
 
 set.seed(123)
-mse_signal2_weak <- grouping.auto_errors(model, N, 0.1, C_weak, A_weak, thresholds, calc.iter = TRUE)
+mse_signal2_moderate <- grouping.auto_errors(model, N, 0.1, C_moderate, A_moderate_2, thresholds, calc.iter = TRUE)
+
+A_weak_2 <- optimise(
+  function(A)
+    abs(snr(
+      em_harmonic(N, 0.1, C_weak, A), phi = model$phi, sigma2 = model$sigma2) - SNR1),
+  interval = c(0, 10), tol = 1e-10
+)$minimum
+print(A_weak_2)
 
 set.seed(123)
-mse_signal2_absent <- grouping.auto_errors(model, N, 0.1, 0, A_absent, thresholds, calc.iter = TRUE)
+mse_signal2_weak <- grouping.auto_errors(model, N, 0.1, C_weak, A_weak_2, thresholds, calc.iter = TRUE)
+
+A_absent_2 <- optimise(
+  function(A)
+    abs(snr(
+      em_harmonic(N, 0.1, 0, A), phi = model$phi, sigma2 = model$sigma2) - SNR1),
+  interval = c(0, 10), tol = 1e-10
+)$minimum
+print(A_absent_2)
+
+set.seed(123)
+mse_signal2_absent <- grouping.auto_errors(model, N, 0.1, 0, A_absent_2, thresholds, calc.iter = TRUE)
+
+A_strong_2 <- optimise(
+  function(A)
+    abs(snr(
+      em_harmonic(N, 0.1, C_strong, A), phi = model$phi, sigma2 = model$sigma2) - SNR1),
+  interval = c(0, 10), tol = 1e-10
+)$minimum
+print(A_strong_2)
+
+set.seed(123)
+mse_signal2_strong <- grouping.auto_errors(model, N, 0.1, C_strong, A_strong_2, thresholds, calc.iter = TRUE)
 ```
 
 ```{r}
-# ylim <- c(min(mse_signal2_moderate |> colMeans(), mse_signal2_weak |> colMeans(), mse_signal2_absent |> colMeans()), max(mse_signal2_moderate |> colMeans(), mse_signal2_weak |> colMeans(), mse_signal2_absent |> colMeans()))
-plot_mse(thresholds, mse_signal2_moderate, main = sprintf("C = %d, omega = 0.1", C_moderate))
-plot_mse(thresholds, mse_signal2_weak, main = sprintf("C = %d, omega = 0.1", C_weak))
-plot_mse(thresholds, mse_signal2_absent, main = "C = 0, omega = 0.1")
+pdf(here("../tex/master/img/mse_omega01_C2.pdf"), width = 8, height = 4)
+plot_mse(thresholds, mse_signal2_moderate, delta = 0.01)
+dev.off()
+#  main = sprintf("C = %d, omega = %.2f", C_moderate, omega0)
+pdf(here("../tex/master/img/mse_omega01_C1.pdf"), width = 8, height = 4)
+plot_mse(thresholds, mse_signal2_weak, delta = 0.005)
+dev.off()
+#  main = sprintf("C = %d, omega = %.2f", C_weak, omega0)
+
+pdf(here("../tex/master/img/mse_omega01_C0.pdf"), width = 8, height = 4)
+plot_mse(thresholds, mse_signal2_absent, delta = 0.005)
+dev.off()
+# main = sprintf("C = %d, omega = %.2f", 0, omega0)
+
+pdf(here("../tex/master/img/mse_omega01_C5.pdf"), width = 8, height = 4)
+plot_mse(thresholds, mse_signal2_strong, delta = 0.025)
+dev.off()
 ```
 
 Теперь, наоборот, увеличим частоту сигнала: $\omega=0.4$.
@@ -404,20 +452,69 @@ cat("SNR =", SNR3)
 ```
 
 ```{r, eval=FALSE, message=FALSE}
-set.seed(123)
-mse_signal3_moderate <- grouping.auto_errors(model, N, 0.4, C_moderate, A_moderate, thresholds, calc.iter = TRUE)
+A_moderate_3 <- optimise(
+  function(A)
+    abs(snr(
+      em_harmonic(N, 0.4, C_moderate, A), phi = model$phi, sigma2 = model$sigma2) - SNR1),
+  interval = c(0, 10), tol = 1e-10
+)$minimum
+print(A_moderate_3)
 
 set.seed(123)
-mse_signal3_weak <- grouping.auto_errors(model, N, 0.4, C_weak, A_weak, thresholds, calc.iter = TRUE)
+mse_signal3_moderate <- grouping.auto_errors(model, N, 0.4, C_moderate, A_moderate_3, thresholds, calc.iter = TRUE)
+
+A_weak_3 <- optimise(
+  function(A)
+    abs(snr(
+      em_harmonic(N, 0.4, C_weak, A), phi = model$phi, sigma2 = model$sigma2) - SNR1),
+  interval = c(0, 10), tol = 1e-10
+)$minimum
+print(A_weak_3)
 
 set.seed(123)
-mse_signal3_absent <- grouping.auto_errors(model, N, 0.4, 0, A_absent, thresholds, calc.iter = TRUE)
+mse_signal3_weak <- grouping.auto_errors(model, N, 0.4, C_weak, A_weak_3, thresholds, calc.iter = TRUE)
+
+A_absent_3 <- optimise(
+  function(A)
+    abs(snr(
+      em_harmonic(N, 0.4, 0, A), phi = model$phi, sigma2 = model$sigma2) - SNR1),
+  interval = c(0, 10), tol = 1e-10
+)$minimum
+print(A_absent_2)
+
+set.seed(123)
+mse_signal3_absent <- grouping.auto_errors(model, N, 0.4, 0, A_absent_3, thresholds, calc.iter = TRUE)
+
+A_strong_3 <- optimise(
+  function(A)
+    abs(snr(
+      em_harmonic(N, 0.4, C_strong, A), phi = model$phi, sigma2 = model$sigma2) - SNR1),
+  interval = c(0, 10), tol = 1e-10
+)$minimum
+print(A_strong_3)
+
+set.seed(123)
+mse_signal3_strong <- grouping.auto_errors(model, N, 0.4, C_strong, A_strong_3, thresholds, calc.iter = TRUE)
 ```
 
 ```{r}
-plot_mse(thresholds, mse_signal3_moderate, main = sprintf("C = %d, omega = 0.4", C_moderate))
-plot_mse(thresholds, mse_signal3_weak, main = sprintf("C = %d, omega = 0.4", C_weak))
-plot_mse(thresholds, mse_signal3_absent, main = "C = 0, omega = 0.4")
+pdf(here("../tex/master/img/mse_omega04_C2.pdf"), width = 8, height = 4)
+plot_mse(thresholds, mse_signal3_moderate, delta = 0.01)
+dev.off()
+#  main = sprintf("C = %d, omega = %.2f", C_moderate, omega0)
+pdf(here("../tex/master/img/mse_omega04_C1.pdf"), width = 8, height = 4)
+plot_mse(thresholds, mse_signal3_weak, delta = 0.005)
+dev.off()
+#  main = sprintf("C = %d, omega = %.2f", C_weak, omega0)
+
+pdf(here("../tex/master/img/mse_omega04_C0.pdf"), width = 8, height = 4)
+plot_mse(thresholds, mse_signal3_absent, delta = 0.005)
+dev.off()
+# main = sprintf("C = %d, omega = %.2f", 0, omega0)
+
+pdf(here("../tex/master/img/mse_omega04_C5.pdf"), width = 8, height = 4)
+plot_mse(thresholds, mse_signal3_strong, delta = 0.03)
+dev.off()
 ```
 
 Пусть частота не попадает в решетку периодограммы: $\omega=0.2525$ (худший случай).
