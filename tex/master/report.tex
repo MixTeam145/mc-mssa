@@ -1,10 +1,17 @@
 \documentclass[specialist,
 substylefile = spbu_report.rtx,
-subf, href, colorlinks=true, 12pt]{disser}
+subf,12pt]{disser}
 
-\usepackage[T2A]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage[T2A]{fontenc}
 \usepackage[english,russian]{babel}
+\usepackage{hyperref}
+\hypersetup{unicode=true, pdfencoding=auto,
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    filecolor=blue,
+    urlcolor=blue}
 
 \usepackage[a4paper,
 mag=1000, includefoot,
@@ -1099,7 +1106,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 % По замечанию 3 из \cite{Zhornikova2018}: равенство $\tau(P, Q) =0$ означает, что все углы между последовательными точками $(p_k, q_k)^{\mathrm{T}}$ двумерной диаграммы векторов $P$ и $Q$ примерно одинаковые. Если при этом нормы этих векторов монотонно меняются по $k$, то на двумерных диаграммах получатся <<спирали>>.
 
 % В случае, когда число экспоненциально-модулированных гармоник~\eqref{eq:em_harmonic} неизвестно, в работе \cite{Zhornikova2018} было предложено отбирать пары сингулярных векторов с
-% помощью порога, т.е. к одной гармонике относить те вектора $U_i$ и $U_{i+1}$, значение $\tau(U_i, U_{i+1})$ для которых меньше заданного порога. 
+% помощью порога, т.е. к одной гармонике относить те вектора $U_i$ и $U_{i+1}$, значение $\tau(U_i, U_{i+1})$ для которых меньше заданного порога.
 
 
 
@@ -1171,7 +1178,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 \section{Метод autoMCSSA}\label{sect:autoMCSSA}
 
-% После проверки гипотезы $H_0:\tS=0$ возникает проблема выделения сигнала, если $H_0$ отвергается. Поскольку с помощью критерия MC-SSA можно определить значимые частоты, воспользуемся этим. 
+% После проверки гипотезы $H_0:\tS=0$ возникает проблема выделения сигнала, если $H_0$ отвергается. Поскольку с помощью критерия MC-SSA можно определить значимые частоты, воспользуемся этим.
 
 \subsection{Мощность MC-SSA в случае сложного сигнала}\label{sect:composite_signal_power}
 
