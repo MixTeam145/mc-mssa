@@ -184,13 +184,13 @@ process_series <- function(x, h, models) {
 ```
 
 ```{r}
-h <- 12
+h <- 24
 ssa_aidmc.arguments <- list(
   L1 = 36,
-  L2 = 72,
+  L2 = 60,
   rank = 30,
   tau_threshold = Inf,
-  fixed = list(phi = 0, d = 0), # White noise model
+  fixed = list(phi = 0, d = 0), # White noise model,
   trace = FALSE
 )
 ```
@@ -226,4 +226,8 @@ res$fit_results$`SSA-AidMC`$result_df
 res$fit_results$`SSA-AidMC`$trend_indices
 ```
 
+```{r}
+s <- ssa(f |> tail(-h), L = ssa_aidmc.arguments$L2, svd.method = "svd")
+plot(s, "series", groups = 1:20)
+```
 
