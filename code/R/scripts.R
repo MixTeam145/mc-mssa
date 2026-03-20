@@ -1,10 +1,7 @@
 library(here)
 
 source(here("R", "auto_ssa.R"))
-# source("mcmssa_utils.R")
 source(here("R", "mc-mssa.R"))
-# source("ic.R")
-#source("ic_AR1noise.R")
 
 estimate_rank <- function(time_series,
                           L = length(time_series) %/% 2,
@@ -345,67 +342,6 @@ noise_hypothesis <- function(time_series,
   
   return(list('result'=!(pval<sign_level),
               'pval'=pval))
-}
-
-get_signif_freq <- function(x, n_periodics) {
-  significance <- x$statistic$contribution - x$predint$upper
-  idx <- which(significance > 0)
-  
-  if (missing(n_periodics))
-    n_periodics <- length(idx)
-  
-  n_periodics <- min(n_periodics, length(idx))
-  
-  if (n_periodics == 1) {
-    max_idx <- idx[which.max(significance[idx])]
-    
-    neighbors <- c()
-    if ((max_idx - 1) %in% idx)
-      neighbors <- c(neighbors, max_idx - 1)
-    if ((max_idx + 1) %in% idx)
-      neighbors <- c(neighbors, max_idx + 1)
-    
-    idx <- c(max_idx, neighbors)
-    freq <- weighted.mean(x$statistic$freq[idx], significance[idx])
-  } else {
-    o <- order(-significance[idx])[1:n_periodics]
-    idx <- idx[o]
-    freq <- x$statistic$freq[idx]
-  }
-  
-  freq
-}
-
-calculate_delta <- function(N,
-                            omega0,
-                            C,
-                            eps = 5e-2,
-                            threshold = 0.9) {
-  omega <- seq(0, 0.5, 1 / N)
-  
-  if (abs(omega0 * N - round(omega0 * N)) < .Machine$double.eps^0.5)
-    delta0 <- 0
-  else {
-    o <- order(abs(omega[omega <= 0.5] - omega0))
-    delta0 <- abs(omega0 - omega[o[2]])
-  }
-  
-  deltas <- delta0 + omega
-  
-  x <- em_harmonic(N, omega0, C)
-  
-  spec <- abs(fft(x)[seq_len(N %/% 2 + 1)])^2
-  spec <- spec / sum(spec)
-  S <- numeric(length(deltas))
-  
-  for (i in seq_along(deltas)) {
-    S[i] <- sum(spec[abs(omega - omega0) <= deltas[i] + .Machine$double.eps^0.5])
-    if (abs(S[i] - 1) <= .Machine$double.eps^0.5)
-      break
-  }
-  idx <- which.max(diff(S) < eps & S[-1] > threshold) + 1
-  
-  deltas[idx]
 }
 
 auto_periodics_mc <- function(
