@@ -425,15 +425,15 @@ xyplot.ts(
 )
 # dev.off()
 
-s <- ssa(f, kind = "1d-ssa", svd.method = "svd")
+s <- ssa(f, 96, kind = "1d-ssa", svd.method = "svd")
 # pdf("../../tex/science2025/img/reconstructed_ts.pdf", width = 8, height = 4)
 plot(s, "series", groups = 1:15)
 # dev.off()
 ```
 
-Пусть $L=20$.
+Пусть $L=48$.
 ```{r}
-L <- 50
+L <- 48
 set.seed(1)
 m1 <- mcssa(f, L, "cos", model = model, conf.level = 0.95)
 set.seed(1)
@@ -454,20 +454,37 @@ m2 <- mcssa(f, L, "cos", fixed = list(phi = NA, d = 0), conf.level = 0.95)
 
 Последовательно применяя MC-SSA, весь сигнал выделяется:
 ```{r}
+theme_set(
+  theme_bw() +
+  theme(
+    legend.key.width = unit(18, "mm"),
+    legend.text = element_text(size = 12),
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  ) 
+)
 set.seed(10)
-r <- auto_mcssa(f, L, trend_freq = 0, fixed = list(phi = NA, d = 0))
+r <- auto_mcssa(f, 48, 96, trend_freq = 0, rank = 30, fixed = list(phi = NA, d = 0))
 
 # pdf("../../tex/science2025/img/auto_mcssa_result.pdf", width = 8, height = 4)
+r_plot <- autoplot(ts(signal), series="Signal", ylab = "") +
+  autolayer(ts(r$signal), series = "Signal Estimate")
+
+ggsave("../../../tex/master/img/auto_mcssa_result1.pdf", r_plot, device = "pdf", width = 8, height = 4) 
+
 xyplot.ts(
   cbind(
     Signal = signal,
     Estimated = r$signal
   ),
+  superpose = TRUE,
+  
 )
 # dev.off()
 
 cat(
-  "Selected components:", r$components
+  "Selected components:", r$components,
+  "\nMSE", mean((signal - r$signal)^2)
 )
 ```
 
