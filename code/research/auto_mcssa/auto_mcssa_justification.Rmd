@@ -1,0 +1,129 @@
+---
+title: "Оправдание итеративности метода"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(lattice)
+library(parallel)
+library(doFuture)
+library(doRNG)
+library(progressr)
+library(tidyr)
+library(latex2exp)
+library(ggpubr)
+library(here)
+
+source(here("R", "mc-mssa.R"))
+
+theme_set(
+  theme_bw() +
+  theme(
+    legend.key.width = unit(18, "mm"),
+    legend.text = element_text(size = 12),
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  ) 
+)
+```
+
+```{r}
+N <- 200
+signal <- em_harmonic(N, 0.125, 0, 1) + em_harmonic(N, 0.25, 0, 2)
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- 15
+
+# Setting up parallel computing
+plan(multisession, workers = min(cores, detectCores() - 1))
+registerDoFuture()
+```
+
+```{r}
+model <- list(phi = 0.7, sigma2 = 1)
+noise_data <- list()
+set.seed(1234)
+for (i in seq_len(1000)) {
+  noise_data[[i]] <- arfima.sim(model, N)
+}
+save(noise_data, file = "data/noise_phi7.RData")
+```
+
+
+```{r}
+est_mcssa_ci <- function(noise, signal, L, freqs, M = 1000, ...) {
+  pb <- progressor(M)
+  result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+    pb()
+    f <- noise[[i]] + signal
+    m <- mcssa(f, L, "cos", ...)
+    mask <- sapply(freqs, function(freq) which(abs(freq - m$statistic$freq) < .Machine$double.eps^0.5))
+    c(m$predint$upper[mask], m$statistic$contribution[mask])
+  }
+  result <- do.call(rbind, result) |> data.frame()
+  colnames(result) <- c(freqs, paste0(freqs, "_contribution"))
+  
+  result_upper <- result[, 1:2] |> pivot_longer(everything(), names_to = "freq", values_to = "upper")
+  result_contrib <- result[, 3:4] |> pivot_longer(everything(), names_to = "freq", names_pattern = "([0-9].[0-9]*)", values_to = "contribution")
+  result <- bind_cols(result_upper, result_contrib[, 2])
+  if (is.null(list(...)$model))
+    result$model <- "Estimated"
+  else
+    result$model <- "True"
+  result
+}
+```
+
+```{r}
+set.seed(10)
+mcssa_ci_true <- est_mcssa_ci(noise_data, signal, 48, c(0.125, 0.25), model = model)
+```
+
+```{r}
+set.seed(10)
+mcssa_ci_est <- est_mcssa_ci(noise_data, signal, 48, c(0.125, 0.25), fixed = list(phi = NA, d = 0))
+```
+
+```{r}
+mcssa_ci <- bind_rows(mcssa_ci_true, mcssa_ci_est)
+```
+
+
+```{r}
+p1 <-
+  mcssa_ci |> filter(freq == "0.125") |>
+  ggplot() +
+  geom_boxplot(aes(model, upper)) +
+  geom_hline(
+    aes(yintercept = mean(filter(mcssa_ci_true, freq == "0.125")$contribution),
+    linetype = "Statistic")
+  ) +
+  scale_linetype_manual(name ="Statistic1", values = c('dashed')) +
+  ylim(0, 40) +
+  xlab("Model") +
+  ylab("Upper limit")
+# ggsave("../../../tex/master/img/mcssa_ci_0125.pdf", p1, device = "pdf", width = 4, height = 4)
+p1
+```
+
+
+
+```{r}
+p2 <-
+  mcssa_ci |> filter(freq == "0.25") |>
+  ggplot() +
+  geom_boxplot(aes(model, upper)) +
+  geom_hline(
+    aes(yintercept = mean(filter(mcssa_ci_true, freq == "0.25")$contribution),
+    linetype = "Statistic")
+  ) +
+  scale_linetype_manual(name ="", values = c('dashed')) +
+  ylim(0, 40) +
+  xlab("Model") +
+  ylab("Upper limit")
+# ggsave("../../../tex/master/img/mcssa_ci_025.pdf", p2, device = "pdf", width = 4, height = 4)
+p2
+```
