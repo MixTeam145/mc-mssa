@@ -110,7 +110,7 @@ df_shanghai
 ```
 
 ```{r}
-f <- ts(df_shanghai$O3, start = c(2013, 12), frequency = 12)
+f <- ts(df_shanghai$`No 2`, start = c(2013, 12), frequency = 12)
 # f <- window(f, start = c(2018, 1))
 plot(f)
 ```
@@ -133,7 +133,7 @@ fit_forecast <- function(x, h, ...) {
     method = "vector"
   )
   
-  ssa_fcst
+  list(fit_result = ssa_aidmc_res, mean = ssa_fcst$mean)
 }
 ```
 
@@ -142,7 +142,7 @@ ets_fit_forecast <- function(x, h, ...) {
   ets_model <- ets(x, ...)
   
   ets_fcst <- forecast(ets_model, h = h, PI = FALSE)
-  ets_fcst
+  list(fit_result = ets_model, mean = ets_fcst$mean)
 } 
 ```
 
@@ -151,7 +151,7 @@ sarima_fit_forecast <- function(x, h, ...) {
   sarima_model <- auto.arima(x, seasonal = TRUE, ...)
   
   sarima_fcst <- forecast(sarima_model, h = h)
-  sarima_fcst
+  list(fit_result = sarima_model, mean = sarima_fcst$mean)
 }
 ```
 
@@ -162,10 +162,12 @@ process_series <- function(x, h, models) {
   
   model_names <- c()
   fcsts <- list()
+  fit_results <- list()
   for (model in models) {
     result <- do.call(model$func, c(list(x = x_train, h = h), model$args))
     model_names <- c(model_names, model$name)
     fcsts[[model$name]] <- result$mean
+    fit_results[[model$name]] <- result$fit_result
   }
   
   p <- autoplot(x)
@@ -177,7 +179,7 @@ process_series <- function(x, h, models) {
   df_fcsts$actual <- x_test
   
   plot(p)
-  invisible(df_fcsts)
+  invisible(list(forecasts = df_fcsts, fit_results = fit_results))
 }
 ```
 
@@ -188,13 +190,14 @@ ssa_aidmc.arguments <- list(
   L2 = 72,
   rank = 30,
   tau_threshold = Inf,
-  fixed = list(phi = 0, d = 0) # White noise model
+  fixed = list(phi = 0, d = 0), # White noise model
+  trace = FALSE
 )
 ```
 
 ```{r}
 models <- list(
-  list(name = "SSA_AidMC", func = fit_forecast, args = ssa_aidmc.arguments),
+  list(name = "SSA-AidMC", func = fit_forecast, args = ssa_aidmc.arguments),
   list(name = "Mean", func = meanf, args = list()),
   list(name = "Seasonal Naive", func = snaive, args = list()),
   list(name = "ETS", func = ets_fit_forecast, args = list()),
@@ -206,10 +209,21 @@ models <- list(
 ```{r}
 res <- process_series(f, h, models)
 ```
+
 ```{r}
-res |>
+res$forecasts |>
   pivot_longer(cols = -actual, names_to = "model", values_to = "pred") |>
   group_by(model) |>
   summarise(RMSE = sqrt(mean((actual - pred)^2))) |>
   arrange(RMSE)
 ```
+
+```{r}
+res$fit_results$`SSA-AidMC`$result_df
+```
+
+```{r}
+res$fit_results$`SSA-AidMC`$trend_indices
+```
+
+
