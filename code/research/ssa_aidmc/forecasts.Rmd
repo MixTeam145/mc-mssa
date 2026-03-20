@@ -1,0 +1,215 @@
+---
+title: "forecasts"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 10)
+
+library(lattice)
+library(parallel)
+library(doFuture)
+library(doRNG)
+library(progressr)
+library(tidyr)
+library(latex2exp)
+library(ggpubr)
+library(readr)
+library(lubridate)
+library(here)
+
+source(here("R", "ssa_aidmc.R"))
+
+theme_set(
+  theme_bw() +
+  theme(
+    legend.key.width = unit(18, "mm"),
+    legend.text = element_text(size = 12),
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  ) 
+)
+```
+
+```{r}
+build_ts_folds <- function(n,
+                           initial_window,
+                           horizon = 1,
+                           step = 1,
+                           gap = 0,
+                           fixed_window = FALSE) {
+  
+  if (!is.numeric(n) || length(n) != 1 || n <= 1) {
+    stop("`n` must be a single number > 1")
+  }
+  if (!is.numeric(initial_window) || initial_window < 1) {
+    stop("`initial_window` must be >= 1")
+  }
+  if (!is.numeric(horizon) || horizon < 1) {
+    stop("`horizon` must be >= 1")
+  }
+  if (!is.numeric(step) || step < 1) {
+    stop("`step` must be >= 1")
+  }
+  if (!is.numeric(gap) || gap < 0) {
+    stop("`gap` must be >= 0")
+  }
+  if (initial_window + gap + horizon > n) {
+    stop("Not enough observations for even one fold")
+  }
+
+  folds <- list()
+  fold_id <- 1
+
+  train_end_values <- seq(
+    from = initial_window,
+    to   = n - gap - horizon,
+    by   = step
+  )
+
+  for (train_end in train_end_values) {
+    if (fixed_window) {
+      train_start <- train_end - initial_window + 1
+    } else {
+      train_start <- 1
+    }
+
+    test_start <- train_end + gap + 1
+    test_end   <- test_start + horizon - 1
+
+    train_idx <- train_start:train_end
+    test_idx  <- test_start:test_end
+
+    folds[[fold_id]] <- list(
+      train_idx = train_idx,
+      test_idx = test_idx
+    )
+
+    fold_id <- fold_id + 1
+  }
+
+  return(folds)
+}
+```
+
+```{r}
+df_shanghai <- read_delim(
+  "./data/shanghai.txt",
+  delim = "\t",
+  trim_ws = TRUE
+)
+```
+
+```{r}
+df_shanghai
+```
+
+```{r}
+f <- ts(df_shanghai$O3, start = c(2013, 12), frequency = 12)
+# f <- window(f, start = c(2018, 1))
+plot(f)
+```
+
+```{r}
+fit_forecast <- function(x, h, ...) {
+  
+  ssa_aidmc_res <- ssa_aidmc(x, ...)
+  
+  signal_components <- c(
+    ssa_aidmc_res$trend_indices,
+    ssa_aidmc_res$true_two_el_indices,
+    ssa_aidmc_res$true_one_el_indices
+  )
+  
+  ssa_fcst <- forecast(
+    object = ssa_aidmc_res$model_obj,
+    groups = list(signal_components),
+    h = h,
+    method = "vector"
+  )
+  
+  ssa_fcst
+}
+```
+
+```{r}
+ets_fit_forecast <- function(x, h, ...) {
+  ets_model <- ets(x, ...)
+  
+  ets_fcst <- forecast(ets_model, h = h, PI = FALSE)
+  ets_fcst
+} 
+```
+
+```{r}
+sarima_fit_forecast <- function(x, h, ...) {
+  sarima_model <- auto.arima(x, seasonal = TRUE, ...)
+  
+  sarima_fcst <- forecast(sarima_model, h = h)
+  sarima_fcst
+}
+```
+
+```{r}
+process_series <- function(x, h, models) {
+  x_train <- x |> head(-h)
+  x_test <- x |> tail(h)
+  
+  model_names <- c()
+  fcsts <- list()
+  for (model in models) {
+    result <- do.call(model$func, c(list(x = x_train, h = h), model$args))
+    model_names <- c(model_names, model$name)
+    fcsts[[model$name]] <- result$mean
+  }
+  
+  p <- autoplot(x)
+  for (i in seq_along(fcsts))
+    p <- p + autolayer(fcsts[[i]], series = model_names[i])
+
+  
+  df_fcsts <- as.data.frame(fcsts)
+  df_fcsts$actual <- x_test
+  
+  plot(p)
+  invisible(df_fcsts)
+}
+```
+
+```{r}
+h <- 12
+ssa_aidmc.arguments <- list(
+  L1 = 36,
+  L2 = 72,
+  rank = 30,
+  tau_threshold = Inf,
+  fixed = list(phi = 0, d = 0) # White noise model
+)
+```
+
+```{r}
+models <- list(
+  list(name = "SSA_AidMC", func = fit_forecast, args = ssa_aidmc.arguments),
+  list(name = "Mean", func = meanf, args = list()),
+  list(name = "Seasonal Naive", func = snaive, args = list()),
+  list(name = "ETS", func = ets_fit_forecast, args = list()),
+  list(name = "SARIMA", func = sarima_fit_forecast, args = list()),
+  list(name = "Theta", func = thetaf, args = list())
+)
+```
+
+```{r}
+res <- process_series(f, h, models)
+```
+```{r}
+res |>
+  pivot_longer(cols = -actual, names_to = "model", values_to = "pred") |>
+  group_by(model) |>
+  summarise(RMSE = sqrt(mean((actual - pred)^2))) |>
+  arrange(RMSE)
+```

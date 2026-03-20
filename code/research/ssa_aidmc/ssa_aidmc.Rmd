@@ -1,0 +1,1059 @@
+---
+title: "Использование EOSSA в методе autoMCSSA"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 10)
+
+library(lattice)
+library(parallel)
+library(doFuture)
+library(doRNG)
+library(progressr)
+library(tidyr)
+library(latex2exp)
+library(ggpubr)
+library(here)
+
+source(here("R", "mc-mssa.R"))
+source(here("R", "eossa_new.R"))
+source(here("R", "scripts.R"))
+# source("auto_ssa/scripts.R", chdir = TRUE)
+theme_set(theme_bw())
+```
+
+```{r}
+phi <- 0.7
+sigma2 <- 1
+N <- 200
+model <- list(phi = phi, sigma2 = sigma2, N = N)
+```
+
+```{r}
+em_harmonic <- function(N, omega, C = 0, A = 1, phi = 0) {
+  t <- 1:N
+  alpha <- C / N
+  signal <- A * exp(alpha * t) * cos(2 * pi * t * omega + phi)
+  as.ts(signal)
+}
+```
+
+```{r}
+auto_mcssa <- function(x,
+                       ssa_obj,
+                       L,
+                       delta = NULL,
+                       C_max = 5,
+                       groups = 1:30,
+                       # rank = 30,
+                       conf.level = 0.95,
+                       auto_trend_freq = 1 / 24,
+                       threshold = 0.5,
+                       method = c("adaptive", "semi-adaptive", "fixed"),
+                       maxit = 10,
+                       detrend = TRUE,
+                       ...) {
+  
+  method <- match.arg(method)
+  
+  N <- length(x)
+  
+  args <- list(...)
+  if (!is.null(args$fixed))
+    fixed <- args$fixed
+  else
+    fixed <- list(phi = NA, d = NA)
+  
+  trend_components <- integer()
+  trend_est <- rep(0, N)
+  noise_est <- x
+  if (detrend) {
+    trend_model <- auto_trend_model(
+      ssa_obj,
+      method = "eossa.auto",
+      signal_rank = length(groups),
+      clust_type="distance",
+      auto_trend_freq = auto_trend_freq,
+      auto_threshold = 0.5,
+      delta = 0.001
+    )
+    trend_est <- trend_model$trend
+    trend_components <- trend_model$grouping$Trend
+    noise_est <- x - trend_est 
+    
+    groups <- seq_len(length(groups) - length(trend_components))
+    ssa_obj <- ssa(noise_est, ssa_obj$window, svd.method = "svd", neig = length(groups))
+  }
+  
+  m <- mcssa(noise_est, L1, "cos", fixed = fixed, conf.level = conf.level, freq.range = c(auto_trend_freq, 0.5))
+  
+  freq.exclude <- list(c(0, auto_trend_freq))
+  
+  freq <- numeric()
+  freq.bins <- list()
+  n_triples <- integer()
+  proj_vectors <- list()
+  i <- 1
+  
+  groups_current <- groups
+  periodics_components <- integer()
+  periodics_est <- rep(0, N)
+  while (m$reject && i <= maxit) {
+    freq[i] <- get_signif_freq(m, n_periodics = 1)
+    delta <- calculate_delta(N, freq[i], C_max)
+    freq.bins[[i]] <- c(freq[i] - delta - 1e-9, freq[i] + delta + 1e-9)
+   
+    n_triples[i] <- ifelse(freq[i] == 0.5, 1, 2)
+    g <- grouping.auto.pgram(ssa_obj, groups_current, "series", freq.bins[i], threshold)
+    if (length(g)) {
+      g <- g[[1]]
+      len <- min(length(g), n_triples[i])
+      components <- g[seq_len(len)]
+      groups_current <- setdiff(groups_current, components)
+    } else {
+      components <- integer()
+      # freq.exclude[[length(freq.exclude) + 1]] <- c(freq[i] - 1 / N - 1e-9, freq[i] + 1 / N + 1e-9)
+      freq.exclude[[length(freq.exclude) + 1]] <- freq.bins[[i]]
+    }
+    
+    periodic <- reconstruct(ssa_obj, list(components))[[1]]
+    
+    noise_est <- noise_est - periodic
+    periodics_est <- periodics_est + periodic
+    periodics_components <- c(periodics_components, components)
+    
+    model <- as.list(arfima_whittle(noise_est, c(fixed$phi, fixed$d), freq.exclude))
+     m <- mcssa(
+       noise_est,
+       L1,
+       "cos",
+       model = model,
+       conf.level = conf.level,
+       freq.range = NULL,
+       freq.exclude = freq.exclude
+     )
+    
+    i <- i + 1
+  }
+ 
+  list(
+    trend = trend_est,
+    trend_components = trend_components,
+    periodics = periodics_est,
+    periodics_components = periodics_components,
+    freq.bins = freq.bins,
+    freqs = freq
+  )
+}
+```
+
+```{r}
+auto_mcssa_new <- function(x,
+                       L1,
+                       L2 = (N + 1) %/% 2,
+                       delta = NULL,
+                       C_max = 5,
+                       rank = 30,
+                       conf.level = 0.95,
+                       auto_trend_freq = 1 / 24,
+                       tau_threshold = 0.05,
+                       threshold = 0.5,
+                       method = c("adaptive", "semi-adaptive", "fixed"),
+                       maxit = 10,
+                       ...) {
+  args <- list(...)
+  if (!is.null(args$fixed))
+    fixed <- args$fixed
+  else
+    fixed <- list(phi = NA, d = NA)
+  
+  N <- length(x)
+  
+  dec <- auto_ssa(
+    x,
+    L = L2,
+    signal_rank = rank,
+    conf.level = conf.level,
+    auto_trend_freq = auto_trend_freq,
+    tau_threshold = tau_threshold,
+    mcssa.arguments = list(L=L1, fixed=fixed)
+  )
+  
+  # trend_est <- dec$trend
+  # periodics_est <- dec$periodics
+  # signal_rank <- dec$signal_rank
+  # model_obj <- dec$model_obj
+  # # x_resid <- dec$residuals
+  # x_detrended <- x - dec$trend
+  # if (length(dec$freqs) > 0) {
+  #   s <- ssa(x, L2, svd.method = "svd", neig = rank)
+  #   # freqs <- 1 / dec$result_df$period[-1]
+  #   freqs <- dec$freqs
+  #   n_triples <- sapply(freqs, function(freq) ifelse(abs(freq - 0.5) < 1e-8, 1, 2))
+  # 
+  #   signal_rank <- sum(n_triples) + length(dec$trend_indices)
+  # 
+  #   rank_max <- rank
+  #   rank_min <- signal_rank
+  #   while (rank_min < rank_max) {
+  #     rank_mid <- (rank_max + rank_min) %/% 2
+  #     # print(rank_mid)
+  #     trend_model <- auto_trend_model(
+  #       s,
+  #       method = "eossa.auto",
+  #       signal_rank = rank_mid,
+  #       clust_type = "distance",
+  #       auto_trend_freq = auto_trend_freq,
+  #       auto_threshold = 0.5,
+  #       delta = 1e-4
+  #     )
+  #     model_obj <- trend_model$model_obj
+  #     # model_obj <- eossa_new(s, seq_len(rank_mid), "distance", delta = 1e-4)
+  # 
+  #     periodics_indices <- trend_model$grouping$Periodics
+  #     # periodics_indices <- seq_len(rank_mid)
+  # 
+  #     Fs <- reconstruct(model_obj, periodics_indices)
+  #     mss <- sapply(Fs, function(f) mean(f^2))
+  #     o <- order(mss, decreasing = TRUE)
+  # 
+  #     g <- grouping.auto.freqs(model_obj, periodics_indices[o], freqs, C_max, threshold)
+  #     r <- length(g) + length(trend_model$grouping$Trend)
+  #     # signal_rank <- sum(n_triples)
+  # 
+  #     if (r < signal_rank)
+  #       rank_min <- rank_mid + 1
+  #     else
+  #       rank_max <- rank_mid
+  #   }
+  #   # browser()
+  #   # rank <- rank_min # + length(dec$trend_indices)
+  #   # s <- ssa(x, L2, svd.method = "svd", neig = rank)
+  #   trend_model <- auto_trend_model(
+  #       s,
+  #       method = "eossa.auto",
+  #       signal_rank = rank_min,
+  #       clust_type = "distance",
+  #       auto_trend_freq = auto_trend_freq,
+  #       auto_threshold = 0.5,
+  #       delta = 1e-4
+  #     )
+  # 
+  #   model_obj <- trend_model$model_obj
+  #   # model_obj <- eossa_new(s, seq_len(rank_min), "distance", delta = 1e-4)
+  #   # browser()
+  # 
+  #   periodics_indices <- trend_model$grouping$Periodics
+  #   # periodics_indices <- seq_len(rank_min)
+  # 
+  #   Fs <- reconstruct(model_obj, periodics_indices)
+  #   mss <- sapply(Fs, function(f) mean(f^2))
+  #   o <- order(mss, decreasing = TRUE)
+  # 
+  #   g <- grouping.auto.freqs(model_obj, periodics_indices[o], freqs, C_max, threshold)
+  # 
+  #   Fs <- reconstruct(model_obj, list(Periodics=g, Trend=trend_model$grouping$Trend))
+  #   trend_est <- Fs$Trend
+  #   periodics_est <- Fs$Periodics
+  # 
+  #   signal_rank <- # length(dec$trend_indices) + length(g)
+  #     length(trend_model$grouping$Trend) + length(g)
+  # 
+  #   # prev_signal_rank <- signal_rank
+  #   # while (1) {
+  #   #   trend_model <- auto_trend_model(
+  #   #     s,
+  #   #     method = "eossa.auto",
+  #   #     signal_rank = signal_rank,
+  #   #     clust_type = "distance",
+  #   #     auto_trend_freq = auto_trend_freq,
+  #   #     auto_threshold = 0.5,
+  #   #     delta = 1e-4
+  #   #   )
+  #   #   trend_est <- trend_model$trend
+  #   #   trend_components <- trend_model$grouping$Trend
+  #   #   model_obj <- trend_model$model_obj
+  #   #
+  #   #   g <- integer()
+  #   #   if (length(freqs) > 0) {
+  #   #     g <- grouping.auto.freqs(model_obj,
+  #   #                              # trend_model$grouping$Periodics,
+  #   #                              setdiff(1:rank, seq_along(trend_components)),
+  #   #                              freqs,
+  #   #                              C_max,
+  #   #                              threshold)
+  #   #   }
+  #   #   periodics_est <- reconstruct(model_obj, list(g))[[1]]
+  #   #   x_resid <- x - trend_est - periodics_est
+  #   #
+  #   #   # signal_rank <- length(trend_components) + length(g)
+  #   #   signal_rank <- length(trend_components) + sum(sapply(g, function(gg) sum(gg == seq_len(signal_rank))))
+  #   #   if (signal_rank == prev_signal_rank)
+  #   #     break
+  #   #   prev_signal_rank <- signal_rank
+  #   # }
+  #   # groups <- setdiff(1:rank, seq_len(signal_rank))
+  # }
+
+  # signal_rank <- max(signal_rank, g)
+  # # browser()
+  # s <- ssa(x, L2, svd.method = "svd", neig = rank)
+  # # signal_rank <- max(dec$result_df$index1, dec$result_df$index2, na.rm = TRUE)
+  # trend_model <- auto_trend_model(
+  #       s,
+  #       method = "eossa.auto",
+  #       signal_rank = dec$signal_rank,
+  #       clust_type = "distance",
+  #       auto_trend_freq = auto_trend_freq,
+  #       auto_threshold = 0.5,
+  #       delta = 1e-3
+  #     )
+  # trend_est <- trend_model$trend
+  # trend_components <- trend_model$grouping$Trend
+  # model_obj <- trend_model$model_obj
+  # 
+  # # freqs <- 1 / dec$result_df$period[-1]
+  # freqs <- dec$freqs
+  # if (length(freqs) > 0) {
+  #   g <- grouping.auto.freqs(model_obj,
+  #                            setdiff(1:dec$signal_rank, seq_along(trend_components)),
+  #                            freqs,
+  #                            C_max,
+  #                            threshold)
+  # }
+  # periodics_est <- reconstruct(model_obj, list(g))[[1]]
+  # signal_rank <- length(trend_components) + length(g)
+  
+  x_resid <- dec$residuals
+  
+  groups <- setdiff(1:rank, seq_len(dec$signal_rank))
+  
+  model_obj <- dec$model_obj
+  if (dec$signal_rank == 0) {
+    model_obj <- ssa(x, L2, svd.method = "svd", neig = rank)
+  }
+  m <- auto_mcssa(x_resid, model_obj, L1, delta, C_max, groups, conf.level, auto_trend_freq, threshold, method, maxit, detrend = FALSE, ...)
+  
+  # browser()
+  j_max <- dec$signal_rank
+  if (length(m$periodics_components)) {
+    j_max <- max(j_max, m$periodics_components)
+    wcors <- suppressWarnings(wcor(model_obj, groups = seq_len(rank))[m$periodics_components, , drop = FALSE])
+    for (i in seq_along(m$periodics_components)) {
+      w <- wcors[i, ]
+      j_max <- max(j_max, which(w >= 0.9) |> tail())
+    }
+  } else {
+    return(dec)
+  }
+  
+  # freqs <- c(dec$freqs, m$freqs)
+  # 
+  # trend_model <- auto_trend_model(
+  #     s,
+  #     method = "eossa.auto",
+  #     signal_rank = j_max,
+  #     clust_type = "distance",
+  #     auto_trend_freq = auto_trend_freq,
+  #     auto_threshold = 0.5,
+  #     delta = 1e-3
+  #   )
+  # 
+  # model_obj <- trend_model$model_obj
+  # 
+  # periodics_indices <- trend_model$grouping$Periodics
+  # 
+  # Fs <- reconstruct(model_obj, periodics_indices)
+  # mss <- sapply(Fs, function(f) mean(f^2))
+  # o <- order(mss, decreasing = TRUE)
+  # 
+  # g <- grouping.auto.freqs(model_obj, periodics_indices[o], freqs, C_max, threshold)
+  # 
+  # Fs <- reconstruct(model_obj, list(Periodics=g, Trend=trend_model$grouping$Trend))
+  # trend_est <- Fs$Trend
+  # periodics_est <- Fs$Periodics
+  # signal_rank <- length(g) + length(trend_model$grouping$Trend)
+  
+  dec2 <- auto_ssa(
+    x,
+    L = L2,
+    signal_rank = j_max,
+    conf.level = conf.level,
+    auto_trend_freq = auto_trend_freq,
+    tau_threshold = tau_threshold,
+    mcssa.arguments = list(L=L1, fixed=fixed),
+    nstages = 1
+  )
+  dec2
+  
+  return(
+    list(
+      trend = trend_est,
+      periodics = periodics_est,
+      trend_indices = trend_model$grouping$Trend,
+      periodics_indices = g,
+      signal_rank = signal_rank,
+      rank = j_max
+    )
+  )
+}
+```
+
+```{r}
+grouping.auto.pgram <- function (x, groups, base = c("series", "eigen", "factor"), 
+  freq.bins = 2, threshold = 0, method = c("constant", "linear"), 
+  ..., drop = TRUE) 
+{
+  if (!Rssa:::capable(x, "grouping.auto.pgram")) 
+    stop("grouping.auto is not implemented for this kind of SSA yet")
+  base <- match.arg(base)
+  method <- match.arg(method)
+  if (missing(groups)) 
+    groups <- as.list(1:min(nsigma(x), nu(x)))
+  Rssa:::.maybe.continue(x, groups = groups, ...)
+  # groups <- sort(unique(unlist(groups)))
+  if (identical(base, "eigen")) {
+    Fs <- Rssa:::.U(x)[, groups, drop = FALSE]
+  }
+  else if (identical(base, "factor")) {
+    Fs <- Rssa:::calc.v(x, groups, ...)
+  }
+  else if (identical(base, "series")) {
+    N <- x$length
+    Fs <- matrix(unlist(reconstruct(x, groups = as.list(groups), 
+      ...)), nrow = N)
+  }
+  pgs <- Rssa:::pgram(Fs)
+  if (!is.list(freq.bins)) {
+    if (length(freq.bins) == 1 && freq.bins >= 2) {
+      freq.bins <- seq(0, 0.5, length.out = freq.bins + 
+        1)[-1]
+    }
+    freq.lower.bound <- c(-Inf, head(freq.bins, -1))
+    freq.upper.bound <- freq.bins
+  }
+  else {
+    freq.bins <- lapply(freq.bins, function(x) if (length(x) == 
+      1) 
+      c(-Inf, x)
+    else x)
+    freq.lower.bound <- lapply(freq.bins, function(x) x[1])
+    freq.upper.bound <- lapply(freq.bins, function(x) x[2])
+  }
+  nresult <- max(length(threshold), length(freq.bins))
+  if (length(freq.lower.bound) < nresult) {
+    freq.lower.bound <- rep_len(freq.lower.bound, nresult)
+  }
+  if (length(freq.upper.bound) < nresult) {
+    freq.upper.bound <- rep_len(freq.upper.bound, nresult)
+  }
+  if (length(threshold) < nresult) {
+    threshold <- rep_len(threshold, nresult)
+  }
+  norms <- colSums(pgs$spec)
+  contributions <- matrix(NA, length(groups), nresult)
+  for (i in seq_len(nresult)) {
+    contributions[, i] <- if (identical(method, "constant")) 
+      colSums(pgs$spec[pgs$freq < freq.upper.bound[i] & 
+        pgs$freq >= freq.lower.bound[i], , drop = FALSE])/norms
+    else if (identical(method, "linear")) 
+      sapply(pgs$cumspecfuns, function(f) diff(f(c(freq.lower.bound[i], 
+        freq.upper.bound[i]))))/norms
+  }
+  type <- if (all(threshold <= 0)) 
+    "splitting"
+  else "independent"
+  if (identical(type, "splitting")) {
+    gi <- max.col(contributions, ties.method = "first")
+    result <- lapply(seq_len(nresult), function(i) groups[gi == 
+      i])
+  }
+  else if (identical(type, "independent")) {
+    result <- lapply(seq_len(nresult), function(i) groups[contributions[, 
+      i] >= threshold[i]])
+  }
+  else {
+    stop("Unknown type for pgrouping.auto.pgram")
+  }
+  names(result) <- if (!is.null(names(freq.bins))) 
+    Rssa:::.group.names(freq.bins)
+  else Rssa:::.group.names(threshold)
+  colnames(contributions) <- names(result)
+  rownames(contributions) <- as.character(groups)
+  if (drop) {
+    result <- result[sapply(result, length) > 0]
+  }
+  attr(result, "contributions") <- contributions
+  attr(result, "type") <- type
+  attr(result, "threshold") <- threshold
+  class(result) <- "grouping.auto.pgram"
+  result
+}
+
+
+grouping.auto.freqs <- function(x, groups, freqs, C_max = 5, threshold = 0.5) {
+  N <- x$length
+  n_triples <- sapply(freqs, function(freq) ifelse(abs(freq - 0.5) < .Machine$double.eps^0.5, 1, 2))
+  deltas <- sapply(freqs, function(freq) calculate_delta(N, freq, C_max))
+  freq.bins <- lapply(seq_along(freqs), function(i) c(freqs[i] - deltas[i], freqs[i] + deltas[i] + 1e-9))
+  g <- grouping.auto.pgram(x, groups, freq.bins = freq.bins, threshold = threshold)
+  
+  components <- integer()
+  for (j in seq_along(freq.bins)) {
+    gg <- setdiff(g[[paste0("F", j)]], components)
+    len <- min(length(gg), n_triples[j])
+    components <- c(components, gg[seq_len(len)])
+  }
+  components
+}
+```
+
+```{r}
+grouping.auto.freqs <- function(x, L = length(x) %/% 2, freqs, rank = 30, delta = 1e-4) {
+  
+  result_df <- data.frame(matrix(nrow=0, ncol=0))
+  result_df[1, "periodic_index"] <- 0
+  result_df[1, "measure"] <- -1
+  result_df[1, "measure_type"] <- -1
+  result_df[1, "mss"] <- -1
+  result_df[1, "period"] <- 0
+  result_df[1, "index1"] <- 0
+  result_df[1, "index2"] <- 0
+  
+  s <- ssa(x, L, svd.method = "svd")
+  eos <- eossa_new(s, nested.groups = 1:rank, clust_type = "distance", delta = delta)
+  model <- auto_periodic_model(eos, 1:rank, method = "angle_reg", threshold = Inf)
+  
+  measure <- c(model$two_el_tau, model$one_el_gamma)
+  measure_type <- c(rep(1, length(model$two_el_tau)), rep(2, length(model$one_el_gamma)))
+  
+  noise_estimate <- x
+  true_two_el_indices <- numeric(0)
+  true_one_el_indices <- numeric(0)
+  
+  indices <- list()
+  i <- 1
+  # browser()
+  for (k in 1:(length(model$two_el_indices) / 2)) {
+    idx <- c(2 * k - 1, 2 * k)
+    indices[[i]] <- model$two_el_indices[idx]
+    i <- i + 1
+  }
+
+  for (k in seq_along(model$one_el_indices)) {
+    indices[[i]] <- model$one_el_indices[k]
+    i <- i + 1
+  }
+  
+  mss <- numeric(0)
+  for (i in 1:length(indices)) {
+    r <- reconstruct(eos, groups=indices[i])
+    mss <- c(mss, mean(r$F1^2))
+  }
+  
+  combined_matrix <- cbind(indices, mss, measure, measure_type)
+  
+  sorted_matrix <- combined_matrix[order(mss, decreasing = TRUE), ]
+  
+  if (is.null(nrow(sorted_matrix))){
+    indices <- sorted_matrix[1]
+    mss <- sorted_matrix[2]
+    measure <- sorted_matrix[3]
+    measure_type <- sorted_matrix[4]
+  } else {
+    indices <- sorted_matrix[, 1]
+    mss <- sorted_matrix[, 2]
+    measure <- sorted_matrix[, 3]
+    measure_type <- sorted_matrix[, 4]
+  }
+  
+  mss <- mss |> as.numeric()
+  
+  periodic_estimate <- rep(0, length(x))
+  signif_freqs <- numeric()
+  freq.bins <- list()
+  deltas <- numeric()
+  n_triples <- integer()
+  current_mss <- mss
+  current_indices <- indices
+  
+  deltas <- c()
+  freq.bins <- list()
+  n_triples <- c()
+  for (i in seq_along(freqs)) {
+    deltas[i] <- calculate_delta(length(x), freqs[i], 5)
+    freq.bins[[i]] <- c(
+      freqs[i] - deltas[i] - 1e-9,
+      freqs[i] + deltas[i] + 1e-9
+    )
+    n_triples[i] <- ifelse(signif_freqs[i] == 0.5, 1, 2)
+    threshold <- 0.5
+    g <- grouping.auto.pgram(
+      eos,
+      base="series",
+      freq.bins=freq.bins[i],
+    )
+    j <- 1
+    
+    contribs_raw <- attr(g, "contribution") |> as.numeric()
+    contribs <- numeric()
+    while (j <= length(current_indices)){
+      contrib <- mean(contribs_raw[current_indices[[j]]])
+      contribs <- c(contribs, contrib)
+      j <- j + 1
+    }
+    
+    mask <- contribs > threshold
+    if (all(!mask))
+      next
+    
+    indices_masked <- current_indices[mask][[1]]
+    if (length(indices_masked) == 2) {
+      true_two_el_indices <- c(true_two_el_indices, indices_masked)
+      periodic <- reconstruct(eos, groups=list(indices_masked))$F1
+      result_df[i + 1, "period"] <- parestimate(
+        eos,
+        groups=list(indices_masked[1:2])
+      )$period[1]
+      result_df[i + 1, "index1"] <- indices_masked[1]
+      result_df[i + 1, "index2"] <- indices_masked[2]
+      result_df[i + 1, "measure_type"] <- 1
+    }
+    else {
+      true_one_el_indices <- c(true_one_el_indices, indices_masked)
+      periodic <- reconstruct(eos, groups=list(indices_masked))$F1
+      result_df[i + 1, "period"] <- parestimate(
+        eos,
+        groups=list(indices_masked)
+      )$period[1]
+      result_df[i + 1, "index1"] <- indices_masked
+      result_df[i + 1, "measure_type"] <- 2
+    }
+    result_df[i + 1, "mss"] <- current_mss[mask][1]
+    
+    current_indices <- current_indices[-which(mask)[1]]
+    current_mss <- current_mss[-which(mask)[1]]
+  }
+  
+  list(
+    result_df = result_df,
+    model = eos,
+    true_one_el_indices = true_one_el_indices,
+    true_two_el_indices = true_two_el_indices,
+    signal_rank = length(true_two_el_indices) + length(true_one_el_indices))
+  
+}
+```
+
+```{r}
+auto_ssa_freqs <- function(x, L, rank, mcssa.arguments) {
+  r <- auto_ssa(x, L, signal_rank = rank, auto_trend_freq = 0, tau_threshold = Inf, nstages = 1, mcssa.arguments = mcssa.arguments)
+  
+  freqs <- 1 / r$result_df$period[-1]
+  signal_rank <- r$signal_rank
+  
+  print(freqs)
+  print(signal_rank)
+  
+  rank_max <- rank
+  rank_min <- signal_rank 
+  while (rank_min < rank_max) {
+    print(c(rank_min, rank_max))
+    rank_mid <- (rank_max + rank_min) %/% 2
+    res <- grouping.auto.freqs(x, L, freqs = freqs, rank_max = rank_mid)
+    if (res$signal_rank < signal_rank)
+      rank_min <- rank_mid + 1
+    else
+      rank_max <- rank_mid
+  }
+  
+  print(rank_min)
+  
+  g <- grouping.auto.freqs(x, L, freqs, rank_min)
+  r <- reconstruct(g$model, list(c(g$true_one_el_indices, g$true_two_el_indices)))
+  list(periodics = r$F1, trend = 0, rank = length(c(g$true_one_el_indices, g$true_two_el_indices)))
+}
+```
+
+```{r}
+auto_ssa_errors <- function(noise, signal, L, M = 500, nstages = "auto", mcssa.arguments) {
+  pb <- progressor(M)
+  result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+    pb()
+    f <- noise[[i]] + signal$trend + signal$periodics
+    m <- auto_ssa(f, L, auto_trend_freq = 1/24, nstages = nstages, mcssa.arguments = mcssa.arguments)
+    
+    mse <- mean((signal$trend + signal$periodics - (m$periodics + m$trend))^2)
+    mse_periodics <- mean((signal$periodics - m$periodics)^2)
+    mse_trend <- mean((signal$trend - m$trend)^2)
+    rank <- m$signal_rank
+    
+    c(mse, mse_trend, mse_periodics, rank)
+  }
+  result <- do.call(rbind, result) |> data.frame()
+  colnames(result) <- c("mse", "mse_trend", "mse_periodics", "rank")
+  result
+}
+```
+
+```{r}
+auto_mcssa_new_errors <- function(noise,
+                                  signal,
+                                  L1,
+                                  L2,
+                                  rank = 30,
+                                  auto_trend_freq = 1 / 24,
+                                  tau_threshold = 0.05,
+                                  threshold = 0.5,
+                                  fixed = list(phi = 0, d = 0),
+                                  M = 500) {
+  pb <- progressor(M)
+  result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+    pb()
+    f <- noise[[i]] + signal$trend + signal$periodics
+    m <- auto_mcssa_new(
+      f,
+      L1,
+      L2,
+      rank = rank,
+      auto_trend_freq = auto_trend_freq,
+      tau_threshold = tau_threshold,
+      threshold = threshold,
+      fixed = fixed
+    )
+    
+    mse <- mean((signal$trend + signal$periodics - (m$periodics + m$trend))^2)
+    mse_periodics <- mean((signal$periodics - m$periodics)^2)
+    mse_trend <- mean((signal$trend - m$trend)^2)
+    rank <- m$signal_rank
+    
+    c(mse, mse_trend, mse_periodics, rank)
+  }
+  result <- do.call(rbind, result) |> data.frame()
+  colnames(result) <- c("mse", "mse_trend", "mse_periodics", "rank")
+  result
+}
+```
+
+```{r}
+auto_ssa_pavel_errors <- function(noise,
+                                  signal,
+                                  L,
+                                  MC.L,
+                                  signal_rank = 30,
+                                  auto_trend_freq = 1 / 24,
+                                  tau_threshold = 0.05,
+                                  noise_type = "white",
+                                  M = 500) {
+  pb <- progressor(M)
+  result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+    pb()
+    
+    f <- noise[[i]] + signal$trend + signal$periodics
+    
+    dec <- auto_ssa(f, L = L, MC.L = MC.L, signal_rank = signal_rank, noise_type = noise_type, auto_trend_freq = auto_trend_freq, tau_threshold = tau_threshold)
+    
+    periodics_est <- dec$periodics
+    trend_est <- dec$trend
+    mse <- mean((periodics_est + trend_est - (signal$trend + signal$periodics))^2)
+    mse_trend <- mean((trend_est - signal$trend)^2)
+    mse_periodics <- mean((periodics_est - signal$periodics)^2)
+    c(mse, mse_trend, mse_periodics, dec$signal_rank)
+  
+  }
+  result <- do.call(rbind, result) |> data.frame()
+  colnames(result) <- c("mse", "mse_trend", "mse_periodics", "rank")
+  result
+}
+```
+
+```{r}
+auto_mcssa_errors <- function(noise,
+                              signal,
+                              L1,
+                              L2,
+                              rank = 30,
+                              auto_trend_freq = 1 / 24,
+                              fixed = list(phi = 0, d = 0),
+                              M = 500) {
+  N <- length(signal)
+  pb <- progressor(M)
+  result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+    pb()
+    f <- noise[[i]] + signal$trend + signal$periodics
+    s <- ssa(f, L2, svd.method = "svd")
+    m <- auto_mcssa(f, s, L1, groups = 1:rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
+    
+    mse <- mean((signal$trend + signal$periodics - (m$periodics + m$trend))^2)
+    mse_periodics <- mean((signal$periodics - m$periodics)^2)
+    mse_trend <- mean((signal$trend - m$trend)^2)
+    
+    rank <- length(c(m$periodics_components, m$trend_components))
+    
+    c(mse, mse_trend, mse_periodics, rank)
+  }
+  result <- do.call(rbind, result) |> data.frame()
+  colnames(result) <- c("mse", "mse_trend", "mse_periodics", "rank")
+  result
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- 15
+
+# Setting up parallel computing
+plan(multisession, workers = min(cores, detectCores() - 1))
+registerDoFuture()
+```
+
+Пример 1.
+$$
+s_n = 0.075 \exp(0.02n)\cos(2 \pi n / 8) + \cos(2 \pi n / 4) + 0.2\cdot (-1)^n.
+$$
+
+```{r}
+N <- 200
+omega <- 0.125
+signal <- list(
+  trend = 0,
+  periodics = mapply(em_harmonic, N, c(1, 2, 4) * omega,  c(0.02, 0, 0) * N, c(0.075, 1, 0.2)) |> rowSums()
+)
+model <- list(phi = 0.7, sigma2 = 1)
+```
+
+```{r}
+noise_data <- list()
+set.seed(1234)
+for (i in seq_len(1000)) {
+  noise_data[[i]] <- arfima.sim(model, N)
+}
+save(noise_data, file="data/noise_phi7.RData")
+```
+
+```{r}
+L1 <- 48
+L2 <- 96
+rank <- 30
+auto_trend_freq <- 0
+tau_threshold <- Inf
+threshold <- 0.5
+fixed <- list(phi = NA, d = 0)
+```
+
+```{r}
+load("data/noise_phi7.RData")
+f <- noise_data[[2]] + signal$trend + signal$periodics
+s <- ssa(f, L = L2, svd.method = "svd")
+
+set.seed(10)
+system.time(
+  r2 <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, tau_threshold = tau_threshold, fixed = fixed)
+)
+# r <- auto_mcssa(f, s, L1, groups = 1:rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
+# r <- auto_ssa(f, L2, rank, auto_trend_freq = auto_trend_freq, MC.L = L1, tau_threshold = 0.05, noise_type = "red", trace = TRUE)
+```
+
+```{r}
+load("data/noise_phi7.RData")
+set.seed(10)
+results_mcssa_new1 <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold, fixed)
+```
+
+```{r}
+set.seed(10)
+results_mcssa1 <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, fixed)
+```
+
+```{r}
+set.seed(10)
+results_auto_ssa1 <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, 0.05, "red")
+```
+
+
+Пример 2.
+$$
+t_n=0.2e^{0.025 n} + 2\cos(2\pi n / 60).\\
+p_n=4.12\cos(2\pi n / 4) + 4.12\cos(2\pi n/3) + 6\cos(2\pi n / 2).
+$$
+
+```{r}
+signal <- list(
+  trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
+  periodics = mapply(em_harmonic, N, c(1 / 4, 1 / 3, 1 / 2),  c(0, 0, 0), c(4.12, 4.12, 6)) |> rowSums()
+)
+model <- list(phi = 0.3, sigma2 = 1)
+```
+
+```{r}
+L1 <- 48
+L2 <- 96
+rank <- 30
+auto_trend_freq <- 1 / 24
+tau_threshold <- 0.05
+threshold <- 0.5
+fixed <- list(phi = NA, d = 0)
+```
+
+Белый шум.
+```{r}
+load("data/white_noise.RData")
+f <- noise_data[[305]] + signal$trend + signal$periodics
+s <- ssa(f, L = L2, svd.method = "svd")
+
+set.seed(10)
+system.time(
+  r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
+)
+# r <- auto_mcssa(f, s, L1, groups = 1:rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
+```
+
+```{r}
+load("data/white_noise.RData")
+set.seed(10)
+results_mcssa_new2_wn <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold)
+```
+
+```{r}
+set.seed(10)
+results_mcssa2_wn <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq)
+```
+
+```{r}
+set.seed(10)
+results_auto_ssa2_wn <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, tau_threshold)
+```
+
+Красный шум.
+```{r}
+load("data/noise_phi3.RData")
+set.seed(10)
+results_mcssa_new2_rn <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold, fixed = fixed)
+```
+
+```{r}
+set.seed(10)
+results_mcssa2_rn <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, fixed)
+```
+
+```{r}
+set.seed(10)
+results_auto_ssa2_rn <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, tau_threshold, "red")
+```
+
+Пример 3.
+$$
+t_n=0.2e^{0.025n}+2\cos(2\pi n/60)\\
+p_n=4e^{-0.01n}\cos(2\pi n/4) + 4\cos(2\pi n/3) + 6e^{-0.01n}\cos(2\pi n/2)
+$$
+```{r}
+signal <- list(
+  trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
+  periodics = mapply(em_harmonic, N, c(1 / 4, 1 / 3, 1 / 2),  c(-2, 0, -2), c(4, 4, 6)) |> rowSums()
+)
+```
+
+```{r}
+L1 <- 48
+L2 <- 96
+rank <- 30
+auto_trend_freq <- 1 / 24
+tau_threshold <- 0.05
+threshold <- 0.5
+fixed <- list(phi = NA, d = 0)
+```
+
+```{r}
+load("data/white_noise.RData")
+f <- noise_data[[68]] + signal$trend + signal$periodics
+
+set.seed(10)
+# r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
+# r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq)
+r <- auto_mcssa(f, s, L1, groups = 1:rank, auto_trend_freq = auto_trend_freq)
+```
+
+```{r}
+load("data/white_noise.RData")
+set.seed(10)
+results_mcssa_new3_wn <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold)
+```
+
+```{r}
+set.seed(10)
+results_mcssa3_wn <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq)
+```
+
+```{r}
+set.seed(10)
+results_auto_ssa3_wn <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, tau_threshold)
+```
+
+
+Красный шум.
+```{r}
+load("data/noise_phi3.RData")
+set.seed(10)
+results_mcssa_new3_rn <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold, fixed)
+```
+
+```{r}
+set.seed(10)
+results_mcssa3_rn <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, fixed)
+```
+
+```{r}
+set.seed(10)
+results_auto_ssa3_rn <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, tau_threshold, "red")
+```
+
+Пример 4.
+$$
+s_n = 0.075 \exp(0.02n)\cos(2 \pi n / 8) + 1.5 e^{-0.01n} \cos(2 \pi n / 4) + e^{-0.01n} \cdot (-1)^n.
+$$
+```{r}
+signal <- list(
+  trend = 0,
+  periodics = mapply(em_harmonic, N, c(1, 2, 4) * omega,  c(0.02, -0.01, -0.01) * N, c(0.075, 1.5, 1)) |> rowSums()
+)
+```
+
+```{r}
+L1 <- 48
+L2 <- 96
+rank <- 30
+auto_trend_freq <- 0
+tau_threshold <- Inf
+threshold <- 0.5
+fixed <- list(phi = NA, d = 0)
+```
+
+```{r}
+load("data/white_noise.RData")
+f <- noise_data[[436]] + signal$trend + signal$periodics
+
+set.seed(10)
+# r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
+r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, tau_threshold = tau_threshold)
+```
+
+```{r}
+load("data/noise_phi7.RData")
+set.seed(10)
+results_mcssa_new4 <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold, fixed)
+```
+
+```{r}
+set.seed(10)
+results_mcssa4 <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, fixed)
+```
+
+```{r}
+set.seed(10)
+results_auto_ssa4 <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, 0.5, "red")
+```
