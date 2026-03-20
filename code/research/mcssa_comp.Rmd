@@ -123,14 +123,15 @@ plot.ts(signal3)
 ```
 
 ```{r eval=FALSE, include=FALSE}
-mcssa_sim <- function(M, Ls, basis, model, signal = 0, ...) {
+mcssa_sim <- function(M, Ls, basis, signal = 0, ...) {
+  N <- model$N
   p.values <- list()
   pb <- progressor(M * length(Ls))
   for (idx in seq_along(Ls)) {
     result <- foreach (i = 1:M, .combine = "c", .options.RNG = 1) %dorng% {
       pb()
-      f <- generate_channel(model, signal)
-      res <- mcssa(f, Ls[idx], basis, model = model, conf.level = NULL, freq.range = NULL ...)
+      f <- arfima.sim(model, N) + signal
+      res <- mcssa(f, Ls[idx], basis, conf.level = NULL, ...)
       res$p.value
     }
     p.values[[idx]] <- result
@@ -151,15 +152,18 @@ registerDoFuture()
 ```
 
 ```{r eval=FALSE, include=FALSE}
-p_noise_ev <- mcssa_sim(M, Ls, model, basis = "ev")
-p_noise_ev_svd <- mcssa_sim(M, Ls, "ev", model, decomposition.method = "svd")
-p_signal1_ev <- mcssa_sim(M, Ls, "ev", model, signal1)
-p_signal2_ev <- mcssa_sim(M, Ls, "ev", model, signal2)
-p_signal3_ev <- mcssa_sim(M, Ls, "ev", model, signal3, decomposition.method = "svd")
-p_signal4_ev <- mcssa_sim(M, Ls, "ev", model, signal4, decomposition.method = "svd")
+p_noise_ev <- mcssa_sim(M, Ls, "ev", model = model)
+p_noise_ev_svd <- mcssa_sim(M, Ls, "ev", model = model, decomposition.method = "svd")
+p_signal1_ev <- mcssa_sim(M, Ls, "ev", signal1,  model = model)
+p_signal2_ev <- mcssa_sim(M, Ls, "ev", signal2,  model = model)
+p_signal3_ev <- mcssa_sim(M, Ls, "ev", signal3,  model = model, decomposition.method = "svd")
+p_signal4_ev <- mcssa_sim(M, Ls, "ev", signal4,  model = model, decomposition.method = "svd")
+
+p_noise_ev_est <- mcssa_sim(M, Ls, "ev", fixed = list(phi = NA, d = 0))
 
 p.values_ev <- data.frame(
   noise = unlist(p_noise_ev),
+  noise_est = unlist(p_noise_ev_est),
   noise_svd = unlist(p_noise_ev_svd),
   signal1 = unlist(p_signal1_ev),
   signal2 = unlist(p_signal2_ev),
@@ -171,14 +175,17 @@ p.values_ev <- data.frame(
 ```
 
 ```{r eval=FALSE, include=FALSE}
-p_noise_cos <- mcssa_sim(M, Ls, "cos", model)
-p_signal1_cos <- mcssa_sim(M, Ls, "cos", model, signal1)
-p_signal2_cos <- mcssa_sim(M, Ls, "cos", model, signal2)
-p_signal3_cos <- mcssa_sim(M, Ls, "cos", model, signal3)
-p_signal4_cos <- mcssa_sim(M, Ls, "cos", model, signal4)
+p_noise_cos <- mcssa_sim(M, Ls, "cos", model = model)
+p_signal1_cos <- mcssa_sim(M, Ls, "cos", signal1, model = model)
+p_signal2_cos <- mcssa_sim(M, Ls, "cos", signal2, model = model)
+p_signal3_cos <- mcssa_sim(M, Ls, "cos", signal3, model = model)
+p_signal4_cos <- mcssa_sim(M, Ls, "cos",  signal4, model = model)
+
+p_noise_cos_est <- mcssa_sim(M, Ls, "cos", fixed = list(phi = NA, d = 0))
 
 p.values_cos <- data.frame(
   noise = unlist(p_noise_cos),
+  noise_est = unlist(p_noise_cos_est),
   signal1 = unlist(p_signal1_cos),
   signal2 = unlist(p_signal2_cos),
   signal3 = unlist(p_signal3_cos),
@@ -195,6 +202,7 @@ df_ev <- p.values_ev |>
   group_by(L) |>
   reframe(
     alphaI = ecdf(noise)(alphas),
+    alphaI_est = ecdf(noise_est)(alphas),
     alphaI_svd = ecdf(noise_svd)(alphas),
     beta1 = ecdf(signal1)(alphas),
     beta2 = ecdf(signal2)(alphas),
@@ -207,6 +215,7 @@ df_cos <- p.values_cos |>
   group_by(L) |>
   reframe(
     alphaI = ecdf(noise)(alphas),
+    alphaI_est = ecdf(noise_est)(alphas),
     beta1 = ecdf(signal1)(alphas),
     beta2 = ecdf(signal2)(alphas),
     beta3 = ecdf(signal3)(alphas),
@@ -247,6 +256,20 @@ dev.off()
 pdf("../../tex/master/img/mcssa_comp_alphaI_cos.pdf", width = 8, height = 4)
 plot_distr(
   alphaI ~ signif.level, df_cos,
+  xlab = "significance level", ylab = "type I error"
+)
+dev.off()
+
+pdf("../../tex/master/img/alphaI_ev_est.pdf", width = 8, height = 4)
+plot_distr(
+  alphaI_est ~ signif.level, df_ev,
+  xlab = "significance level", ylab = "type I error"
+)
+dev.off()
+
+pdf("../../tex/master/img/alphaI_cos_est.pdf", width = 8, height = 4)
+plot_distr(
+  alphaI_est ~ signif.level, df_cos,
   xlab = "significance level", ylab = "type I error"
 )
 dev.off()
