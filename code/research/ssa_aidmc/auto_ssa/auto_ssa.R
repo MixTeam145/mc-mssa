@@ -653,9 +653,88 @@ angle.fun <- function(P, Q) {
               mean_angle = mm))
 }
 
-periodic_grouping_angle_reg <- function(ssa_obj, 
+# periodic_grouping_angle_reg <- function(ssa_obj, 
+#                                         groups,
+#                                         threshold = 0.01, 
+#                                         eps = 1e-9,
+#                                         s_0 = 1,
+#                                         rho_0 = 0.9,
+#                                         p_0 = 0.05,
+#                                         ...) {
+#   groups <- sort(unique(unlist(groups)))
+#   
+#   if (missing(groups)) {
+#     groups <- 1:nu(ssa_obj)
+#   }
+# 
+#   # Identification of periodics with frequency 0.5
+#   L <- ssa_obj$window
+#   Fs <- ssa_obj$U[, groups, drop = FALSE]
+#   if (length(groups) == 1){
+#     Fs <- matrix(Fs, ncol = 1)
+#     sums <- sum(abs(sign(Fs[1:(L - 1),]) + sign(Fs[2:L,])) / 2) 
+#   } else {
+#     sums <- colSums(abs(sign(Fs[1:(L - 1),]) + sign(Fs[2:L,])) / 2) 
+#   }
+#   one_el_gamma <- sums / (L - 1)
+#   one_el_gamma <- one_el_gamma[one_el_gamma < p_0]
+#   I_2_final <- groups[sums / (L - 1) < p_0]
+#   
+#   groups <- setdiff(groups, I_2_final)
+#   
+#   if (length(groups) >= 2){
+#     filter_mask <- rep(FALSE, length(groups) - 1)
+#     tau <- numeric(length(groups) - 1)
+#     I_1_freqs <- numeric(length(groups) - 1)
+#     for (j in seq_along(groups)[-length(groups)]) {
+#       res <- angle.fun(P = ssa_obj$U[, groups[j]], 
+#                        Q = ssa_obj$U[, groups[j + 1]])
+#       tau[j] <- res$tau_value
+#       I_1_freqs[j] <- res$mean_angle / (2 * pi)
+#     }
+#     sorted_indices <- order(tau)
+#     for (j in seq_along(sorted_indices)) {
+#       left_taken <- FALSE
+#       if (sorted_indices[j] > 1){
+#         if ((groups[sorted_indices[j]] == groups[sorted_indices[j] - 1]) &
+#             (filter_mask[sorted_indices[j] - 1] == TRUE))
+#           left_taken <- TRUE
+#       }
+#       
+#       right_taken <- FALSE
+#       if (sorted_indices[j] < length(sorted_indices)){
+#         if ((groups[sorted_indices[j]] == groups[sorted_indices[j] + 1]) &
+#             (filter_mask[sorted_indices[j] + 1] == TRUE))
+#           right_taken <- TRUE
+#       }
+#       
+#       if (!left_taken & !right_taken & (tau[sorted_indices[j]] - threshold < eps))
+#         filter_mask[sorted_indices[j]] <- TRUE
+#     }
+#     
+#     tau_raw <- tau
+#     two_el_tau <- tau[c(filter_mask, FALSE)]
+#     I_1_final <- groups[c(filter_mask, FALSE)]
+#     I_1_final <- sort(c(I_1_final, I_1_final + 1))
+#     I_1_freqs <- I_1_freqs[filter_mask]
+#   }else{
+#     I_1_final <- numeric(0)
+#     I_1_freqs <- numeric(0)
+#     two_el_tau <- numeric(0)
+#     tau_raw <- numeric(0)
+#   }
+#   
+#   list(I_1 = I_1_final,
+#        two_el_tau=two_el_tau,
+#        I_1_freqs = I_1_freqs,
+#        I_2 = I_2_final,
+#        tau_raw=tau_raw,
+#        one_el_gamma=one_el_gamma)
+# }
+
+periodic_grouping_angle_reg <- function(ssa_obj,
                                         groups,
-                                        threshold = 0.01, 
+                                        threshold = 0.01,
                                         eps = 1e-9,
                                         s_0 = 1,
                                         rho_0 = 0.9,
@@ -666,15 +745,15 @@ periodic_grouping_angle_reg <- function(ssa_obj,
   if (missing(groups)) {
     groups <- 1:nu(ssa_obj)
   }
-
+  
   # Identification of periodics with frequency 0.5
   L <- ssa_obj$window
   Fs <- ssa_obj$U[, groups, drop = FALSE]
-  if (length(groups) == 1){
+  if (length(groups) == 1) {
     Fs <- matrix(Fs, ncol = 1)
-    sums <- sum(abs(sign(Fs[1:(L - 1),]) + sign(Fs[2:L,])) / 2) 
+    sums <- sum(abs(sign(Fs[1:(L - 1), ]) + sign(Fs[2:L, ])) / 2)
   } else {
-    sums <- colSums(abs(sign(Fs[1:(L - 1),]) + sign(Fs[2:L,])) / 2) 
+    sums <- colSums(abs(sign(Fs[1:(L - 1), ]) + sign(Fs[2:L, ])) / 2)
   }
   one_el_gamma <- sums / (L - 1)
   one_el_gamma <- one_el_gamma[one_el_gamma < p_0]
@@ -682,54 +761,49 @@ periodic_grouping_angle_reg <- function(ssa_obj,
   
   groups <- setdiff(groups, I_2_final)
   
-  if (length(groups) >= 2){
+  if (length(groups) >= 2) {
     filter_mask <- rep(FALSE, length(groups) - 1)
     tau <- numeric(length(groups) - 1)
     I_1_freqs <- numeric(length(groups) - 1)
     for (j in seq_along(groups)[-length(groups)]) {
-      res <- angle.fun(P = ssa_obj$U[, groups[j]], 
-                       Q = ssa_obj$U[, groups[j + 1]])
+      res <- angle.fun(P = ssa_obj$U[, groups[j]], Q = ssa_obj$U[, groups[j + 1]])
       tau[j] <- res$tau_value
       I_1_freqs[j] <- res$mean_angle / (2 * pi)
     }
-    sorted_indices <- order(tau)
-    for (j in seq_along(sorted_indices)) {
-      left_taken <- FALSE
-      if (sorted_indices[j] > 1){
-        if ((groups[sorted_indices[j]] == groups[sorted_indices[j] - 1]) &
-            (filter_mask[sorted_indices[j] - 1] == TRUE))
-          left_taken <- TRUE
+    
+    o <- order(tau)
+    mask <- rep(TRUE, length(groups) - 1)
+    for (i in o) {
+      if (mask[i]) {
+        if (i > 1)
+          mask[i - 1] <- FALSE
+        if (i < length(mask))
+          mask[i + 1] <- FALSE
       }
-      
-      right_taken <- FALSE
-      if (sorted_indices[j] < length(sorted_indices)){
-        if ((groups[sorted_indices[j]] == groups[sorted_indices[j] + 1]) &
-            (filter_mask[sorted_indices[j] + 1] == TRUE))
-          right_taken <- TRUE
-      }
-      
-      if (!left_taken & !right_taken & (tau[sorted_indices[j]] - threshold < eps))
-        filter_mask[sorted_indices[j]] <- TRUE
     }
     
+    mask <- mask & tau - threshold < eps
     tau_raw <- tau
-    two_el_tau <- tau[c(filter_mask, FALSE)]
-    I_1_final <- groups[c(filter_mask, FALSE)]
+    two_el_tau <- tau[mask]
+    I_1_final <- groups[c(mask, FALSE)]
     I_1_final <- sort(c(I_1_final, I_1_final + 1))
-    I_1_freqs <- I_1_freqs[filter_mask]
-  }else{
+    I_1_freqs <- I_1_freqs[mask]
+    
+  } else{
     I_1_final <- numeric(0)
     I_1_freqs <- numeric(0)
     two_el_tau <- numeric(0)
     tau_raw <- numeric(0)
   }
   
-  list(I_1 = I_1_final,
-       two_el_tau=two_el_tau,
-       I_1_freqs = I_1_freqs,
-       I_2 = I_2_final,
-       tau_raw=tau_raw,
-       one_el_gamma=one_el_gamma)
+  list(
+    I_1 = I_1_final,
+    two_el_tau = two_el_tau,
+    I_1_freqs = I_1_freqs,
+    I_2 = I_2_final,
+    tau_raw = tau_raw,
+    one_el_gamma = one_el_gamma
+  )
 }
 
 auto_periodic_model <- function(ssa_obj,

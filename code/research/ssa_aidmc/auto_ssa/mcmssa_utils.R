@@ -5,7 +5,7 @@ library("matrixStats")
 library("magic")
 library("stats")
 library(LSTS)
-# source("toeplitz_mssa.R")
+source("toeplitz_mssa.R")
 #source("auto_trend_ssa.R")
 
 type = 8
@@ -69,10 +69,14 @@ est.model.arima <-  function(f,
 }
 ###end
 
-est.model.arima.red <- function(f,
-                                freq.range=c(0, 0.5),
-                                mode="MLE",
-                                opt_init_phi=0.5){
+est.model.arima.red <- function(
+    f,
+    freq.range=c(0, 0.5),
+    mode="MLE",
+    opt_init_phi=0.5,
+    phi_lower=-0.999,
+    phi_upper=0.999,
+    sigma_upper_m='inf'){
   # opt_fun <- function(params, f, omega0) {
   #   fixed_freq <- omega0 * 2 * pi
   #   phi <- params[1]
@@ -172,14 +176,20 @@ est.model.arima.red <- function(f,
   if (mode == "MLE"){
     init_params <- c(phi = opt_init_phi, sigma2 = var(f))
     
+    if (sigma_upper_m == 'inf')
+      sigma_upper <- Inf 
+    else
+      sigma_upper <- var(f) * 2
+    
     result <- optim(
       par = init_params,
       fn = loglik,
       omega_0 = freq.range[1],
       method = "L-BFGS-B",
-      lower = c(-0.999, 1e-6),
-      upper = c(0.999, Inf)
+      lower = c(phi_lower, 1e-6),
+      upper = c(phi_upper, sigma_upper)
     )
+    # print(result$par[1])
     
     estimated_phi <- result$par[1]
     estimated_sigma2 <- result$par[2] ^ 2
@@ -213,8 +223,25 @@ est.model.arima.red <- function(f,
   estModel
 }
 
-###Functions for Monte Carlo SSA
-# Computes squared norms of projections to column vectors of U
+compute_colSums_W_sq <- function(f, L, U) {
+  N <- length(f)
+  K <- N - L + 1
+  p <- ncol(U)
+  res <- numeric(p)
+  
+  for (j in 1:p) {
+    sum_sq <- 0
+    for (k in 1:K) {
+      # Вычисляем k-ю строку W[,j] = sum_{i=1}^L f[k+i-1] * U[i,j]
+      w_kj <- sum(f[k:(k + L - 1)] * U[, j])
+      sum_sq <- sum_sq + w_kj^2
+    }
+    res[j] <- sum_sq / N
+  }
+  
+  return(res)
+}
+
 projec <- function(data, L, D, U, kind=c("ev", "fa")) {
   if (is.list(data)) {
     # data are given by a model
@@ -385,26 +412,49 @@ what.reject <- function(res){
   print(res$freq[res$idx][rej==TRUE])
 }
 
+parallel_projec_matrix <- function(model, L, D, plan_U, kind, G) {
+  n_cores <- detectCores() - 1
+  cl <- makeCluster(n_cores)
+  registerDoParallel(cl)
+  
+  result_matrix <- foreach(
+    i = 1:G, 
+    .combine = "cbind",
+    .export = c("projec", "generate", "replicate", "colSums_W_sq_rcpp", "one.channel.ts", "compute_colSums_W_sq"),
+    .packages = c()
+  ) %dopar% {
+    projec(data = model, L = L, D = D, U = plan_U, kind = kind)
+  }
+  
+  stopCluster(cl)
+  
+  return(result_matrix)
+}
+
 ###Main functions for multiple Monte Carlo SSA
 # Make multiple test
 do.ci <-
-  function(f,
-           plan, 
-           kind=c("ev", "fa"),
-           model,
-           level.conf,
-           L,
-           G,
-           D,
-           two.tailed = FALSE,
-           composite,
-           transf = function(x) {
-             return(x)
-           },
-           inv.transf = function(x) {
-             return(x)
-           },
-           weights = 1) {
+  function(
+    f,
+     plan, 
+     kind=c("ev", "fa"),
+     model,
+     level.conf,
+     L,
+     G,
+     D,
+     two.tailed = FALSE,
+     composite,
+     transf = function(x) {
+       return(x)
+     },
+     inv.transf = function(x) {
+       return(x)
+     },
+     weights = 1,
+     red.phi_lower=-0.999,
+     red.phi_upper=0.999,
+     red.sigma_upper_m='inf') {
     P <- replicate(G, projec(data = model, L = L, D = D, U = plan$U, kind=kind))
     v <- projec(data = f, L = L, D = D, U = plan$U, kind=kind)
     
@@ -701,7 +751,10 @@ MonteCarloSSA <-
            composite = FALSE,
            sigma_est_method="mss",
            mode="MLE",
-           opt_init_phi=0.3) {
+           opt_init_phi=0.5,
+           red.phi_lower=-0.999,
+           red.phi_upper=0.999,
+           red.sigma_upper_m='inf') {
     f <- as.matrix(f)
     if (is.null(model))
     {
@@ -710,14 +763,28 @@ MonteCarloSSA <-
         if (noise_type == "white")
           estModel <- est.model.arima(f, freq.range=freq.range, method=sigma_est_method)
         else if (noise_type == "red")
-          estModel <- est.model.arima.red(f, freq.range=freq.range, mode=mode, opt_init_phi=opt_init_phi)
+          estModel <- est.model.arima.red(
+            f, 
+            freq.range=freq.range, 
+            mode=mode, 
+            opt_init_phi=opt_init_phi,
+            phi_lower=red.phi_lower,
+            phi_upper=red.phi_upper,
+            sigma_upper_m=red.sigma_upper_m)
       }
       else {
         for (channel in 1:D){
           if (noise_type == "white")
             estModel[[channel]] <- est.model.arima(f[,channel], freq.range=freq.range, method=sigma_est_method)
           else if (noise_type == "red")
-            estModel[[channel]] <- est.model.arima(f[,channel], freq.range=freq.range, mode=mode, opt_init_phi=opt_init_phi)
+            estModel[[channel]] <- est.model.arima(
+              f[,channel], 
+              freq.range=freq.range, 
+              mode=mode, 
+              opt_init_phi=opt_init_phi,
+              phi_lower=red.phi_lower,
+              phi_upper=red.phi_upper,
+              sigma_upper_m=red.sigma_upper_m)
         }
       }
     }

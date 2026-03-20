@@ -1,5 +1,5 @@
-source("auto_ssa.R", TRUE)
-source("mcmssa_utils.R", TRUE)
+source("auto_ssa.R", local = TRUE)
+source("mcmssa_utils.R", local = TRUE)
 # source("ic.R")
 #source("ic_AR1noise.R")
 
@@ -263,7 +263,7 @@ auto_periodic_model <- function(ssa_obj,
                                        c(res$I_1, res$I_2))
   if (length(this$undetermined_indices) > 0){
     this[["undetermined_series"]] <- reconstruct(ssa_obj, 
-                                                 groups = list(this$undetermined_indices))$F1
+                                                 groups = list(this$undetermined_indices[[1]]))$F1
   } else {
     this[["undetermined_series"]] <- numeric(0)
   }
@@ -272,12 +272,16 @@ auto_periodic_model <- function(ssa_obj,
 }
 
 noise_hypothesis <- function(time_series,
+                             MC.L,
                              method='mc',
                              sign_level=0.05,
                              noise_type='red',
-                             L=NULL,
                              fixed_freqs=FALSE,
-                             freq.range=NULL){
+                             freq.range=NULL,
+                             MC.G=1000,
+                             MC.phi_lower=-0.999,
+                             MC.phi_upper=0.999,
+                             MC.sigma_upper_m='inf'){
   # Функция для проверки гипотезы о шуме
   # 
   # :param time_series: ряд, для которого проверяется гипотеза
@@ -296,32 +300,39 @@ noise_hypothesis <- function(time_series,
   #   :key pval: pvalue
   
   if (method == "mc"){
-    if (fixed_freqs)
+    if (fixed_freqs){
       pval <- MonteCarloSSA(
         f = time_series,
         freq.range = freq.range,
-        L = L,
+        L = MC.L,
         model = NULL,
         basis = 'sin0',
         kind = "ev",
         D = 1,
-        G = 1000,
+        G = MC.G,
         level.conf = NULL,
         composite = TRUE,
-        noise_type=noise_type
+        noise_type=noise_type,
+        red.phi_lower=MC.phi_lower,
+        red.phi_upper=MC.phi_upper,
+        red.sigma_upper_m=MC.sigma_upper_m
       )$p.value
+    }
     else
       pval <- MonteCarloSSA(
         f = time_series,
-        L = L,
+        L = MC.L,
         model = NULL,
         basis = 'sin0',
         kind = "ev",
         D = 1,
-        G = 1000,
+        G = MC.G,
         level.conf = NULL,
         composite = TRUE,
-        noise_type=noise_type
+        noise_type=noise_type,
+        red.phi_lower=MC.phi_lower,
+        red.phi_upper=MC.phi_upper,
+        red.sigma_upper_m=MC.sigma_upper_m
       )$p.value
   } else if (method == "box"){
     pval <- Box.test(time_series)$p.value
@@ -333,21 +344,28 @@ noise_hypothesis <- function(time_series,
               'pval'=pval))
 }
 
-get_periodics_trend <- function(detrend_series,
-                                model_obj,
-                                periodic_indices,
-                                L,
-                                method,
-                                basis=NULL,
-                                sign_level=0.05,
-                                tau_threshold=0.05,
-                                p_0=0.03,
-                                stop_flag=TRUE,
-                                trace=FALSE,
-                                noise_type="white",
-                                auto_trend_freq=NULL,
-                                fixed_freqs=TRUE,
-                                check_hypothesis=TRUE){
+get_periodics_trend <- function(
+    detrend_series,
+    model_obj,
+    periodic_indices,
+    L,
+    method="mc",
+    basis=NULL,
+    sign_level=0.05,
+    tau_threshold=0.05,
+    p_0=0.03,
+    stop_flag=TRUE,
+    trace=FALSE,
+    noise_type="white",
+    auto_trend_freq=NULL,
+    fixed_freqs=TRUE,
+    check_hypothesis=TRUE,
+    MC.L=L,
+    MC.G=1000,
+    MC.phi_lower=-0.999,
+    MC.phi_upper=0.999,
+    MC.sigma_upper_m='inf'
+  ){
   # Метод автоматической идентификации периодик после выделения тренда
   # 
   # :param detrend_series: временной ряд, из которого извлекли тренд
@@ -409,13 +427,17 @@ get_periodics_trend <- function(detrend_series,
                             method=method,
                             sign_level=sign_level,
                             noise_type=noise_type,
-                            L=L,
                             fixed_freqs=fixed_freqs,
-                            freq.range=c(auto_trend_freq, 0.5))
+                            freq.range=c(auto_trend_freq, 0.5),
+                            MC.L=MC.L,
+                            MC.G=MC.G,
+                            MC.phi_lower=MC.phi_lower,
+                            MC.phi_upper=MC.phi_upper,
+                            MC.sigma_upper_m=MC.sigma_upper_m)
     
     result_df[1, "pval"] <- res$pval
-    
-    end_flag <- res$result 
+    # print(res$pval)
+    end_flag <- res$result
   }
   
   j <- 1
@@ -555,9 +577,13 @@ get_periodics_trend <- function(detrend_series,
                             method=method,
                             sign_level=sign_level,
                             noise_type=noise_type,
-                            L=L,
                             fixed_freqs=fixed_freqs,
-                            freq.range=c(auto_trend_freq, 0.5))
+                            freq.range=c(auto_trend_freq, 0.5),
+                            MC.L=MC.L,
+                            MC.G=MC.G,
+                            MC.phi_lower=MC.phi_lower,
+                            MC.phi_upper=MC.phi_upper,
+                            MC.sigma_upper_m=MC.sigma_upper_m)
     
     result_df[j + 1, "pval"] <- res$pval
     
@@ -578,8 +604,8 @@ get_periodics_trend <- function(detrend_series,
 
 procedure <- function(
     time_series,
-    L,
-    signal_rank,
+    L=length(time_series) %/% 2,
+    signal_rank=30,
     method='mc',
     trend_method="eossa.auto",
     basis='sin0',
@@ -596,6 +622,12 @@ procedure <- function(
     rank_method='trmat',
     max_rank=30,
     eossa_delta=1e-3,
+    svd.method="svd",
+    MC.L=L,
+    MC.G=1000,
+    MC.phi_lower=-0.999,
+    MC.phi_upper=0.999,
+    MC.sigma_upper_m='inf',
     ...
   ){
   # Метод автоматической идентификации компонент
@@ -660,7 +692,25 @@ procedure <- function(
                                  method=rank_method)
   }
   
-  s <- ssa(time_series, L=L, svd.method="svd")
+  if (signal_rank == 0){
+    res <- list()
+    
+    res[["raw_two_el_indices"]] <- numeric(0)
+    res[["true_two_el_indices"]] <- numeric(0)
+    res[["raw_one_el_indices"]] <- numeric(0)
+    res[["true_one_el_indices"]] <- numeric(0)
+    res[["result_df"]] <- data.frame()
+    res[["periodics"]] <- rep(0, length(time_series))
+    res[["residuals"]] <- time_series
+    res[["trend"]] <- rep(0, length(time_series))
+    res[["trend_indices"]] <- numeric(0)
+    res[["model_obj"]] <- NA
+    res[['signal_rank']] <- 0
+    
+    return(res)
+  }
+  
+  s <- ssa(time_series, L=L, svd.method=svd.method, neig=signal_rank)
   trend_model <- auto_trend_model(ssa_obj=s,
                                   method=trend_method,
                                   signal_rank=signal_rank,
@@ -672,8 +722,6 @@ procedure <- function(
                                   ...)
   
   if (trace){
-    plot(trend_model$model_obj)
-    plot(trend_model$model_obj, type="paired")
     print("Trend indices")
     print(trend_model$grouping$Trend)
   }
@@ -693,7 +741,12 @@ procedure <- function(
                              trace=trace,
                              fixed_freqs=fixed_freqs,
                              auto_trend_freq=auto_trend_freq,
-                             check_hypothesis=check_hypothesis)
+                             check_hypothesis=check_hypothesis,
+                             MC.L=MC.L,
+                             MC.G=MC.G,
+                             MC.phi_lower=MC.phi_lower,
+                             MC.phi_upper=MC.phi_upper,
+                             MC.sigma_upper_m=MC.sigma_upper_m)
   
   res[["residuals"]] <- time_series - trend_model$trend - res$periodics
   res[["trend"]] <- trend_model$trend
@@ -707,8 +760,8 @@ procedure <- function(
 
 auto_ssa <- function(
   time_series,
-  L,
-  signal_rank,
+  L=length(time_series) %/% 2,
+  signal_rank=30,
   method='mc',
   trend_method="eossa.auto",
   basis='sin0',
@@ -726,6 +779,12 @@ auto_ssa <- function(
   max_rank=30,
   eossa_delta=1e-4,
   nstages='auto',
+  svd.method="svd",
+  MC.L=L,
+  MC.G=1000,
+  MC.phi_lower=-0.999,
+  MC.phi_upper=0.999,
+  MC.sigma_upper_m='inf',
   ...){
   # Метод автоматической идентификации компонент
   # :param time_series: временной ряд, по которому будет построено разложение
@@ -776,13 +835,16 @@ auto_ssa <- function(
   #        отобранных методом регулярности углов
   #   :key trend_indices: индексы трендовых компонент
   #   :key model_obj: объект SSA (вложенное разложение)
-  
+
   if (nstages == 'auto')
     nstages_max <- 30
   else
     nstages_max <- nstages
   current_signal_rank <- signal_rank
   for (stage in 1:nstages_max){
+    if (trace){
+      print(paste0("Current stage: ", stage, "; Input signal rank: ", current_signal_rank))
+    }
     dec <- procedure(
       time_series=time_series,
       L=L,
@@ -802,11 +864,43 @@ auto_ssa <- function(
       check_hypothesis = check_hypothesis,
       rank_method=rank_method,
       max_rank=max_rank,
-      eossa_delta=eossa_delta
+      eossa_delta=eossa_delta,
+      svd.method=svd.method,
+      MC.L=MC.L,
+      MC.G=MC.G,
+      MC.phi_lower=MC.phi_lower,
+      MC.phi_upper=MC.phi_upper,
+      MC.sigma_upper_m=MC.sigma_upper_m
     )
-    if (((nstages == 'auto') && (current_signal_rank == dec$signal_rank)))
+    if ((nstages == 'auto') & (current_signal_rank == dec$signal_rank))
       break
     current_signal_rank <- dec$signal_rank
   }
   return(dec)
+}
+
+rforecast_auto_ssa <- function(dec, h){
+  return(rforecast(dec$model_obj, groups=list(c(1:dec$signal_rank)), h))
+}
+
+rforecast_ar <- function(noise_estimate, phi, h){
+  last_value <- noise_estimate[length(noise_estimate)]
+  phi_powers <- phi ^ seq_len(h)
+  forecast <- last_value * phi_powers
+  return(forecast)
+}
+
+rforecast_auto_ssa_ar <- function(dec, auto_trend_freq, h){
+  signal_forecast <- rforecast_auto_ssa(dec, h)
+  
+  noise_estimate <- dec$residuals
+  model <- est.model.arima.red(
+    noise_estimate,
+    freq.range=c(auto_trend_freq, 0.5),
+    mode="MLE",
+    opt_init_phi=0.5
+  )
+  noise_forecast <- rforecast_ar(noise_estimate, model$varphi, h)
+  
+  return(signal_forecast + noise_forecast)
 }
