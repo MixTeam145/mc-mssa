@@ -173,7 +173,7 @@ what.reject <- function(x) {
 
 ### Main functions for multiple Monte Carlo SSA
 # Make multiple test
-do.test <- function(x, G, conf.level, two.tailed, freq.range) {
+do.test <- function(x, G, conf.level, two.tailed, freq.range, freq.exclude, trace = FALSE) {
   N <- x$length
   L <- x$window
   D <- x$channels
@@ -184,7 +184,17 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
     mask <-
       x$proj_vectors$freq >=  freq.range[1] &
       x$proj_vectors$freq <= freq.range[2]
-  } else {
+  } else if (!is.null(freq.exclude)) {
+    if (!is.list(freq.exclude))
+      freq.exclude <- list()
+    mask <- rep(TRUE, ncol(x$proj_vectors$W))
+    for (i in seq_along(freq.exclude)) {
+      mask <- mask &
+        (x$proj_vectors$freq <  freq.exclude[[i]][1] |
+        x$proj_vectors$freq > freq.exclude[[i]][2])
+    }
+  }
+  else {
     mask <- rep(TRUE, ncol(x$proj_vectors$W))
   }
   
@@ -192,6 +202,7 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
     stop("No vectors with given frequency range, aborting")
   
   x$freq.range <- freq.range
+  x$freq.exclude <- freq.exclude
   
   # # Pre-compute FFT of the reversed vectors for the fast matrix-vector product
   # W <- x$proj_vectors$W
@@ -234,15 +245,21 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range) {
   W_tensor <-  torch::torch_tensor(x$proj_vectors$W[, mask, drop = FALSE], device = device)
   P <- torch::torch_tensor(matrix(0.0, nrow = G, ncol = W_tensor$shape[2]), device = device)
   # browser()
-  pb <- progress::progress_bar$new(format = "[:bar] :percent :current/:total | ETA :eta", total = G)
+  if (trace) {
+    pb <- progress::progress_bar$new(format = "[:bar] :percent :current/:total | ETA :eta", total = G)
+  }
   for (i in seq(1, G, batch_size)) {
     num <- min(batch_size, G - i + 1)
     surrogates_batch <- replicate(num, generate(x$model, N, D, demean = TRUE)) |> torch::torch_tensor(device = device)  # (N, D, num)
     P[i:(i + num - 1), ] <- projec(surrogates_batch, L, W_tensor)
     
-    pb$tick(len = num)
+    if (trace) {
+      pb$tick(len = num)
+    }
   }
-  pb$terminate()
+  if (trace) {
+    pb$terminate()
+  }
   
   # browser()
   series_tensor <- torch::torch_tensor(x$series, device = device)$unsqueeze(3)
@@ -319,7 +336,9 @@ mcssa <- function(x,
                   conf.level = 0.8,
                   two.tailed = FALSE,
                   freq.range = c(0, 0.5),
-                  composite = FALSE) {
+                  freq.exclude = NULL,
+                  composite = FALSE,
+                  trace = FALSE) {
   if (!is.matrix(x)) {
     x <- as.matrix(x)
     # if (!missing(model))
@@ -390,14 +409,16 @@ mcssa <- function(x,
     G,
     conf.level,
     two.tailed,
-    freq.range
+    freq.range,
+    freq.exclude,
+    trace
   )
   this
 }
 
 
 plot.mcssa <- function(x, by.order = FALSE, text.size = 10, point.size = 1) {
-  if (!length(x$freq.range)) {
+  if (!length(x$freq.range) & is.null(x$freq.exclude)) {
     warning("The main frequencies of projection vectors are missing, estimating them now")
     x$statistic$freq <- apply(x$proj_vectors$W, 2, estimate_freq)
   }
