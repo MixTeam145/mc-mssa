@@ -18,3 +18,5 @@ tex/cps2024/images/*.pdf
 /tex/.vscode
 *.upa
 *.upb
+
+*.docx
