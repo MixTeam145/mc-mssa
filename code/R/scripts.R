@@ -514,7 +514,7 @@ auto_periodics_mc <- function(
   }
   combined_matrix <- cbind(indices, mss, measure, measure_type)
   
-  sorted_matrix <- combined_matrix[order(mss, decreasing = TRUE), ]
+  sorted_matrix <- combined_matrix[order(mss, decreasing = TRUE), , drop = FALSE]
   
   if (is.null(nrow(sorted_matrix))){
     indices <- sorted_matrix[1]
