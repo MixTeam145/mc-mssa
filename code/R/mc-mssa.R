@@ -178,9 +178,11 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range, freq.exclude, trac
   L <- x$window
   D <- x$channels
   
-  if (!is.null(freq.range)) {
+  if (!is.null(freq.range) || !is.null(freq.exclude))
     if (!length(x$proj_vectors$freq))
       x$proj_vectors$freq <- apply(x$proj_vectors$W, 2, estimate_freq)
+  
+  if (!is.null(freq.range)) {
     mask <-
       x$proj_vectors$freq >=  freq.range[1] &
       x$proj_vectors$freq <= freq.range[2]
@@ -357,15 +359,22 @@ mcssa <- function(x,
   
   if (missing(model)) {
     model <- vector("list", D)
-    freq.exclude <- list(c(0, freq.range[1]), c(freq.range[2], 0.5))
+    if (is.null(freq.exclude) && !isTRUE(all.equal(freq.range, c(0, 0.5)))) {
+      eps <- .Machine$double.eps ^ 0.5
+      freq.exclude <- list()
+      if (freq.range[1] >= eps)
+        freq.exclude <- c(freq.exclude, list(c(0, freq.range[1] - eps)))
+      if ((0.5 - freq.range[2]) >= eps)
+        freq.exclude <- c(freq.exclude, list(c(freq.range[1] + eps, 0.5)))
+    }
     for (channel in seq_len(D)) {
       model[[channel]] <- as.list(
         arfima_whittle(x[, channel], c(fixed$phi, fixed$d), freq.exclude)
       )
-      # model[[channel]]$N <- N 
     }
     if (D == 1)
       model <- model[[1]]
+    freq.range <- NULL
   }
   
   call <- match.call()
@@ -406,12 +415,12 @@ mcssa <- function(x,
   
   this <- do.test(
     this,
-    G,
-    conf.level,
-    two.tailed,
-    freq.range,
-    freq.exclude,
-    trace
+    G = G,
+    conf.level = conf.level,
+    two.tailed = two.tailed,
+    freq.range = freq.range,
+    freq.exclude = freq.exclude,
+    trace = trace
   )
   this
 }

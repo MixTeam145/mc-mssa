@@ -60,7 +60,7 @@ arfima_mle <- function(x, fixed = NULL) {
 
 
 # Fit an ARFIMA(1, d, 0) model using Whittle estimation
-arfima_whittle <- function(x, fixed = NULL, freq.exclude) {
+arfima_whittle <- function(x, fixed = NULL, freq.exclude = NULL) {
   n <- length(x)
   m <- (n - 1) %/% 2
   
@@ -68,7 +68,7 @@ arfima_whittle <- function(x, fixed = NULL, freq.exclude) {
   spec <- Mod(fft(x)[2:(m + 1)]) ^ 2 / n
   freq <- 1:m / n
   
-  if (!missing(freq.exclude) && length(freq.exclude)) {
+  if (!is.null(freq.exclude) && length(freq.exclude)) {
     idx <- sapply(freq.exclude, function(fb) freq < fb[1] | freq > fb[2])
     idx <- which(rowSums(idx) == length(freq.exclude))
     spec <- spec[idx]
