@@ -110,7 +110,7 @@ df_shanghai
 ```
 
 ```{r}
-f <- ts(df_shanghai$`No 2`, start = c(2013, 12), frequency = 12)
+f <- ts(df_shanghai$PM10, start = c(2013, 12), frequency = 12)
 # f <- window(f, start = c(2018, 1))
 plot(f)
 ```
@@ -186,11 +186,21 @@ process_series <- function(x, h, models) {
 ```{r}
 h <- 24
 ssa_aidmc.arguments <- list(
-  L1 = 36,
-  L2 = 60,
+  L = 60,
   rank = 30,
+  conf.level = 0.95,
   tau_threshold = Inf,
-  fixed = list(phi = 0, d = 0), # White noise model,
+  auto_trend_freq = 1 / 24,
+  auto_trend_threshold = 0.5,
+  p_0 = 0.03,
+  auto_periodic_threshold = 0.5,
+  C_max = 5,
+  mcssa.argumnents = list(
+    L = 36,
+    fixed = list(phi = 0, d = 0) # White noise model
+  ),
+  fixed_freqs = TRUE, # Флаг отвечающий за включение интервала (0, auto_trend_freq] при оценке параметров
+  eossa_delta = 1e-3,
   trace = FALSE
 )
 ```
@@ -207,6 +217,7 @@ models <- list(
 ```
 
 ```{r}
+set.seed(1234)
 res <- process_series(f, h, models)
 ```
 
@@ -227,7 +238,7 @@ res$fit_results$`SSA-AidMC`$trend_indices
 ```
 
 ```{r}
-s <- ssa(f |> tail(-h), L = ssa_aidmc.arguments$L2, svd.method = "svd")
+s <- ssa(f |> head(-h), L = ssa_aidmc.arguments$L, svd.method = "svd")
 plot(s, "series", groups = 1:20)
 ```
 

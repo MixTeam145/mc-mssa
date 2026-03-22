@@ -351,6 +351,8 @@ auto_periodics_mc <- function(
     conf.level = 0.95,
     tau_threshold = 0.05,
     p_0 = 0.03,
+    auto_threshold = 0.5,
+    C_max = 5,
     trace = FALSE,
     auto_trend_freq = NULL,
     fixed_freqs = TRUE,
@@ -372,6 +374,10 @@ auto_periodics_mc <- function(
   # :param p_0: порог для метода идентификации периодик с периодом 2 (порог для 
   #             доли пар без смены знака), если доля пар без смены знака меньше 
   #             этого порога, то компоненту относим к сигналу
+  # :param auto_threshold: порог для доли частот для автоматической идентификации периодики
+  #                                 с заданной частотой
+  # :param C_max: максимальная допустимая амлитудная модуляция в ряде
+  #               (во сколько раз увеличивается/уменьшается значение ряда в начале по сравнению с концом)
   # :param fixed_freqs: флаг для оценки параметров шума по части спектра
   # :param check_hypothesis: флаг для проверки гипотез
   # :param mcssa.arguments: аргументы, передаваемые методу MC-SSA
@@ -417,12 +423,17 @@ auto_periodics_mc <- function(
     if (is.null(mcssa.arguments$fixed))
       mcssa.arguments$fixed <- list(phi = NA, d = NA)
     
+    if (fixed_freqs)
+      freq.range <- c(auto_trend_freq, 0.5)
+    else
+      freq.range <- c(0, 0.5)
+      
     m <- mcssa(
       x = noise_estimate,
       L = mcssa.arguments$L,
       basis = "cos",
       fixed = mcssa.arguments$fixed,
-      freq.range = c(auto_trend_freq, 0.5),
+      freq.range = freq.range,
       conf.level = conf.level
     )
     result_df[1, "pval"] <- m$p.value
@@ -539,17 +550,19 @@ auto_periodics_mc <- function(
   deltas <- numeric()
   n_triples <- integer()
   
-  maxit <- 10
-  freq.exclude <- list(c(0, auto_trend_freq))
+  if (fixed_freqs)
+    freq.exclude <- list(c(0, auto_trend_freq))
+  else
+    freq.exclude <- list()
+    
+  
   while (m$reject){
     current_indices <- sorted_matrix[, "indices"]
     
-    C_max <- 5
     signif_freqs[i] <- get_signif_freq(m, n_periodics = 1)
     deltas[i] <- calculate_delta(length(detrend_series), signif_freqs[i], C_max)
     freq.bins[[i]] <- c(signif_freqs[i] - deltas[i] - 1e-9, signif_freqs[i] + deltas[i] + 1e-9)
     n_triples[i] <- ifelse(signif_freqs[i] == 0.5, 1, 2)
-    threshold <- 0.5
     
     g <- grouping.auto.pgram(
       model_obj,
@@ -566,7 +579,7 @@ auto_periodics_mc <- function(
       j <- j + 1
     }
 
-    mask <- contribs > threshold
+    mask <- contribs > auto_threshold
       
     if (all(!mask)) {
       result_df[i, "period"] <- 1 / signif_freqs[i]
@@ -662,8 +675,10 @@ procedure_mc <- function(
     conf.level = 0.95,
     tau_threshold = 0.05,
     auto_trend_freq = 1/24,
-    auto_threshold = 0.5,
+    auto_trend_threshold = 0.5,
     p_0 = 0.03,
+    auto_periodic_threshold = 0.5,
+    C_max = 5,
     base = 'series',
     trace = FALSE,
     fixed_freqs = TRUE,
@@ -689,13 +704,17 @@ procedure_mc <- function(
   #                       с мерой tau меньше этого порога отбираются в сигнал
   # :param auto_trend_freq: порог низких частот, частоты в разложении Фурье,
   #                         которые меньше этой частоты, считаем трендовыми
-  # :param auto_threshold: порог для доли низких частот, компоненты с долей 
+  # :param auto_trend_threshold: порог для доли низких частот, компоненты с долей 
   #                        низких частот больше этого порога считаем трендовыми
   # :param base: тип ряда для автоматической группировки, 'series' или 'eigen'
   # :param trace: флаг для подробного вывода всех этапов вычислений
   # :param p_0: порог для метода идентификации периодик с периодом 2 (порог для 
   #             доли пар без смены знака), если доля пар без смены знака меньше 
   #             этого порога, то компоненту относим к сигналу
+  # :param auto_periodic_threshold: порог для доли частот для автоматической идентификации периодики
+  #                                 с заданной частотой
+  # :param C_max: максимальная допустимая амлитудная модуляция в ряде
+  #               (во сколько раз увеличивается/уменьшается значение ряда в начале по сравнению с концом)
   # :param fixed_freqs: флаг для оценки параметров шума по части спектра
   # :param check_hypothesis: флаг для проверки гипотез
   # :param rank_method: метод автоматической оценки ранга сигнала, только для 
@@ -759,7 +778,7 @@ procedure_mc <- function(
     signal_rank = signal_rank,
     clust_type = "distance",
     auto_trend_freq = auto_trend_freq,
-    auto_threshold = auto_threshold,
+    auto_threshold = auto_trend_threshold,
     delta = eossa_delta,
     base = base,
     ...
@@ -778,6 +797,8 @@ procedure_mc <- function(
     conf.level = conf.level,
     tau_threshold = tau_threshold,
     p_0 = p_0,
+    auto_threshold = auto_periodic_threshold,
+    C_max = C_max,
     trace = trace,
     fixed_freqs = fixed_freqs,
     auto_trend_freq = auto_trend_freq,
@@ -802,8 +823,10 @@ ssa_aid <- function(time_series,
                     conf.level = 0.95,
                     tau_threshold = 0.05,
                     auto_trend_freq = 1 / 24,
-                    auto_threshold = 0.5,
+                    auto_trend_threshold = 0.5,
                     p_0 = 0.03,
+                    auto_periodic_threshold = 0.5,
+                    C_max = 5,
                     base = 'series',
                     trace = FALSE,
                     fixed_freqs = TRUE,
@@ -832,13 +855,17 @@ ssa_aid <- function(time_series,
   #                       с мерой tau меньше этого порога отбираются в сигнал
   # :param auto_trend_freq: порог низких частот, частоты в разложении Фурье,
   #                         которые меньше этой частоты, считаем трендовыми
-  # :param auto_threshold: порог для доли низких частот, компоненты с долей 
+  # :param auto_trend_threshold: порог для доли низких частот, компоненты с долей 
   #                        низких частот больше этого порога считаем трендовыми
   # :param base: тип ряда для автоматической группировки, 'series' или 'eigen'
   # :param trace: флаг для подробного вывода всех этапов вычислений
   # :param p_0: порог для метода идентификации периодик с периодом 2 (порог для 
   #             доли пар без смены знака), если доля пар без смены знака меньше 
   #             этого порога, то компоненту относим к сигналу
+  # :param auto_periodic_threshold: порог для доли частот для автоматической идентификации периодики
+  #                                 с заданной частотой
+  # :param C_max: максимальная допустимая амлитудная модуляция в ряде
+  #               (во сколько раз увеличивается/уменьшается значение ряда в начале по сравнению с концом)
   # :param fixed_freqs: флаг для оценки параметров шума по части спектра
   # :param check_hypothesis: флаг для проверки гипотез
   # :param rank_method: метод автоматической оценки ранга сигнала, только для 
@@ -882,8 +909,10 @@ ssa_aid <- function(time_series,
       conf.level = conf.level,
       tau_threshold = tau_threshold,
       auto_trend_freq = auto_trend_freq,
-      auto_threshold = auto_threshold,
+      auto_trend_threshold = auto_trend_threshold,
       p_0 = p_0,
+      auto_periodic_threshold = auto_periodic_threshold,
+      C_max = C_max,
       base = base,
       trace = trace,
       fixed_freqs = fixed_freqs,

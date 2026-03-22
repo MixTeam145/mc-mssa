@@ -67,25 +67,20 @@ calculate_delta <- function(N,
 auto_mcssa <- function(x,
                        ssa_obj,
                        L,
-                       delta = NULL,
-                       C_max = 5,
                        groups = 1:30,
                        conf.level = 0.95,
                        auto_trend_freq = 1 / 24,
-                       threshold = 0.5,
+                       auto_trend_threshold = 0.5,
+                       auto_periodic_threshold = 0.5,
+                       C_max = 5,
                        method = c("adaptive", "semi-adaptive", "fixed"),
                        maxit = 10,
                        detrend = TRUE,
+                       fixed = list(phi = 0, d = 0),
                        ...) {
   method <- match.arg(method)
   
   N <- length(x)
-  
-  args <- list(...)
-  if (!is.null(args$fixed))
-    fixed <- args$fixed
-  else
-    fixed <- list(phi = NA, d = NA)
   
   trend_components <- integer()
   trend_est <- rep(0, N)
@@ -97,8 +92,7 @@ auto_mcssa <- function(x,
       signal_rank = length(groups),
       clust_type = "distance",
       auto_trend_freq = auto_trend_freq,
-      auto_threshold = 0.5,
-      delta = 0.001
+      ...
     )
     trend_est <- trend_model$trend
     trend_components <- trend_model$grouping$Trend
@@ -139,7 +133,7 @@ auto_mcssa <- function(x,
     freq.bins[[i]] <- c(freq[i] - delta - 1e-9, freq[i] + delta + 1e-9)
     
     n_triples[i] <- ifelse(freq[i] == 0.5, 1, 2)
-    g <- grouping.auto.pgram(ssa_obj, groups_current, "series", freq.bins[i], threshold)
+    g <- grouping.auto.pgram(ssa_obj, groups_current, "series", freq.bins[i], auto_periodic_threshold)
     if (length(g)) {
       g <- g[[1]]
       len <- min(length(g), n_triples[i])
@@ -182,36 +176,36 @@ auto_mcssa <- function(x,
 
 
 ssa_aidmc <- function(x,
-                      L1,
-                      L2 = (N + 1) %/% 2,
-                      delta = NULL,
-                      C_max = 5,
+                      L = (N + 1) %/% 2,
                       rank = 30,
                       conf.level = 0.95,
                       auto_trend_freq = 1 / 24,
+                      auto_trend_threshold = 0.5,
                       tau_threshold = 0.05,
-                      threshold = 0.5,
+                      p_0 = 0.03,
+                      auto_periodic_threshold = 0.5,
+                      C_max = 5,
                       method = c("adaptive", "semi-adaptive", "fixed"),
                       maxit = 10,
                       trace = FALSE,
+                      mcssa.arguments = list(L = L, fixed = list(phi = 0, d = 0)),
                       ...) {
-  args <- list(...)
-  if (!is.null(args$fixed))
-    fixed <- args$fixed
-  else
-    fixed <- list(phi = NA, d = NA)
-  
   N <- length(x)
   
   dec <- ssa_aid(
     x,
-    L = L2,
+    L = L,
     signal_rank = rank,
     conf.level = conf.level,
     auto_trend_freq = auto_trend_freq,
+    auto_trend_threshold = auto_trend_threshold,
     tau_threshold = tau_threshold,
-    mcssa.arguments = list(L = L1, fixed = fixed),
-    trace = trace
+    p_0 = p_0,
+    auto_periodic_threshold = auto_periodic_threshold,
+    C_max = C_max,
+    mcssa.arguments = mcssa.arguments,
+    trace = trace,
+    ...
   )
   
   x_resid <- dec$residuals
@@ -220,25 +214,24 @@ ssa_aidmc <- function(x,
   
   model_obj <- dec$model_obj
   if (dec$signal_rank == 0) {
-    model_obj <- ssa(x, L2, svd.method = "svd", neig = rank)
+    model_obj <- ssa(x, L, svd.method = "svd", neig = rank)
   }
   
   m <- auto_mcssa(
     x_resid,
-    model_obj,
-    L1,
-    delta,
-    C_max,
-    groups,
-    conf.level,
-    auto_trend_freq,
-    threshold,
-    method,
-    maxit,
+    ssa_obj = model_obj,
+    L = mcssa.arguments$L,
+    groups = groups,
+    conf.level = conf.level,
+    auto_trend_freq = auto_trend_freq,
+    t_threshold = t_threshold,
+    C_max = C_max,
+    method = method,
+    maxit = maxit,
     detrend = FALSE,
+    fixed = mcssa.arguments$fixed,
     ...
   )
-  
   j_max <- dec$signal_rank
   if (length(m$periodics_components)) {
     wcors <- suppressWarnings(wcor(model_obj, groups = seq_len(rank))[m$periodics_components, , drop = FALSE])
@@ -252,12 +245,16 @@ ssa_aidmc <- function(x,
   
   dec2 <- ssa_aid(
     x,
-    L = L2,
+    L = L,
     signal_rank = j_max,
     conf.level = conf.level,
     auto_trend_freq = auto_trend_freq,
+    auto_trend_threshold = auto_trend_threshold,
     tau_threshold = tau_threshold,
-    mcssa.arguments = list(L = L1, fixed = fixed),
+    p_0 = p_0,
+    auto_periodic_threshold = auto_periodic_threshold,
+    C_max = C_max,
+    mcssa.arguments = mcssa.arguments,
     nstages = 1,
     trace = trace
   )
