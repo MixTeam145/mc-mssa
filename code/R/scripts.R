@@ -354,7 +354,7 @@ auto_periodics_mc <- function(
     auto_threshold = 0.5,
     C_max = 5,
     trace = FALSE,
-    auto_trend_freq = NULL,
+    auto_trend_freq = 0,
     fixed_freqs = TRUE,
     check_hypothesis = TRUE,
     mcssa.arguments = list()
@@ -555,8 +555,7 @@ auto_periodics_mc <- function(
   else
     freq.exclude <- list()
     
-  
-  while (m$reject){
+  while (m$reject) {
     current_indices <- sorted_matrix[, "indices"]
     
     signif_freqs[i] <- get_signif_freq(m, n_periodics = 1)
@@ -582,7 +581,7 @@ auto_periodics_mc <- function(
     mask <- contribs > auto_threshold
       
     if (all(!mask)) {
-      result_df[i, "period"] <- 1 / signif_freqs[i]
+      result_df[i + 1, "period"] <- 1 / signif_freqs[i]
       N <- length(noise_estimate)
       freq.exclude[[length(freq.exclude) + 1]] <- freq.bins[[i]]
       signif_freqs[i] <- NA

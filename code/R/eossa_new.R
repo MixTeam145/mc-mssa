@@ -43,7 +43,7 @@ dist_clust_old <- function(roots, delta) {
 
 dist_clust_table <- function(roots_table, 
                              delta) {
-  set.seed(10)
+  # set.seed(10)
   roots_data <- roots_table
   res_indices <- numeric(0)
   res_k <- numeric(0)

@@ -662,7 +662,7 @@ periodic_grouping_angle_reg <- function(ssa_obj,
                                         rho_0 = 0.9,
                                         p_0 = 0.05,
                                         ...) {
-  groups <- sort(unique(unlist(groups)))
+  # groups <- sort(unique(unlist(groups)))
   
   if (missing(groups)) {
     groups <- 1:nu(ssa_obj)
@@ -709,7 +709,8 @@ periodic_grouping_angle_reg <- function(ssa_obj,
     tau_raw <- tau
     two_el_tau <- tau[mask]
     I_1_final <- groups[c(mask, FALSE)]
-    I_1_final <- sort(c(I_1_final, I_1_final + 1))
+    I_1_final <- sapply(which(mask), function(m) groups[c(m, m + 1)]) |> as.numeric()
+    # I_1_final <- sort(c(I_1_final, I_1_final + 1))
     I_1_freqs <- I_1_freqs[mask]
     
     # sorted_indices <- order(tau)
