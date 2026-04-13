@@ -1,0 +1,422 @@
+---
+title: "Confidence level choice"
+output:
+  html_document:
+    # toc: true
+    # toc_float: true
+    # toc_collapsed: true
+    # number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 10)
+
+library(lattice)
+library(parallel)
+library(doFuture)
+library(doRNG)
+library(progressr)
+library(tidyr)
+library(latex2exp)
+library(ggpubr)
+library(readr)
+library(lubridate)
+library(here)
+library(rstatix)
+
+source(here("R", "ssa_aidmc.R"))
+load("./data/conf_level2_choice.RData")
+load("./data/conf_level1_choice.RData")
+
+theme_set(
+  theme_bw() +
+  theme(
+    legend.key.width = unit(18, "mm"),
+    legend.text = element_text(size = 12),
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  ) 
+)
+```
+
+```{r}
+process_one <- function(x, h, signal, ...) {
+  x_train <- x |> head(-h)
+  x_val <- x |> tail(h)
+  
+  trend <- signal$trend |> head(-h)
+  periodics <- signal$periodics |> head(-h)
+
+  ssa_aidmc_res <- ssa_aidmc(x_train, ...)
+  
+  periodic_indices <- c(
+    ssa_aidmc_res$true_two_el_indices,
+    ssa_aidmc_res$true_one_el_indices
+  )
+  signal_indices <- c(
+    ssa_aidmc_res$trend_indices,
+    periodic_indices
+  )
+  fc <- forecast(
+    object = ssa_aidmc_res$model_obj,
+    groups = list(signal_indices),
+    h = h,
+    method = "vector"
+  )
+  
+  mse_trend <- mean((ssa_aidmc_res$trend - trend)^2)
+  mse_periodics <- mean((ssa_aidmc_res$periodics - periodics)^2)
+  mse_signal <- mean(
+    (ssa_aidmc_res$periodics + ssa_aidmc_res$trend - trend - periodics)^2
+  )
+  mse_fc <- mean((fc$mean - x_val)^2)
+
+  if (length(periodic_indices))
+    periods <- ssa_aidmc_res$result_df$period[-1]
+  else
+    periods <- integer()
+  
+   res <- data.frame(
+    trend_rank = length(ssa_aidmc_res$trend_indices),
+    periodics_rank = length(periodic_indices),
+    signal_rank = ssa_aidmc_res$signal_rank,
+    mse_trend = mse_trend,
+    mse_periodics = mse_periodics,
+    mse_signal = mse_signal,
+    mse_fc = mse_fc
+    # results = ssa_aidmc_res
+   )
+   res$periods <- list(periods |> round(3))
+  
+  res
+} 
+
+process <- function(noise_data, signal, h, ssa_aidmc.arguments, M = 500, ...) {
+  pb <- progressor(M)
+  results <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+    pb()
+    x <- noise_data[[i]] + signal$trend + signal$periodics
+    res <- do.call(process_one, c(list(x, h = h, signal = signal, ...), ssa_aidmc.arguments))
+    res
+  }
+  do.call(rbind, results)
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- 15
+
+# Setting up parallel computing
+plan(multisession, workers = min(cores, detectCores() - 1))
+registerDoFuture()
+```
+
+Рассмотрим ряды длины $N=200$. Пусть горизонт прогноза равен $h=24$. Рассмотрим две модели ряда:
+
+- Часть сигнала не доминирует на шумом:
+$$
+\begin{aligned}
+x_n&=t_n+p_n+\xi_n,\\
+t_n &= 0.05n,\\
+p_n &= \cos(2\pi n/8) + 0.8\cdot \cos(2\pi n / 4) + 0.2\cdot (-1)^n,
+\end{aligned}
+$$
+где $\boldsymbol{\xi}$ --- красный шум с параметрами $\phi=0.7$ и $\sigma^2=1$. Дисперсия шума равна примерно $1.9608$.
+- Сигнал доминирует над шумом:
+$$
+\begin{aligned}
+x_n &= t_n + p_n + \xi_n,\\
+t_n &= 0.2e^{0.025n}+2\cos(2\pi n/60),\\
+p_n &= 4.12\cos(2\pi n / 4) + 4.12\cos(2\pi n / 3) + 6\cdot (-1)^n,
+\end{aligned}
+$$
+где $\boldsymbol\xi$ --- красный шум с параметрами $\phi=0.3$ и $\sigma^2=1$. Дисперсия шума равна примерно $1.0989$.
+
+```{r, include=FALSE}
+h <- 24
+N <- 224
+
+signal1 <- list(
+  trend = 0.05 * (1:N),
+  periodics = mapply(em_harmonic, N, c(1, 2, 4) * 0.125, c(0, 0 , 0), c(1, 0.8, 0.2)) |> rowSums()
+)
+model1 <- list(phi = 0.7, sigma2 = 1)
+
+ssa_aidmc.arguments <- list(
+  L = 96,
+  rank = 30,
+  auto_trend_freq = 1 / 24,
+  auto_trend_threshold = 0.5,
+  auto_periodic_threshold = 0.5,
+  C_max = 5,
+  mcssa.arguments = list(
+    L = 48,
+    fixed = list(phi = NA, d = 0)
+  ),
+  fixed_freqs = TRUE, # Флаг отвечающий за искоючения интервала (0, auto_trend_freq] при оценке параметров
+  eossa_delta = 1e-3,
+  trace = FALSE
+)
+```
+
+```{r, eval=FALSE, include=FALSE}
+set.seed(1234)
+noise_data1 <- list()
+for (i in 1:500) {
+  noise_data1[[i]] <- arfima.sim(model1, N)
+}
+```
+
+```{r, eval=FALSE, include=FALSE}
+results_0.95 <- process(
+  noise_data1,
+  signal1,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.95
+)
+results_0.95_1$conf.level <- 0.95
+```
+
+```{r, eval=FALSE, include=FALSE}
+results_0.9 <- process(
+  noise_data,
+  signal,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.9
+)
+results_0.9$conf.level <- 0.9
+```
+
+```{r, eval=FALSE, include=FALSE}
+results_0.85 <- process(
+  noise_data,
+  signal,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.85
+)
+results_0.85$conf.level <- 0.85
+```
+
+```{r, eval=FALSE, include=FALSE}
+results_0.8 <- process(
+  noise_data,
+  signal,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.8
+)
+results_0.8$conf.level <- 0.8
+```
+
+```{r, eval=FALSE, include=FALSE}
+results_0.99 <- process(
+  noise_data,
+  signal,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.99,
+  conf.level1 = 0.99
+)
+results_0.99$conf.level <- 0.99
+```
+
+```{r, include=FALSE}
+h <- 24
+N <- 224
+
+signal2 <- list(
+  trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
+  periodics = mapply(em_harmonic, N, c(1 / 4, 1 / 3, 1 / 2),  c(0, 0, 0), c(4.12, 4.12, 6)) |> rowSums()
+)
+model2 <- list(phi = 0.3, sigma2 = 1)
+
+ssa_aidmc.arguments <- list(
+  L = 96,
+  rank = 30,
+  auto_trend_freq = 1 / 24,
+  auto_trend_threshold = 0.5,
+  auto_periodic_threshold = 0.5,
+  C_max = 5,
+  mcssa.arguments = list(
+    L = 48,
+    fixed = list(phi = NA, d = 0)
+  ),
+  fixed_freqs = TRUE, # Флаг отвечающий за искоючения интервала (0, auto_trend_freq] при оценке параметров
+  eossa_delta = 1e-3,
+  trace = FALSE
+)
+```
+
+```{r, eval=FALSE, include=FALSE}
+set.seed(1234)
+noise_data2 <- list()
+for (i in 1:500) {
+  noise_data2[[i]] <- arfima.sim(model2, N)
+}
+```
+
+```{r, eval=FALSE, include=FALSE}
+results2_0.99 <- process(
+  noise_data2,
+  signal2,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.99,
+  conf.level1 = 0.99
+)
+results2_0.99$conf.level <- 0.99
+```
+
+```{r, eval=FALSE, include=FALSE}
+results2_0.95 <- process(
+  noise_data2,
+  signal2,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.95
+)
+results2_0.95$conf.level <- 0.95
+```
+
+```{r, eval=FALSE, include=FALSE}
+results2_0.9 <- process(
+  noise_data2,
+  signal2,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.9
+)
+results2_0.9$conf.level <- 0.9
+```
+
+```{r, eval=FALSE, include=FALSE}
+results2_0.85 <- process(
+  noise_data2,
+  signal2,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.85
+)
+results2_0.85$conf.level <- 0.85
+```
+
+```{r, eval=FALSE, include=FALSE}
+results2_0.8 <- process(
+  noise_data2,
+  signal2,
+  h = h,
+  ssa_aidmc.arguments = ssa_aidmc.arguments,
+  conf.level2 = 0.8
+)
+results2_0.8$conf.level <- 0.8
+```
+
+Проверяем значимость MSE предсказаний для разных уровней значимости.
+
+Часть сигнала не доминирует на шумом:
+```{r}
+data1 <- rbind(results_0.8, results_0.85, results_0.9, results_0.95, results_0.99)
+data1 |>
+  select(mse_trend, mse_periodics, mse_signal, mse_fc, conf.level) |>
+  group_by(conf.level) |>
+  summarise(across(where(is.numeric), list(mean = mean, median = median, sd = sd))) |>
+  print.data.frame()
+```
+
+```{r}
+pairwise_t_test(data1, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+```
+
+Сигнал доминирует над шумом:
+```{r}
+data2 <- rbind(results2_0.8, results2_0.85, results2_0.9, results2_0.95, results2_0.99)
+data2 |>
+  select(mse_trend, mse_periodics, mse_signal, mse_fc, conf.level) |>
+  group_by(conf.level) |>
+  summarise(across(where(is.numeric), list(mean = mean, median = median, sd = sd))) |>
+  print.data.frame()
+```
+
+```{r}
+pairwise_t_test(data2, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+```
+
+
+Если сравнивать различия в MSE восстановления сигнала, то тут разница уже значима.
+
+Часть сигнала не доминирует на шумом:
+```{r}
+pairwise_t_test(data1, mse_signal ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+```
+
+Сигнал доминирует над шумом:
+```{r}
+pairwise_t_test(data2, mse_signal ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+```
+
+
+## Зависимость ошибок предсказания от ``conf.level1``
+
+Будем менять ``conf.level1`` (вместе с ``conf.level2``, поскольку первый используется для обнаружения доминирующего сигнала, а второй для оставшегося сигнала) и смотреть на изменение MSE предсказания.
+```{r, eval=FALSE, include=FALSE}
+results1 <- list()
+for (conf.level in c(0.99, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6)) {
+  res <- process(
+    noise_data1,
+    signal1,
+    h = h,
+    ssa_aidmc.arguments = ssa_aidmc.arguments,
+    conf.level2 = conf.level,
+    conf.level1 = conf.level
+  )
+  res$conf.level <- conf.level
+  results1[[length(results1) + 1]] <- res
+}
+```
+
+Часть сигнала не доминирует на шумом:
+```{r}
+res1 <- do.call(rbind, results1)
+res1 |>
+  select(mse_trend, mse_periodics, mse_signal, mse_fc, conf.level) |>
+  group_by(conf.level) |>
+  summarise(across(where(is.numeric), list(mean = mean, median = median, sd = sd))) |>
+  print.data.frame()
+```
+
+```{r}
+pairwise_t_test(res1, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+```
+
+Сигнал доминирует над шумом:
+```{r, eval=FALSE, include=FALSE}
+results2 <- list()
+for (conf.level in c(0.99, 0.95, 0.9, 0.85, 0.8)) {
+  res <- process(
+    noise_data2,
+    signal2,
+    h = h,
+    ssa_aidmc.arguments = ssa_aidmc.arguments,
+    conf.level2 = conf.level,
+    conf.level1 = conf.level
+  )
+  res$conf.level <- conf.level
+  results2[[length(results2) + 1]] <- res
+}
+```
+
+```{r}
+res2 <- do.call(rbind, results2)
+res2 |>
+  select(mse_trend, mse_periodics, mse_signal, mse_fc, conf.level) |>
+  group_by(conf.level) |>
+  summarise(across(where(is.numeric), list(mean = mean, median = median, sd = sd))) |>
+  print.data.frame()
+```
+
+```{r}
+pairwise_t_test(res2, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+```

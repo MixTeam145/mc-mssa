@@ -248,19 +248,21 @@ grouping.auto.ssa.custom <- function(x, groups,
 }
 
 eossa_auto_trend <- function(ssa_obj,
-                       signal_rank,
-                       clust_type = c("hierarchial", "distance", "frequency"),
-                       k = 2,
-                       delta = 1e-3,
-                       auto_trend_freq = 1 / 24,
-                       auto_threshold = 0.7,
-                       base='series'){
+                             signal_rank,
+                             clust_type = c("hierarchial", "distance", "frequency"),
+                             k = 2,
+                             delta = 1e-3,
+                             auto_trend_freq = 1 / 24,
+                             auto_threshold = 0.7,
+                             base='series',
+                             solve.method = c("ls", "tls")){
     eoss <- eossa_new(ssa_obj, 
                       nested.groups = list(1:signal_rank), 
                       clust_type = clust_type, 
                       k = k, 
                       delta = delta,
-                      auto_trend_freq = auto_trend_freq)
+                      auto_trend_freq = auto_trend_freq,
+                      solve.method = solve.method)
 
     g <- grouping.auto.ssa.custom(eoss, base = base, groups = eoss$iossa.groups,
                        freq.bins = list(Trend = auto_trend_freq), 
