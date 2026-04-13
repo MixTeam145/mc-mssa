@@ -3,7 +3,8 @@ library("here")
 source(here("R", "mc-mssa.R"), local = TRUE)
 source(here("R", "scripts.R"), local = TRUE)
 
-get_signif_freq <- function(x, n_periodics) {
+
+get_signif_freq <- function(x, n_periodics, weighted = TRUE) {
   significance <- x$statistic$contribution - x$predint$upper
   idx <- which(significance > 0)
   
@@ -12,7 +13,7 @@ get_signif_freq <- function(x, n_periodics) {
   
   n_periodics <- min(n_periodics, length(idx))
   
-  if (n_periodics == 1) {
+  if (n_periodics == 1 && weighted) {
     max_idx <- idx[which.max(significance[idx])]
     
     neighbors <- c()
@@ -22,7 +23,11 @@ get_signif_freq <- function(x, n_periodics) {
       neighbors <- c(neighbors, max_idx + 1)
     
     idx <- c(max_idx, neighbors)
-    freq <- weighted.mean(x$statistic$freq[idx], significance[idx])
+    
+    if (x$statistic$freq[max_idx] < 0.5)
+      freq <- weighted.mean(x$statistic$freq[idx], significance[idx])
+    else
+      freq <- 0.5
   } else {
     o <- order(-significance[idx])[1:n_periodics]
     idx <- idx[o]
@@ -32,6 +37,7 @@ get_signif_freq <- function(x, n_periodics) {
   freq
 }
 
+
 calculate_delta <- function(N,
                             omega0,
                             C,
@@ -39,30 +45,43 @@ calculate_delta <- function(N,
                             threshold = 0.9) {
   omega <- seq(0, 0.5, 1 / N)
   
-  if (abs(omega0 * N - round(omega0 * N)) < .Machine$double.eps^0.5)
-    delta0 <- 0
-  else {
-    o <- order(abs(omega[omega <= 0.5] - omega0))
-    delta0 <- abs(omega0 - omega[o[2]])
-  }
-  
-  deltas <- delta0 + omega
+  # if (abs(omega0 * N - round(omega0 * N)) < .Machine$double.eps^0.5)
+  #   delta0 <- 0
+  # else {
+  #   o <- order(abs(omega[omega <= 0.5] - omega0))
+  #   delta0 <- abs(omega0 - omega[o[2]])
+  # }
+  # 
+  # deltas <- delta0 + omega
   
   x <- em_harmonic(N, omega0, C)
   
   spec <- abs(fft(x)[seq_len(N %/% 2 + 1)])^2
   spec <- spec / sum(spec)
-  S <- numeric(length(deltas))
   
-  for (i in seq_along(deltas)) {
-    S[i] <- sum(spec[abs(omega - omega0) <= deltas[i] + .Machine$double.eps^0.5])
-    if (abs(S[i] - 1) <= .Machine$double.eps^0.5)
-      break
-  }
-  idx <- which.max(diff(S) < eps & S[-1] > threshold) + 1
+  # S <- numeric(length(deltas))
+  # for (i in seq_along(deltas)) {
+  #   S[i] <- sum(spec[abs(omega - omega0) <= deltas[i] + .Machine$double.eps^0.5])
+  #   # if (S[i] > threshold) {
+  #   #   idx <- i
+  #   #   break
+  #   # }
+  #   if (abs(S[i] - 1) <= .Machine$double.eps^0.5)
+  #     break
+  # }
+  
+  deltas <- abs(omega - omega0)
+  o <- order(deltas)
+  deltas <- deltas[o]
+  cumspecs <- cumsum(spec[o])
+  idx <- which.max(cumspecs > threshold & deltas > 0)
+  
+  # idx <- which.max(diff(S) < eps & S[-1] > threshold) + 1
+  # idx <- which.max(S > threshold)
   
   deltas[idx]
 }
+
 
 auto_mcssa <- function(x,
                        ssa_obj,
@@ -92,6 +111,8 @@ auto_mcssa <- function(x,
       signal_rank = length(groups),
       clust_type = "distance",
       auto_trend_freq = auto_trend_freq,
+      auto_threshold = auto_trend_threshold,
+      delta = 1e-3,
       ...
     )
     trend_est <- trend_model$trend
@@ -108,8 +129,6 @@ auto_mcssa <- function(x,
   }
   
   result_df <- data.frame(matrix(nrow = 0, ncol = 0))
-  result_df[1, "measure"] <- NA
-  result_df[1, "measure_type"] <- NA
   result_df[1, "mss"] <- NA
   result_df[1, "period"] <- NA
   result_df[1, "index1"] <- NA
@@ -138,13 +157,15 @@ auto_mcssa <- function(x,
   periodics_components <- integer()
   periodics_est <- rep(0, N)
   
-  # Fs <- reconstruct(ssa_obj, as.list(groups)) |> unlist() |> matrix(nrow = N)
+  # Fs <- reconstruct(ssa_obj, as.list(seq_len(max(groups)))) |> unlist() |> matrix(nrow = N)
   # pgs <- Rssa:::pgram(Fs)
-  # specs <- sweep(pgs$spec, 2, colSums(pgs$spec), FUN = "/")
+  # # specs <- sweep(pgs$spec, 2, colSums(pgs$spec), FUN = "/")
+  # specs <- pgs$spec
   # freqs <- pgs$freq
+  # spec_x <- rowSums(specs)
   
   while (m$reject && i <= maxit) {
-    freq[i] <- get_signif_freq(m, n_periodics = 1)
+    freq[i] <- get_signif_freq(m, n_periodics = 1, weighted = FALSE)
     delta <- calculate_delta(N, freq[i], C_max)
     freq.bins[[i]] <- c(freq[i] - delta - 1e-9, freq[i] + delta + 1e-9)
     
@@ -152,17 +173,22 @@ auto_mcssa <- function(x,
     
     n_triples[i] <- ifelse(freq[i] == 0.5, 1, 2)
     
+    # freq_mask <- (freqs >= freq.bins[[i]][1]) & (freqs <= freq.bins[[i]][2])
+    # spec_x <- rowSums(specs[, groups_current, drop = FALSE])
+    # 
+    # powers <- apply(specs[, groups_current, drop = FALSE], 2, function(col) sum(col[freq_mask]))
+    # o <- order(powers, decreasing = TRUE)
+    # sum_power <- 0
+    # max_sum_power <- sum(spec_x[freq_mask])
+    # threshold <- 0.7
     # components <- c()
-    # for (j in seq_along(groups_current)) {
-    #   pgram <- specs[, j]
-    #   pgram <- c(0, pgram, 0)
-    #   fpeaks <- findpeaks(pgram, minpeakheight = 0.01)
-    #   peaks <- freqs[fpeaks[, 2] - 1]
-    #   if (any((peaks <= freq[i] + 1 / N) & (peaks >= freq[i] - 1 / N))) {
-    #     components <- c(components, groups_current[j])
-    #   }
+    # for (oo in o) {
+    #   sum_power <- sum_power + powers[oo]
+    #   components <- c(components, groups_current[oo])
+    #   if (sum_power / max_sum_power > threshold)
+    #     break
     # }
-    
+    # groups_current <- setdiff(groups_current, components)
     
     g <- grouping.auto.pgram(ssa_obj, groups_current, "series", freq.bins[i], auto_periodic_threshold)
     if (length(g)) {
@@ -258,6 +284,9 @@ ssa_aidmc <- function(x,
   
   groups <- setdiff(1:rank, seq_len(dec$signal_rank))
   
+  if (length(groups) == 0)
+    return(dec)
+  
   model_obj <- dec$model_obj
   if (dec$signal_rank == 0) {
     model_obj <- ssa(x, L, svd.method = "svd", neig = rank)
@@ -278,7 +307,7 @@ ssa_aidmc <- function(x,
     fixed = mcssa.arguments$fixed,
     ...
   )
-  j_max <- dec$signal_rank
+  j_max <- max(dec$signal_rank, m$periodics_components)
   if (length(m$periodics_components)) {
     wcors <- suppressWarnings(wcor(model_obj, groups = seq_len(rank))[m$periodics_components, , drop = FALSE])
     for (i in seq_along(m$periodics_components)) {
@@ -288,112 +317,40 @@ ssa_aidmc <- function(x,
   } else {
     return(dec)
   }
-
-  dec2 <- ssa_aid(
-    x,
-    L = L,
-    signal_rank = j_max,
-    conf.level = conf.level2,
-    auto_trend_freq = auto_trend_freq,
-    auto_trend_threshold = auto_trend_threshold,
-    tau_threshold = tau_threshold,
-    p_0 = p_0,
-    auto_periodic_threshold = auto_periodic_threshold,
-    C_max = C_max,
-    mcssa.arguments = mcssa.arguments,
-    nstages = 1,
-    trace = trace
+  
+  indices <- setdiff(seq_len(j_max), dec$trend_indices)
+  eoss <- eossa_new(
+    model_obj,
+    nested.groups = list(indices),
+    clust_type = "distance",
+    delta = 1e-4
   )
-  dec2
   
-  # freqs <- c(dec$freqs, m$freqs)
-  # 
-  # s <- ssa(x, L = L, svd.method = "svd")
-  # 
-  # trend_model <- auto_trend_model(
-  #     s,
-  #     method = "eossa.auto",
-  #     signal_rank = j_max,
-  #     clust_type = "distance",
-  #     auto_trend_freq = auto_trend_freq,
-  #     auto_threshold = 0.5,
-  #     delta = 1e-3
-  #   )
-  # 
-  # model_obj <- trend_model$model_obj
-  # 
-  # periodics_indices <- trend_model$grouping$Periodics
-  # 
-  # Fs <- reconstruct(model_obj, periodics_indices)
-  # mss <- sapply(Fs, function(f) mean(f^2))
-  # o <- order(mss, decreasing = TRUE)
-  # 
-  # g <- grouping.auto.freqs(model_obj, periodics_indices[o], freqs, C_max, threshold)
-  # 
-  # Fs <- reconstruct(model_obj, list(Periodics=g, Trend=trend_model$grouping$Trend))
-  # trend_est <- Fs$Trend
-  # periodics_est <- Fs$Periodics
-  # signal_rank <- length(g) + length(trend_model$grouping$Trend)
-  # return(
-  #   list(
-  #     trend = trend_est,
-  #     periodics = periodics_est,
-  #     trend_indices = trend_model$grouping$Trend,
-  #     periodics_indices = g,
-  #     signal_rank = signal_rank,
-  #     rank = j_max
-  #   )
-  # )
-  
-  # signal_indices <- c(seq_len(dec$signal_rank), m$periodics_components)
-  # 
-  # eos <- eossa_new(
-  #   model_obj,
-  #   nested.groups = c(seq_len(dec$signal_rank), m$periodics_components),
-  #   clust_type = "distance"
-  # )
-  # g_trend <- grouping.auto.ssa.custom(eos, groups = seq_along(dec$signal_rank),
-  #                                     freq.bins = list(Trend = auto_trend_freq), 
-  #                                     threshold = auto_trend_threshold)
-  # trend_indices <- g_trend$Trend
-  # periodic_indices <- setdiff(unlist(eos$iossa.groups), trend_indices)
-  # 
-  # r <- reconstruct(eos, groups = list(Trend = trend_indices, Periodics = periodic_indices))
-  # trend <- r$Trend
-  # 
-  # x_detrended <- x - r$Trend 
-  # # browser()
-  # periodic_model <- auto_periodics_mc(
-  #   x_detrended,
-  #   model_obj = eos,
-  #   periodic_indices = periodic_indices,
-  #   conf.level = conf.level,
-  #   tau_threshold = tau_threshold,
-  #   auto_threshold = auto_periodic_threshold,
-  #   mcssa.arguments = mcssa.arguments,
-  #   ...
-  # )
-  # list(
-  #   trend = trend,
-  #   trend_indices = trend_indices,
-  #   periodics = periodic_model$periodic,
-  #   periodics_indices = c(periodic_model$true_two_el_indices, periodic_model$true_one_el_indices),
-  #   result_df = periodic_model$result_df,
-  #   model_obj = periodic_model$model_obj,
-  #   signal_rank = length(trend_indices) + length(c(periodic_model$true_two_el_indices, periodic_model$true_one_el_indices))
-  # )
-  # trend_model <- eossa_auto_trend(eos, signal_rank = dec$signal_rank, clust_type = "distance")
-  
-  
-  
-  # list(
-  #   result_df = rbind(dec$result_df, m$result_df),
-  #   signal_rank = dec$signal_rank + m$signal_rank,
-  #   trend = dec$trend + m$trend,
-  #   periodics = dec$periodics + m$periodics,
-  #   trend_indices = c(dec$trend_indices, m$trend_components),
-  #   periodics_indices = c(dec$true_two_el_indices, dec$true_one_el_indices, m$periodics_components),
-  #   model_obj = model_obj
-  # )
+  x_detrended = x - dec$trend
 
+  periodic_model <- auto_periodics_mc(
+    x_detrended,
+    model_obj = eoss,
+    periodic_indices = indices,
+    conf.level = conf.level2,
+    tau_threshold = tau_threshold,
+    auto_threshold = auto_periodic_threshold,
+    mcssa.arguments = mcssa.arguments,
+    C_max = C_max,
+    p_0 = p_0,
+    trace = trace,
+    auto_trend_freq = auto_trend_freq,
+    ...
+  )
+  periodic_indices <- c(periodic_model$true_two_el_indices, periodic_model$true_one_el_indices)
+  list(
+    trend = dec$trend,
+    trend_indices = dec$trend_indices,
+    true_two_el_indices = periodic_model$true_two_el_indices,
+    true_one_el_indices = periodic_model$true_one_el_indices,
+    periodics = periodic_model$periodics,
+    result_df = periodic_model$result_df,
+    model_obj = eoss,
+    signal_rank = length(dec$trend_indices) + length(periodic_indices)
+  )
 }

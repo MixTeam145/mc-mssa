@@ -21,18 +21,12 @@ library(latex2exp)
 library(ggpubr)
 library(here)
 
-source(here("R", "mc-mssa.R"))
-source(here("R", "eossa_new.R"))
-source(here("R", "scripts.R"))
+# source(here("R", "mc-mssa.R"))
+# source(here("R", "eossa_new.R"))
+# source(here("R", "scripts.R"))
+source(here("R", "ssa_aidmc.R"))
 # source("auto_ssa/scripts.R", chdir = TRUE)
 theme_set(theme_bw())
-```
-
-```{r}
-phi <- 0.7
-sigma2 <- 1
-N <- 200
-model <- list(phi = phi, sigma2 = sigma2, N = N)
 ```
 
 ```{r}
@@ -43,6 +37,7 @@ em_harmonic <- function(N, omega, C = 0, A = 1, phi = 0) {
   as.ts(signal)
 }
 ```
+
 
 ```{r}
 auto_mcssa <- function(x,
@@ -175,7 +170,7 @@ auto_mcssa_new <- function(x,
   
   N <- length(x)
   
-  dec <- auto_ssa(
+  dec <- ssa_aid(
     x,
     L = L2,
     signal_rank = rank,
@@ -380,7 +375,7 @@ auto_mcssa_new <- function(x,
   # periodics_est <- Fs$Periodics
   # signal_rank <- length(g) + length(trend_model$grouping$Trend)
   
-  dec2 <- auto_ssa(
+  dec2 <- ssa_aid(
     x,
     L = L2,
     signal_rank = j_max,
@@ -392,21 +387,21 @@ auto_mcssa_new <- function(x,
   )
   dec2
   
-  return(
-    list(
-      trend = trend_est,
-      periodics = periodics_est,
-      trend_indices = trend_model$grouping$Trend,
-      periodics_indices = g,
-      signal_rank = signal_rank,
-      rank = j_max
-    )
-  )
+  # return(
+  #   list(
+  #     trend = trend_est,
+  #     periodics = periodics_est,
+  #     trend_indices = trend_model$grouping$Trend,
+  #     periodics_indices = g,
+  #     signal_rank = signal_rank,
+  #     rank = j_max
+  #   )
+  # )
 }
 ```
 
 ```{r}
-grouping.auto.pgram <- function (x, groups, base = c("series", "eigen", "factor"), 
+grouping.auto.pgram.custom <- function (x, groups, base = c("series", "eigen", "factor"), 
   freq.bins = 2, threshold = 0, method = c("constant", "linear"), 
   ..., drop = TRUE) 
 {
@@ -502,7 +497,13 @@ grouping.auto.freqs <- function(x, groups, freqs, C_max = 5, threshold = 0.5) {
   n_triples <- sapply(freqs, function(freq) ifelse(abs(freq - 0.5) < .Machine$double.eps^0.5, 1, 2))
   deltas <- sapply(freqs, function(freq) calculate_delta(N, freq, C_max))
   freq.bins <- lapply(seq_along(freqs), function(i) c(freqs[i] - deltas[i], freqs[i] + deltas[i] + 1e-9))
-  g <- grouping.auto.pgram(x, groups, freq.bins = freq.bins, threshold = threshold)
+  
+  Fs <- reconstruct(s, groups)
+  mss <- sapply(Fs, function(f) mean(f^2))
+  o <- order(mss, decreasing = TRUE)
+  groups_ordered <- groups[o]
+  
+  g <- grouping.auto.pgram.custom(x, groups_ordered, freq.bins = freq.bins, threshold = threshold)
   
   components <- integer()
   for (j in seq_along(freq.bins)) {
@@ -742,6 +743,45 @@ auto_mcssa_new_errors <- function(noise,
 ```
 
 ```{r}
+ssa_aidmc_errors <- function(noise,
+                             signal,
+                             L,
+                             rank = 30,
+                             auto_trend_freq = 1 / 24,
+                             threshold = 0.5,
+                             mcssa.arguments = list(),
+                             conf.level = 0.95,
+                             M = 500,
+                             ...) {
+  pb <- progressor(M)
+  result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
+    pb()
+    f <- noise[[i]] + signal$trend + signal$periodics
+    m <- ssa_aidmc(
+      f,
+      L = L,
+      rank = rank,
+      auto_trend_freq = auto_trend_freq,
+      auto_periodic_threshold = threshold,
+      conf.level1 = conf.level,
+      mcssa.arguments = mcssa.arguments,
+      ...
+    )
+    
+    mse <- mean((signal$trend + signal$periodics - (m$periodics + m$trend))^2)
+    mse_periodics <- mean((signal$periodics - m$periodics)^2)
+    mse_trend <- mean((signal$trend - m$trend)^2)
+    rank <- m$signal_rank
+    
+    c(mse, mse_trend, mse_periodics, rank)
+  }
+  result <- do.call(rbind, result) |> data.frame()
+  colnames(result) <- c("mse", "mse_trend", "mse_periodics", "rank")
+  result
+}
+```
+
+```{r}
 auto_ssa_pavel_errors <- function(noise,
                                   signal,
                                   L,
@@ -750,6 +790,7 @@ auto_ssa_pavel_errors <- function(noise,
                                   auto_trend_freq = 1 / 24,
                                   tau_threshold = 0.05,
                                   noise_type = "white",
+                                  conf.level = 0.99,
                                   M = 500) {
   pb <- progressor(M)
   result <- foreach (i = 1:M, .options.RNG = 1) %dorng% {
@@ -757,7 +798,7 @@ auto_ssa_pavel_errors <- function(noise,
     
     f <- noise[[i]] + signal$trend + signal$periodics
     
-    dec <- auto_ssa(f, L = L, MC.L = MC.L, signal_rank = signal_rank, noise_type = noise_type, auto_trend_freq = auto_trend_freq, tau_threshold = tau_threshold)
+    dec <- auto_ssa(f, L = L, MC.L = MC.L, signal_rank = signal_rank, noise_type = noise_type, auto_trend_freq = auto_trend_freq, tau_threshold = tau_threshold, sign_level = 1 - conf.level)
     
     periodics_est <- dec$periodics
     trend_est <- dec$trend
@@ -821,60 +862,112 @@ $$
 N <- 200
 omega <- 0.125
 signal <- list(
-  trend = 0,
-  periodics = mapply(em_harmonic, N, c(1, 2, 4) * omega,  c(0.02, 0, 0) * N, c(0.075, 1, 0.2)) |> rowSums()
+  trend = 0.05 * (1:N),
+  # periodics = mapply(em_harmonic, N, c(1, 2, 4) * omega,  c(0.02, 0, 0) * N, c(0.075, 1, 0.2)) |> rowSums()
+  periodics = mapply(em_harmonic, N, c(1, 2, 4) * omega, c(0, 0 , 0), c(1, 0.8, 0.2)) |> rowSums()
 )
-model <- list(phi = 0.7, sigma2 = 1)
+model_ar1 <- list(phi = 0.7, sigma2 = 1)
+model_fi <- list(d = 0.4, sigma2 = 1) 
 ```
 
 ```{r}
 noise_data <- list()
 set.seed(1234)
 for (i in seq_len(1000)) {
-  noise_data[[i]] <- arfima.sim(model, N)
+  noise_data[[i]] <- arfima.sim(model_fi, N)
 }
-save(noise_data, file="data/noise_phi7.RData")
+save(noise_data, file="data/noise_fi_0.4.RData")
 ```
 
 ```{r}
-L1 <- 48
-L2 <- 96
+L <- 96
 rank <- 30
-auto_trend_freq <- 0
-tau_threshold <- Inf
+auto_trend_freq <- 1 / 24
 threshold <- 0.5
-fixed <- list(phi = NA, d = 0)
+tau_threshold <- 0.05
+mcssa.L <- 48
+mcssa.arguments <- list(L = 48, fixed = list(phi = NA, d = 0))
 ```
 
 ```{r}
 load("data/noise_phi7.RData")
-f <- noise_data[[2]] + signal$trend + signal$periodics
-s <- ssa(f, L = L2, svd.method = "svd")
-
-set.seed(10)
-system.time(
-  r2 <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, tau_threshold = tau_threshold, fixed = fixed)
+results_ssa_aidmc1_rn <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = mcssa.L, fixed = list(phi = NA, d = 0))
 )
-# r <- auto_mcssa(f, s, L1, groups = 1:rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
-# r <- auto_ssa(f, L2, rank, auto_trend_freq = auto_trend_freq, MC.L = L1, tau_threshold = 0.05, noise_type = "red", trace = TRUE)
+```
+
+```{r}
+load("data/noise_fi_0.4.RData")
+results_ssa_aidmc1_fi <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = mcssa.L, fixed = list(phi = 0, d = NA))
+)
 ```
 
 ```{r}
 load("data/noise_phi7.RData")
-set.seed(10)
-results_mcssa_new1 <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold, fixed)
+results_mcssa1_rn <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = NA, d = 0)
+)
 ```
 
 ```{r}
-set.seed(10)
-results_mcssa1 <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, fixed)
+load("data/noise_fi_0.4.RData")
+results_mcssa1_fi <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = 0, d = NA)
+)
 ```
 
 ```{r}
-set.seed(10)
-results_auto_ssa1 <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, 0.05, "red")
+load("data/noise_phi7.RData")
+results_auto_ssa1_rn <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "red"
+)
 ```
 
+```{r}
+load("data/noise_fi_0.4.RData")
+results_auto_ssa1_fi <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "fi"
+)
+```
 
 Пример 2.
 $$
@@ -887,63 +980,155 @@ signal <- list(
   trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
   periodics = mapply(em_harmonic, N, c(1 / 4, 1 / 3, 1 / 2),  c(0, 0, 0), c(4.12, 4.12, 6)) |> rowSums()
 )
-model <- list(phi = 0.3, sigma2 = 1)
+model_ar1 <- list(phi = 0.3, sigma2 = 1)
+model_fi <- list(d = 0.2, sigma2 = 1)
 ```
 
 ```{r}
-L1 <- 48
-L2 <- 96
+noise_data <- list()
+set.seed(1234)
+for (i in seq_len(1000)) {
+  noise_data[[i]] <- arfima.sim(model_fi, N)
+}
+save(noise_data, file="data/noise_fi_0.2.RData")
+```
+
+```{r}
+L <- 96
 rank <- 30
 auto_trend_freq <- 1 / 24
 tau_threshold <- 0.05
 threshold <- 0.5
-fixed <- list(phi = NA, d = 0)
+mcssa.L <- 48
+mcssa.arguments <- list(L = 48, fixed = list(phi = NA, d = 0))
 ```
 
 Белый шум.
 ```{r}
 load("data/white_noise.RData")
-f <- noise_data[[305]] + signal$trend + signal$periodics
-s <- ssa(f, L = L2, svd.method = "svd")
-
-set.seed(10)
-system.time(
-  r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
+results_ssa_aidmc2_wn <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = mcssa.L, fixed = list(phi = 0, d = 0))
 )
-# r <- auto_mcssa(f, s, L1, groups = 1:rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
 ```
 
 ```{r}
 load("data/white_noise.RData")
-set.seed(10)
-results_mcssa_new2_wn <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold)
+results_mcssa2_wn <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = 0, d = 0)
+)
 ```
 
 ```{r}
-set.seed(10)
-results_mcssa2_wn <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq)
-```
-
-```{r}
-set.seed(10)
-results_auto_ssa2_wn <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, tau_threshold)
+load("data/white_noise.RData")
+results_auto_ssa2_wn <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "white",
+  conf.level = 0.99
+)
 ```
 
 Красный шум.
 ```{r}
 load("data/noise_phi3.RData")
-set.seed(10)
-results_mcssa_new2_rn <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold, fixed = fixed)
+results_ssa_aidmc2_rn <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = mcssa.arguments,
+  conf.level = 0.95
+)
 ```
 
 ```{r}
-set.seed(10)
-results_mcssa2_rn <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, fixed)
+load("data/noise_phi3.RData")
+results_mcssa2_rn <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = NA, d = 0)
+)
 ```
 
 ```{r}
-set.seed(10)
-results_auto_ssa2_rn <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, tau_threshold, "red")
+load("data/noise_phi3.RData")
+results_auto_ssa2_rn <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "red",
+  conf.level = 0.99
+)
+```
+
+Длинная память.
+```{r}
+load("data/noise_fi_0.2.RData")
+results_ssa_aidmc2_fi <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = mcssa.L, fixed = list(phi = 0, d = NA)),
+  conf.level = 0.95
+)
+```
+
+```{r}
+load("data/noise_fi_0.2.RData")
+results_mcssa2_fi <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = 0, d = NA)
+)
+```
+
+```{r}
+load("data/noise_fi_0.2.RData")
+results_auto_ssa2_fi <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "fi",
+  conf.level = 0.99
+)
 ```
 
 Пример 3.
@@ -951,6 +1136,7 @@ $$
 t_n=0.2e^{0.025n}+2\cos(2\pi n/60)\\
 p_n=4e^{-0.01n}\cos(2\pi n/4) + 4\cos(2\pi n/3) + 6e^{-0.01n}\cos(2\pi n/2)
 $$
+
 ```{r}
 signal <- list(
   trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
@@ -959,101 +1145,242 @@ signal <- list(
 ```
 
 ```{r}
-L1 <- 48
-L2 <- 96
+L <- 96
 rank <- 30
 auto_trend_freq <- 1 / 24
 tau_threshold <- 0.05
 threshold <- 0.5
-fixed <- list(phi = NA, d = 0)
+mcssa.L <- 48
+mcssa.arguments <- list(L = 48, fixed = list(phi = NA, d = 0))
+```
+
+Белый шум.
+```{r}
+load("data/white_noise.RData")
+results_ssa_aidmc3_wn <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = 48, fixed = list(phi = 0, d = 0))
+)
 ```
 
 ```{r}
 load("data/white_noise.RData")
-f <- noise_data[[68]] + signal$trend + signal$periodics
-
-set.seed(10)
-# r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
-# r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq)
-r <- auto_mcssa(f, s, L1, groups = 1:rank, auto_trend_freq = auto_trend_freq)
+results_mcssa3_wn <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = 0, d = 0)
+)
 ```
 
 ```{r}
 load("data/white_noise.RData")
-set.seed(10)
-results_mcssa_new3_wn <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold)
+results_auto_ssa3_wn <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "white",
+  conf.level = 0.99
+)
 ```
-
-```{r}
-set.seed(10)
-results_mcssa3_wn <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq)
-```
-
-```{r}
-set.seed(10)
-results_auto_ssa3_wn <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, tau_threshold)
-```
-
 
 Красный шум.
 ```{r}
 load("data/noise_phi3.RData")
-set.seed(10)
-results_mcssa_new3_rn <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold, fixed)
+results_ssa_aidmc3_rn <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = mcssa.L, fixed = list(phi = NA, d = 0))
+)
 ```
 
 ```{r}
-set.seed(10)
-results_mcssa3_rn <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, fixed)
+load("data/noise_phi3.RData")
+results_mcssa3_rn <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = NA, d = 0)
+)
 ```
 
 ```{r}
-set.seed(10)
-results_auto_ssa3_rn <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, tau_threshold, "red")
+load("data/noise_phi3.RData")
+results_auto_ssa3_rn <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "red",
+  conf.level = 0.99
+)
+```
+
+Шум с длинной памятью.
+```{r}
+load("data/noise_fi_0.2.RData")
+results_ssa_aidmc3_fi <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = mcssa.L, fixed = list(phi = 0, d = NA))
+)
+```
+
+```{r}
+load("data/noise_fi_0.2.RData")
+results_mcssa3_fi <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = 0, d = NA)
+)
+```
+
+```{r}
+load("data/noise_fi_0.2.RData")
+results_auto_ssa3_fi <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "fi",
+  conf.level = 0.99
+)
 ```
 
 Пример 4.
 $$
 s_n = 0.075 \exp(0.02n)\cos(2 \pi n / 8) + 1.5 e^{-0.01n} \cos(2 \pi n / 4) + e^{-0.01n} \cdot (-1)^n.
 $$
+
 ```{r}
+N <- 200
+omega <- 1 / 8
 signal <- list(
-  trend = 0,
+  trend = 0.05 * (1:N),
   periodics = mapply(em_harmonic, N, c(1, 2, 4) * omega,  c(0.02, -0.01, -0.01) * N, c(0.075, 1.5, 1)) |> rowSums()
 )
+model = list(phi = 0.7, sigma2 = 1)
 ```
 
 ```{r}
-L1 <- 48
-L2 <- 96
+L <- 96
 rank <- 30
-auto_trend_freq <- 0
-tau_threshold <- Inf
+auto_trend_freq <- 1 / 24
+tau_threshold <- 0.05
 threshold <- 0.5
-fixed <- list(phi = NA, d = 0)
-```
-
-```{r}
-load("data/white_noise.RData")
-f <- noise_data[[436]] + signal$trend + signal$periodics
-
-set.seed(10)
-# r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, fixed = fixed)
-r <- auto_mcssa_new(f, L1, L2, rank = rank, auto_trend_freq = auto_trend_freq, tau_threshold = tau_threshold)
+mcssa.L <- 48
+mcssa.arguments <- list(L = 48, fixed = list(phi = NA, d = 0))
 ```
 
 ```{r}
 load("data/noise_phi7.RData")
-set.seed(10)
-results_mcssa_new4 <- auto_mcssa_new_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, tau_threshold, threshold, fixed)
+results_ssa_aidmc4_rn <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = mcssa.L, fixed = list(phi = NA, d = 0))
+)
 ```
 
 ```{r}
-set.seed(10)
-results_mcssa4 <- auto_mcssa_errors(noise_data, signal, L1, L2, rank, auto_trend_freq, fixed)
+load("data/noise_fi_0.4.RData")
+results_ssa_aidmc4_fi <- ssa_aidmc_errors(
+  noise_data,
+  signal = signal,
+  L = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  threshold = threshold,
+  mcssa.arguments = list(L = mcssa.L, fixed = list(phi = 0, d = NA))
+)
 ```
 
 ```{r}
-set.seed(10)
-results_auto_ssa4 <- auto_ssa_pavel_errors(noise_data, signal, L2, L1, rank, auto_trend_freq, 0.5, "red")
+load("data/noise_phi7.RData")
+results_mcssa4_rn <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = NA, d = 0)
+)
+```
+
+```{r}
+load("data/noise_fi_0.4.RData")
+results_mcssa4_fi <- auto_mcssa_errors(
+  noise_data,
+  signal,
+  L1 = mcssa.L,
+  L2 = L,
+  rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  fixed = list(phi = 0, d = NA)
+)
+```
+
+```{r}
+load("data/noise_phi7.RData")
+results_auto_ssa4_rn <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "red"
+)
+```
+
+```{r}
+load("data/noise_fi_0.4.RData")
+results_auto_ssa4_fi <- auto_ssa_pavel_errors(
+  noise = noise_data,
+  signal = signal,
+  L = L,
+  MC.L = mcssa.L,
+  signal_rank = rank,
+  auto_trend_freq = auto_trend_freq,
+  tau_threshold = tau_threshold,
+  noise_type = "fi"
+)
 ```

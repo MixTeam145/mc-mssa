@@ -155,7 +155,8 @@ auto_trend_model <- function(ssa_obj,
                             auto_trend_freq = kwargs$auto_trend_freq, 
                             auto_threshold = kwargs$auto_threshold,
                             delta = kwargs$delta,
-                            base=base)
+                            base =base,
+                            solve.method = kwargs$solve.method)
     results[["eossa.auto"]] <- res
   }
   if ("basic.auto" %in% method){
@@ -357,7 +358,8 @@ auto_periodics_mc <- function(
     auto_trend_freq = 0,
     fixed_freqs = TRUE,
     check_hypothesis = TRUE,
-    mcssa.arguments = list()
+    mcssa.arguments = list(),
+    ...
   ){
   # Метод автоматической идентификации периодик после выделения тренда, используя метод MC-SSA
   # 
@@ -395,8 +397,8 @@ auto_periodics_mc <- function(
   #   :key periodics: периодическая компонента
   
   result_df <- data.frame(matrix(nrow = 0, ncol = 0))
-  result_df[1, "measure"] <- NA
-  result_df[1, "measure_type"] <- NA
+  # result_df[1, "measure"] <- NA
+  # result_df[1, "measure_type"] <- NA
   result_df[1, "mss"] <- NA
   result_df[1, "period"] <- NA
   result_df[1, "index1"] <- NA
@@ -405,9 +407,9 @@ auto_periodics_mc <- function(
   if (length(periodic_indices) == 0)
     return (
       list(
-        "raw_two_el_indices" = integer(),
+        # "raw_two_el_indices" = integer(),
         "true_two_el_indices" = integer(),
-        "raw_one_el_indices" = integer(),
+        # "raw_one_el_indices" = integer(),
         "true_one_el_indices" = integer(),
         "result_df" = result_df,
         "periodics" = rep(0, length(detrend_series))
@@ -439,44 +441,46 @@ auto_periodics_mc <- function(
     result_df[1, "pval"] <- m$p.value
   }
   
-  model <- auto_periodic_model(ssa_obj=model_obj,
-                               groups=periodic_indices,
-                               method="angle_reg",
-                               threshold=tau_threshold,
-                               p_0=p_0)
-
-  if (length(c(model$two_el_indices, model$one_el_indices)) == 0) {
-    return (
-      list(
-        "raw_two_el_indices" = integer(),
-        "true_two_el_indices" = integer(),
-        "raw_one_el_indices" = integer(),
-        "true_one_el_indices" = integer(),
-        "result_df" = result_df,
-        "periodics" = rep(0, length(detrend_series))
-      )
-    )
-  }
-
-  raw_two_el_indices <- model$two_el_indices
-  raw_one_el_indices <- model$one_el_indices
-  measure <- c(rep(model$two_el_tau, each=2), model$one_el_gamma)
-  measure_type <- c(rep(1, length(raw_two_el_indices)), rep(2, length(raw_one_el_indices)))
-  measure <- c(model$two_el_tau, model$one_el_gamma)
-  measure_type <- c(rep(1, length(model$two_el_tau)), rep(2, length(model$one_el_gamma)))
-
-  indices <- list()
-  i <- 1
-  for (k in seq_len(length(model$two_el_indices) / 2)) {
-    idx <- c(2 * k - 1, 2 * k)
-    indices[[i]] <- model$two_el_indices[idx]
-    i <- i + 1
-  }
-
-  for (k in seq_along(model$one_el_indices)) {
-    indices[[i]] <- model$one_el_indices[k]
-    i <- i + 1
-  }
+  # model <- auto_periodic_model(ssa_obj=model_obj,
+  #                              groups=periodic_indices,
+  #                              method="angle_reg",
+  #                              threshold=tau_threshold,
+  #                              p_0=p_0)
+  # 
+  # if (length(c(model$two_el_indices, model$one_el_indices)) == 0) {
+  #   return (
+  #     list(
+  #       "raw_two_el_indices" = integer(),
+  #       "true_two_el_indices" = integer(),
+  #       "raw_one_el_indices" = integer(),
+  #       "true_one_el_indices" = integer(),
+  #       "result_df" = result_df,
+  #       "periodics" = rep(0, length(detrend_series))
+  #     )
+  #   )
+  # }
+  # 
+  # raw_two_el_indices <- model$two_el_indices
+  # raw_one_el_indices <- model$one_el_indices
+  # measure <- c(rep(model$two_el_tau, each=2), model$one_el_gamma)
+  # measure_type <- c(rep(1, length(raw_two_el_indices)), rep(2, length(raw_one_el_indices)))
+  # measure <- c(model$two_el_tau, model$one_el_gamma)
+  # measure_type <- c(rep(1, length(model$two_el_tau)), rep(2, length(model$one_el_gamma)))
+  # 
+  # indices <- list()
+  # i <- 1
+  # for (k in seq_len(length(model$two_el_indices) / 2)) {
+  #   idx <- c(2 * k - 1, 2 * k)
+  #   indices[[i]] <- model$two_el_indices[idx]
+  #   i <- i + 1
+  # }
+  # 
+  # for (k in seq_along(model$one_el_indices)) {
+  #   indices[[i]] <- model$one_el_indices[k]
+  #   i <- i + 1
+  # }
+  
+  indices <- periodic_indices
   
   if (!check_hypothesis) {
     all_indices <- c(raw_two_el_indices, raw_one_el_indices)
@@ -484,9 +488,9 @@ auto_periodics_mc <- function(
     
     return (
       list(
-        "raw_two_el_indices" = raw_two_el_indices,
+        # "raw_two_el_indices" = raw_two_el_indices,
         "true_two_el_indices" = NULL,
-        "raw_one_el_indices" = raw_one_el_indices,
+        # "raw_one_el_indices" = raw_one_el_indices,
         "true_one_el_indices" = NULL,
         "result_df" = NULL,
         "periodics" = periodic_estimate
@@ -498,17 +502,17 @@ auto_periodics_mc <- function(
     print("All periodic indices: ")
     print(indices)
     
-    print("All identified two el periodics: ")
-    print(raw_two_el_indices)
+    # print("All identified two el periodics: ")
+    # print(raw_two_el_indices)
+    # 
+    # print("All identified one el periodics: ")
+    # print(raw_one_el_indices)
     
-    print("All identified one el periodics: ")
-    print(raw_one_el_indices)
-    
-    print("All measure values: ")
-    print(measure)
-    
-    print("Measure type: ")
-    print(measure_type) 
+    # print("All measure values: ")
+    # print(measure)
+    # 
+    # print("Measure type: ")
+    # print(measure_type) 
   }
   
   mss <- numeric(0)
@@ -523,20 +527,21 @@ auto_periodics_mc <- function(
     
     print("Start filtering...")
   }
-  combined_matrix <- cbind(indices, mss, measure, measure_type)
+  # combined_matrix <- cbind(indices, mss, measure, measure_type)
+  combined_matrix <- cbind(indices, mss)
   
   sorted_matrix <- combined_matrix[order(mss, decreasing = TRUE), , drop = FALSE]
   
   if (is.null(nrow(sorted_matrix))){
     indices <- sorted_matrix[1]
     mss <- sorted_matrix[2]
-    measure <- sorted_matrix[3]
-    measure_type <- sorted_matrix[4]
+    # measure <- sorted_matrix[3]
+    # measure_type <- sorted_matrix[4]
   } else {
     indices <- sorted_matrix[, 1]
     mss <- sorted_matrix[, 2]
-    measure <- sorted_matrix[, 3]
-    measure_type <- sorted_matrix[, 4]
+    # measure <- sorted_matrix[, 3]
+    # measure_type <- sorted_matrix[, 4]
   }
   
   mss <- mss |> as.numeric()
@@ -554,11 +559,10 @@ auto_periodics_mc <- function(
     freq.exclude <- list(c(0, auto_trend_freq))
   else
     freq.exclude <- list()
-    
+  
+  current_indices <- sorted_matrix[, "indices"]
   while (m$reject) {
-    current_indices <- sorted_matrix[, "indices"]
-    
-    signif_freqs[i] <- get_signif_freq(m, n_periodics = 1)
+    signif_freqs[i] <- get_signif_freq(m, n_periodics = 1, weighted = FALSE)
     deltas[i] <- calculate_delta(length(detrend_series), signif_freqs[i], C_max)
     freq.bins[[i]] <- c(signif_freqs[i] - deltas[i] - 1e-9, signif_freqs[i] + deltas[i] + 1e-9)
     n_triples[i] <- ifelse(signif_freqs[i] == 0.5, 1, 2)
@@ -568,7 +572,7 @@ auto_periodics_mc <- function(
       base = "series",
       freq.bins = freq.bins[i]
     )
-
+    
     j <- 1
     contribs_raw <- attr(g, "contribution") |> as.numeric()
     contribs <- numeric()
@@ -579,35 +583,34 @@ auto_periodics_mc <- function(
     }
 
     mask <- contribs > auto_threshold
-      
-    if (all(!mask)) {
+    len <- min(sum(mask), n_triples[i])
+    
+    if (len == 0) {
       result_df[i + 1, "period"] <- 1 / signif_freqs[i]
-      N <- length(noise_estimate)
       freq.exclude[[length(freq.exclude) + 1]] <- freq.bins[[i]]
       signif_freqs[i] <- NA
     }
     else {
-      indices_masked <- unlist(current_indices[which(mask)[1]])
+      indices_masked <- current_indices[mask][seq_len(len)]
       
-      if (length(indices_masked) == 2) {
+      if (n_triples[i] == 2) {
         true_two_el_indices <- c(true_two_el_indices, indices_masked)
         periodic <- reconstruct(model_obj, groups = list(indices_masked))$F1
-        result_df[i + 1, "period"] <- parestimate(model_obj, groups = list(indices_masked[1:2]))$period[1]
+        
+        result_df[i + 1, "period"] <- 1 / signif_freqs[i]
         result_df[i + 1, "index1"] <- indices_masked[1]
         result_df[i + 1, "index2"] <- indices_masked[2]
-        result_df[i + 1, "measure_type"] <- 1
+        # result_df[i + 1, "measure_type"] <- 1
       }
       else {
         true_one_el_indices <- c(true_one_el_indices, indices_masked)
         periodic <- reconstruct(model_obj, groups = list(indices_masked))$F1
         result_df[i + 1, "period"] <- 2
         result_df[i + 1, "index1"] <- indices_masked
-        result_df[i + 1, "measure_type"] <- 2
+        # result_df[i + 1, "measure_type"] <- 2
       }
       
-      idx <- which(mask)[1]
-      result_df[i + 1, "measure"] <- sorted_matrix[idx, "measure"] |> as.numeric()
-      result_df[i + 1, "mss"] <-  sorted_matrix[idx, "mss"] |> as.numeric()
+      result_df[i + 1, "mss"] <- mean(periodic^2)
       
       periodic_estimate <- periodic_estimate + periodic
       noise_estimate <- noise_estimate - periodic
@@ -619,17 +622,17 @@ auto_periodics_mc <- function(
           print(paste0("Decomposition index: ", indices_masked))
         print(
           paste0(
-            "Measure: ", result_df[i + 1, "measure_type"],
-            ", value: ", result_df[i + 1, "measure"],
-            ", MSS: ", result_df[i + 1, "mss"]
+            # "Measure: ", result_df[i + 1, "measure_type"],
+            # ", value: ", result_df[i + 1, "measure"], ", ",
+            "MSS: ", result_df[i + 1, "mss"]
           )
         )
       }
       
-      sorted_matrix <- sorted_matrix[-idx, , drop = FALSE]
+      current_indices <- setdiff(current_indices, indices_masked)
     }
     
-    if (length(sorted_matrix) == 0)
+    if (length(current_indices) == 0)
       break
     
     model <- as.list(
@@ -655,9 +658,9 @@ auto_periodics_mc <- function(
   
   return (
     list(
-      "raw_two_el_indices" = raw_two_el_indices,
+      # "raw_two_el_indices" = raw_two_el_indices,
       "true_two_el_indices" = true_two_el_indices,
-      "raw_one_el_indices" = raw_one_el_indices,
+      # "raw_one_el_indices" = raw_one_el_indices,
       "true_one_el_indices" = true_one_el_indices,
       "result_df" = result_df,
       "periodics" = periodic_estimate,
@@ -920,7 +923,8 @@ ssa_aid <- function(time_series,
       max_rank = max_rank,
       mcssa.arguments = mcssa.arguments,
       eossa_delta = eossa_delta,
-      svd.method = svd.method
+      svd.method = svd.method,
+      ...
     )
     if ((nstages == 'auto') & (current_signal_rank == dec$signal_rank))
       break

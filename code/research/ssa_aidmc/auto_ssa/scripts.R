@@ -1,5 +1,8 @@
+library(here)
+
 source("auto_ssa.R", local = TRUE)
-source("mcmssa_utils.R", local = TRUE)
+# source("mcmssa_utils.R", local = TRUE)
+source(here("R", "mc-mssa.R"), local = TRUE)
 # source("ic.R")
 #source("ic_AR1noise.R")
 
@@ -300,40 +303,31 @@ noise_hypothesis <- function(time_series,
   #   :key pval: pvalue
   
   if (method == "mc"){
+    fixed <- list(phi = 0, d = 0)
+    if (noise_type == "red")
+      fixed$phi <- NA
+    else if (noise_type == "fi")
+      fixed$d <- NA
+    
     if (fixed_freqs){
-      pval <- MonteCarloSSA(
-        f = time_series,
-        freq.range = freq.range,
+      pval <- mcssa(
+        x = time_series,
         L = MC.L,
-        model = NULL,
-        basis = 'sin0',
-        kind = "ev",
-        D = 1,
-        G = MC.G,
-        level.conf = NULL,
-        composite = TRUE,
-        noise_type=noise_type,
-        red.phi_lower=MC.phi_lower,
-        red.phi_upper=MC.phi_upper,
-        red.sigma_upper_m=MC.sigma_upper_m
+        basis = "cos",
+        fixed = fixed,
+        freq.range = freq.range,
+        conf.level = 1 - sign_level
       )$p.value
     }
     else
-      pval <- MonteCarloSSA(
-        f = time_series,
+      pval <- mcssa(
+        x = time_series,
         L = MC.L,
-        model = NULL,
-        basis = 'sin0',
-        kind = "ev",
-        D = 1,
-        G = MC.G,
-        level.conf = NULL,
-        composite = TRUE,
-        noise_type=noise_type,
-        red.phi_lower=MC.phi_lower,
-        red.phi_upper=MC.phi_upper,
-        red.sigma_upper_m=MC.sigma_upper_m
+        basis = "cos",
+        fixed = fixed,
+        conf.level = 1 - sign_level
       )$p.value
+    
   } else if (method == "box"){
     pval <- Box.test(time_series)$p.value
   } else if (method == "wavelet"){
