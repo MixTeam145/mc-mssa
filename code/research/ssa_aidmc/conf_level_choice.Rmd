@@ -2,10 +2,10 @@
 title: "Confidence level choice"
 output:
   html_document:
-    # toc: true
-    # toc_float: true
-    # toc_collapsed: true
-    # number_sections: true
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
@@ -314,7 +314,9 @@ results2_0.8 <- process(
 results2_0.8$conf.level <- 0.8
 ```
 
-Проверяем значимость MSE предсказаний для разных уровней значимости.
+## Завиимость от ``conf.level2``
+
+Проверяем значимость различия MSE предсказаний для разных уровней значимости ``conf.level2``.
 
 Часть сигнала не доминирует на шумом:
 ```{r}
@@ -327,7 +329,8 @@ data1 |>
 ```
 
 ```{r}
-pairwise_t_test(data1, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+pairwise_t_test(data1, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE) |>
+  print.data.frame()
 ```
 
 Сигнал доминирует над шумом:
@@ -341,7 +344,8 @@ data2 |>
 ```
 
 ```{r}
-pairwise_t_test(data2, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+pairwise_t_test(data2, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE) |>
+  print.data.frame()
 ```
 
 
@@ -349,18 +353,20 @@ pairwise_t_test(data2, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRU
 
 Часть сигнала не доминирует на шумом:
 ```{r}
-pairwise_t_test(data1, mse_signal ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+pairwise_t_test(data1, mse_signal ~ conf.level, p.adjust.method = "BH", paired = TRUE) |>
+  print.data.frame()
 ```
 
 Сигнал доминирует над шумом:
 ```{r}
-pairwise_t_test(data2, mse_signal ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+pairwise_t_test(data2, mse_signal ~ conf.level, p.adjust.method = "BH", paired = TRUE) |>
+  print.data.frame()
 ```
 
 
-## Зависимость ошибок предсказания от ``conf.level1``
+## Зависимость от ``conf.level1``
 
-Будем менять ``conf.level1`` (вместе с ``conf.level2``, поскольку первый используется для обнаружения доминирующего сигнала, а второй для оставшегося сигнала) и смотреть на изменение MSE предсказания.
+Будем менять ``conf.level1`` (вместе с ``conf.level2``, поскольку первый используется для обнаружения доминирующего сигнала, а второй для оставшегося сигнала, ``conf.level2`` должен быть не больше ``conf.level1``) и смотреть на изменение MSE предсказания.
 ```{r, eval=FALSE, include=FALSE}
 results1 <- list()
 for (conf.level in c(0.99, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6)) {
@@ -388,7 +394,8 @@ res1 |>
 ```
 
 ```{r}
-pairwise_t_test(res1, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+pairwise_t_test(res1, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE) |>
+  print.data.frame()
 ```
 
 Сигнал доминирует над шумом:
@@ -418,5 +425,6 @@ res2 |>
 ```
 
 ```{r}
-pairwise_t_test(res2, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE)
+pairwise_t_test(res2, mse_fc ~ conf.level, p.adjust.method = "BH", paired = TRUE) |>
+  print.data.frame()
 ```
