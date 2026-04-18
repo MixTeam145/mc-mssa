@@ -1,0 +1,341 @@
+\documentclass[pdf,notheorems,10pt,intlimits,unicode]{beamer}
+\usetheme[numbers,totalnumbers,compress,nologo]{Statmod}
+\usefonttheme[onlymath]{serif}
+\setbeamertemplate{navigation symbols}{}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T2A]{fontenc}
+\usepackage[russian]{babel}
+
+\usepackage{graphicx,subcaption,ragged2e}
+\usepackage{caption}
+\usepackage{slashbox}
+
+\usepackage{tikz}
+% \usepackage{ragged2e}
+\usepackage{hhline}
+\usepackage{array}
+\usepackage[table,x11names]{xcolor}
+
+\usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{hhline}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{bbm}
+\usepackage{bm}
+
+\AtBeginSection[]{
+  \begin{frame}[noframenumbering]
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{title}
+    \usebeamerfont{title}\insertsectionhead\par%
+  \end{beamercolorbox}
+  \vfill
+  \end{frame}
+}
+
+\setbeamerfont{institute}{size=\normalsize}
+\setbeamercolor{bluetext_color}{fg=blue}
+
+\newtheorem{remark}{Замечание}
+\newtheorem{algorithm}{Алгоритм}
+\newtheorem{assumption}{Предположение}
+\newtheorem{definition}{Определение}
+
+\newcommand{\bfxi}{\boldsymbol{\xi}}
+\newcommand{\bluetext}[1]{{\usebeamercolor[fg]{bluetext_color}#1}}
+\newcommand{\redtext}[1]{{\usebeamercolor[fg]{redtext_color}#1}}
+
+\setcounter{tocdepth}{2}
+
+\title{Автоматическое разложение временного ряда на тренд, периодичности и шум, используя метод Monte Carlo SSA}
+
+\author{Потешкин Егор Павлович, Голяндина Н.Э.}
+
+\institute[Санкт-Петербургский Государственный Университет]{%
+	\small
+	Санкт-Петербургский государственный университет\\
+	Кафедра статистического моделирования
+}
+
+\date{\\Список-2026\\30 апреля 2026, Санкт-Петербург}
+
+\input{letters_series_mathbb.tex}
+
+% \graphicspath{../img/}
+
+\begin{document}
+
+\begin{frame}[plain]
+    \titlepage
+    \note{Научный руководитель  д.ф.-м.н., доцент Голяндина\,Н.\,Э.,\\
+        кафедра статистического моделирования}
+\end{frame}
+
+% \begin{frame}{Обзор}
+
+%     \begin{enumerate}
+%         \item Мотивация и постановка задачи.
+%         \item Сравнение методов оценки параметров шума.
+%         \item Описание метода SSA и критерия MC-SSA.
+%         \item Численное сравнение выбора проекционных векторов в MC-SSA: собственные векторы vs. косинусы.
+%         \item Описание существующих методов автоматической идентификации сигнала.
+%         \item Описание разработанного метода autoMCSSA и подхода к выбору его параметров.
+%         \item Описание разработанного метода SSA-AidMC и численное сравнение методов.
+%         \item Выводы и дальнейшие планы.
+%     \end{enumerate}
+
+% \end{frame}
+
+% \begin{frame}{Мотивация и актуальность}
+
+%     Временной ряд $\tX=(x_1,\ldots,x_N)$~--- последовательность наблюдений, упорядоченных по времени.\medskip
+
+%     \bluetext{Примеры}: Объемы продаж по месяцам, замеры температуры в течении нескольких лет.\medskip
+
+%     Цель анализа временных рядов~--- определение его структуры, выявление закономерностей и трендов, а также прогнозирование будущих значений.\medskip
+
+%     \bluetext{Приложение}: медицина, финансы, климатология и др.
+
+% \end{frame}
+
+\begin{frame}{Введение}
+
+    $\tX=(x_1,\ldots,x_N)$~--- временной ряд длины $N$.\medskip
+
+    \bluetext{Модель}: $\tX=\tT+\tP+\tR$, где $\tT$~--- тренд, $\tP$~--- периодическая компонента и $\tR$~--- шум, случайная составляющая.\medskip
+
+    \bluetext{Проблема}: Как выделить сигнал $\tS=\tT+\tP$?\medskip
+
+    \bluetext{Метод}: Singular spectrum analysis (SSA)~[Broomhead and King, 1986], [Golyandina, Nekrutkin and Zhigljavsky, 2001].\medskip
+
+    \textcolor{red}{Проблема}: один из шагов SSA требует визуального анализа для определения сигнальных компонент, необходима автоматизация этого шага.
+
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: Метод SSA-Aid~[Дудник, 2025]}
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.88\textwidth]{img/ssa_aid_flowchart.pdf}
+        \caption{Блок-схема метода SSA-Aid}
+    \end{figure}
+    
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: Метод SSA}
+
+    \bluetext{Входные данные}: временной ряд $\tX=(x_1,\ldots,x_N)$.\medskip
+
+    \bluetext{Параметр}: длина окна $L$, $1<L<N$.\medskip
+
+    \bluetext{Результат}: $m$ восстановленных составляющих временного ряда.\medskip
+    \begin{enumerate}
+        \item \textbf{Вложение}: $\bfX=\cT(\tX)=[X_1:\ldots:X_K]$, где $X_i=(x_1,\ldots,x_{i+L-1})^\rmT$, $K=N-L+1$.\smallskip
+        \item \textbf{Разложение}: $\bfX=\sum_{i=1}^r \sigma_i P_i Q_i^\rmT=\bfX_1+\ldots+\bfX_r$, $\operatorname{rank}\bfX_i=1$. В базовом SSA используется сигнулярное разложение (SVD).\smallskip
+        \item \textbf{Группировка}: $\bfX=\bfX_{I_1}+\ldots+\bfX_{I_m}$, где $\bfX_{I_k}=\sum_{i\in I_k}\bfX_i$.\smallskip
+        \item \textbf{Восстановление}: $\tX=\widetilde\tX_{I_1}+\ldots+\widetilde\tX_{I_m}$, где $\widetilde\tX_{I_k}=\cT^{-1}\circ\cH(\bfX_{I_k})$.
+    \end{enumerate}
+
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: Автоматическая группировка в SSA}
+
+    Для ряда $\tX$ длины $N$ и $0\leqslant\omega_1\leqslant\omega_2\leqslant0.5$ определим меру~[Алесандров, Голяндина, 2004]
+    $$
+        T(\tX; \omega_1,\omega_2)=\frac{1}{\|\tX\|^2}\sum_{k:\omega_1\leqslant k / N \leqslant \omega_2}\Pi(k / N),
+    $$
+    где $\Pi$~--- односторонняя периодограмма ряда $\tX$:
+    \begin{equation*}
+        \Pi(k / N)=I(k / N)\cdot
+        \begin{cases}
+            2, & \text{для } 0<k<N/2, \\
+            1,                & \text{иначе}.
+        \end{cases}
+    \end{equation*}
+    Величину $T(\tX; \omega_1, \omega_2)$ можно рассматривать как долю вклада частот, содержащегося в интервале $[\omega_1, \omega_2]$.
+
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: Автоматическая идентификация тренда~[Александров, Голяндина, 2004]}
+
+    \begin{algorithm}[\textbf{T}rend \textbf{A}utomatic \textbf{I}dentification]
+        \bluetext{Входные данные}: элементарные восстановленные компоненты $\tX^{(j)}$, $j\in J$, порог низких частот $\omega_0$, порог вклада низких частот $T_0\in[0, 1]$.\medskip
+
+        \bluetext{Результат}: компоненты, относящиеся к тренду, оценка тренда.\medskip
+
+        \begin{enumerate}
+            \item Вычислить $T_j=T(\tX^{(j)};0,\omega_0)$ для каждого $j\in J$.\smallskip
+            \item Определить компоненты $J_\text{Trend}=\{j\in J:~T_j > T_0\}$, относящиеся к тренду, вычислить оценку тренда $\hat \tT=\sum\limits_{j\in J_\text{Trend}} \tX^{(j)}$.
+        \end{enumerate}
+    \end{algorithm}
+
+    % \bluetext{Алгоритм autoEOSSA}~[Golyandina, Dudnik, Shlemov, 2023]: применение переразложения EOSSA к первым $r$ компонентам и последующее применение алгоритма автоматической идентификации тренда.
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: Проблема отсутствия разделимости}
+    \textcolor{red}{Проблема}: автоматическая идентификация возможна, только если в разложении трендовые компоненты не смешались с периодическими (если есть разделимость).
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.85\textwidth]{img/no_separability.pdf}
+    \end{figure}
+    
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: Метод улучшения разделимости EOSSA}
+
+    Для улучшения разделимости будем использовать алгоритм EOSSA~[Шлемов, 2017],~[Golyandina, Dudnik and Shlemo, 2023]. Параметр~--- количество элементарных компонент в сигнале $r$.\medskip
+    
+    EOSSA использует следующее представление ряда конечного ранга:
+    \[
+    s_n=\sum_{z=1}^h P_{m_z}(n)\mu_z^n,
+    \]
+    где $P_{m_z}$~--- полином степени $m_z$, $\sum_{z=1}^h m_z=r$, $r$~--- ранг ряда $\mathsf{S}$, $\mu_z$~--- сигнальные корни.
+    
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: Метод регулярности углов~[Жорникова, 2018]}
+
+    \begin{itemize}
+        \item \bluetext{Что делает метод?} Метод идентифицирует э-м гармоники с частотами $0 < \omega < \frac{1}{2}$.\medskip
+        \item \bluetext{Входные данные и параметры}: Левые сингулярные векторы траекторной матрицы $\bfX$. Порог $\tau_0$.\medskip
+        \item \bluetext{Идея метода}: Метод использует факт, что углы между последовательными отрезками на двумерной диаграмме сингулярных векторов равны.\medskip
+        \item В работе~[Дудник, 2025] метод расширен на случай $\omega=\frac{1}{2}$. \\К параметрам добавился порог $p_0$. Используется регулярность смены знака компоненты.
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: отбор гармоник}
+
+    \textcolor{red}{Проблема}: Метод EOSSA делает шумовые компоненты похожими на периодики. Метод регулярности углов ошибочно идентифицирует шумовые компоненты.\medskip
+
+    \textcolor{blue}{Решение}:
+    \begin{enumerate}
+        \item Ранжировать периодики по вкладу (сумме квадратов).
+        \item Проверить гипотезу об отсутствии сигнала в остатке. Если гипотеза отвергается, обновить оценку периодики, добавив периодику с наибольшим вкладом, и остаток.
+        \item Повторять шаг 2 до тех пор, пока гипотеза не перестанет отвергаться или пока не будут отобраны все периодики.
+    \end{enumerate}    
+
+\end{frame}
+
+\begin{frame}{Недостатки метода SSA-Aid}
+
+    Метод SSA-Aid, хотя и является довольно мощным методом автоматической идентификации сигнала, обладает существенным недостатком.\medskip
+    
+    Предполагается, что \textbf{вклад каждой сигнальной компоненты больше вклада каждой компоненты, отсосящейся к шуму}. То есть сигналу соответствуют несколько первых компонент.\medskip
+
+    Однако, возможна ситуация, когда сигнальные компоненты по вкладу находятся среди шумовых, при этом они с ним не смешались. Такая ситуация может произойти, когда спектр шума неравномерен, то есть когда шум не белый. Примеры:
+    \begin{enumerate}
+        \item Красный шум~--- процесс AR(1) с $\phi>0$.
+        \item Процес с длинной памятью, например, ARFIMA(0, $d$, 0):
+        \[
+        Y_t=(1-L)^{-d}\varepsilon_t, \quad d<1/2,
+        \]
+        где $\varepsilon_t$~--- белый гауссовский шум.
+    \end{enumerate}
+
+\end{frame}
+
+\begin{frame}{Недостатки метода SSA-Aid: пример}
+
+    Модель: $\tX=\tS+\bm\xi$, где $\bm\xi$~--- AR(1) с $\phi=0.7$ и $\sigma^2=1$, $N=200$,
+    \[
+    s_n=0.075e^{0.02n}\cos(2\pi n / 8) + 2\cos(2\pi n / 4) + 0.2\cdot (-1)^n.
+    \]
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.85\textwidth]{img/non_dominant_signal.pdf}
+        \caption{Элементарные восстановленные компоненты $L=100$}
+    \end{figure}
+
+    Компоненты, относящиеся к сигнальну~--- 1, 2, 5, 6 и 13, однако SSA-Aid обнаружит только первые две компоненты.
+
+\end{frame}
+
+\begin{frame}{Подход решению проблемы}
+    \textcolor{blue}{Идея}: после SSA-Aid использовать другой метод, умеющий определять сигнальные компоненты, не доминирующие над шумом.\medskip
+
+    \textcolor{blue}{Как это сделать}: использовать статистический критерий, который дает информацию о значимых частотах. Получив значимую частоту $\omega$, можно определить компоненты, которые ей соответствуют, с помощью меры $T(\cdot, \omega - \delta, \omega + \delta)$.\medskip
+
+    Подходящим для этого критерием является метод Monte Carlo SSA (MC-SSA)~[Allen and Smith, 1996].\medskip
+
+    \textcolor{blue}{Разработанный метод}: SSA-AidMC (SSA Automatic Identification using MC-SSA).
+
+
+\end{frame}
+
+\begin{frame}{Обозначения и известные результаты: Multiple Monte Carlo SSA~[Golyandina, 2023]}
+
+    \bluetext{Входные данные}: временной ряд $\tX$.\smallskip
+
+    \bluetext{Параметры}: длина окна $L$, выбор векторов $W_1,\ldots,W_H\in \mathbb{R}^{L}$, модель шума $\bm\xi$, количество суррогатных реализаций $G$.\smallskip
+    \begin{enumerate}
+        \item Строятся статистики критерия $\widehat p_k=\|\bfX^\rmT W_k\|^2$, $k=1,\ldots,H$.
+        \item Оцениваются их распределения на основе $G$ суррогатных реализаций $\bm\xi$.
+        \item Строятся предсказательные интервалы с поправкой на множественные сравнения с уровнем доверия $(1-\alpha)$.
+    \end{enumerate}
+
+    В качестве векторов $W_k$ будут использоваться косинусы с равноотстоящими частотами.\medskip
+
+    В работе~[Потешкин, 2024] показано что критерий MC-SSA обладает наибольшей мощностью по сравнению с другими критериями проверки гипотезы об отсутствии сигнала.
+
+\end{frame}
+
+\begin{frame}{MC-SSA: пример}
+    Модель: $\tX=\tS+\bm\xi$, где $\bm\xi$~--- AR(1) с $\phi=0.7$ и $\sigma^2=1$, $N=200$,
+    \[
+    s_n=0.075e^{0.02n}\cos(2\pi n / 8) + 2\cos(2\pi n / 4) + 0.2\cdot (-1)^n.
+    \]
+
+    \begin{figure}
+		\centering
+		\minipage{0.5\textwidth}
+            \centering
+			\includegraphics[width=0.72\textwidth]{img/mcssa_real.pdf}
+			\caption{Истинная модель шума}
+		\endminipage\hfill
+		\minipage{0.5\textwidth}
+            \centering
+			\includegraphics[width=0.72\textwidth]{img/mcssa_estimated.pdf}
+			\caption{Оцененная модель шума}
+		\endminipage
+	\end{figure}
+
+	\bluetext{Вывод}: для полного выделения сигнала необходимо итеративно применять критерий после выделения одной гармоники, оценивая параметры модели шума по текущему остатку, пока гипотеза $H_0:\tS=0$ не перестанет отвергаться.
+\end{frame}
+
+
+
+% \begin{frame}{Введение. Продолжение}
+
+%     Существует метод автоматического выделения тренда и периодик~[Golyandina, Dudnik and Shlemov, 2025].\smallskip
+
+%     \textcolor{red}{Недостаток}: метод работает только если компоненты доминируют над шумом.\smallskip
+
+%     \bluetext{Основная цель работы}: разработать метод автоматического выделения сигнала, который не обязательно доминирует над шумом.\smallskip
+
+%     Данный метод будет основан на методе MC-SSA для обнаружения сигнала и SSA его выделения, поэтому работа выстроена следующим образом:
+%     \begin{enumerate}
+%         \item Описание методов SSA и MC-SSA.
+%         \item Исследование выбора проекционных векторов в методе MC-SSA.
+%         \item Применение метода MC-SSA на практике.
+%         \item Описание существующего метода автоматической идентификации.
+%         \item Описание разработанного метода автоматической идентификации и его численное сравнение с существующим методом.
+%     \end{enumerate}
+%     % \bluetext{Рассматриваемые в работе проблемы}:
+%     % \begin{enumerate}
+%     %     \item Для критерия MC-SSA обычно используется модель красного шума (AR(1)), но в геофизике, гидрологии и финансах ряды часто обладают длинной памятью.
+%     %     \item Параметры шума на практике неизвестны и выбор метода для их оценки сильно влияет на качество их оценки и тем самым на результат критерия.
+%     %     \item Самый популярный вариант MC-SSA является радикальным критерием и чтобы сделать его точным, нужно провести очень трудоемкую процедуру.
+%     % \end{enumerate}
+
+% \end{frame}
+
+
+\end{document}
