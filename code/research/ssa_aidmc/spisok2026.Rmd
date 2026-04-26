@@ -1,0 +1,762 @@
+---
+title: "Материалы для выступления на конференции СПИСОК-2026"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(lattice)
+library(parallel)
+library(doFuture)
+library(doRNG)
+library(progressr)
+library(tidyr)
+library(latex2exp)
+library(ggpubr)
+library(readr)
+library(lubridate)
+library(here)
+library(TSA)
+
+source(here("R", "ssa_aidmc.R"))
+source("auto_ssa/scripts.R", chdir = TRUE)
+load("data/spisok2026.RData")
+
+theme_set(
+  theme_bw() +
+  theme(
+    legend.key.width = unit(18, "mm"),
+    legend.text = element_text(size = 12),
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  ) 
+)
+
+```
+
+## Пример сигнала, часть компонент которого не доминируюет над шумовыми.
+```{r}
+phi <- 0.7
+sigma2 <- 1
+N <- 200
+model <- list(phi = phi, sigma2 = sigma2, N = N)
+```
+
+```{r}
+omega <- 0.125
+signal <- mapply(em_harmonic, N, c(1, 2, 4) * omega,  c(0.02, 0, 0) * N, c(0.075, 1.2, 0.25)) |> rowSums()
+
+set.seed(1234)
+f <- arfima.sim(model, N) + signal
+
+# pdf("../../../tex/spisok2026/img/non_dominant_signal_pgram.pdf", width = 8, height = 4)
+per <- TSA::periodogram(f, lwd = 1)
+lines(
+  per$freq[c(1, 2, 4) * omega * N],
+  per$spec[c(1, 2, 4) * omega * N],
+  type = "h",
+  col = "blue",
+  lwd = 2
+)
+lines(per$freq, 2 * spec_arfima(per$freq, phi = model$phi), col = "red")
+legend("topright", legend = c("Periodogram", "AR(1) spectrum"), col = c("black", "red"), lty = 1)
+# dev.off()
+
+s <- ssa(f, L = 96, svd.method = "svd")
+# pdf("../../../tex/spisok2026/img/non_dominant_signal_ssa.pdf", width = 8, height = 4)
+plot(s, "series", groups = 1:10)
+# dev.off()
+```
+
+```{r}
+L <- 48
+set.seed(123)
+m1 <- mcssa(f, L, "cos", model = model, conf.level = 0.99)
+set.seed(123)
+m2 <- mcssa(f, L, "cos", fixed = list(phi = NA, d = 0), conf.level = 0.99)
+```
+
+```{r}
+(p1 <- plot(m1, text.size = 10, point.size = 1.5)) 
+# ggsave("../../../tex/spisok2026/img/mcssa_real.pdf", p1, device = "pdf", width = 10, height = 10, units = "cm")
+```
+
+```{r}
+(p2 <- plot(m2, text.size = 10, point.size = 1.5)) 
+# ggsave("../../../tex/spisok2026/img/mcssa_estimated.pdf", p2, device = "pdf", width = 10, height = 10, units = "cm") 
+```
+
+## Пример выделения сигнала методом SSA-Aid (версия Павла)
+```{r}
+data(debitcards, package = "fpp2")
+f <- log(debitcards)
+f_std <- (f - min(f)) / (max(f) - min(f))
+
+(plot_series <- autoplot(f, ylab = ""))
+# ggsave("../../../tex/spisok2026/img/debitcards_plot.pdf", plot_series, device = "pdf", width = 16, height = 10, units = "cm") 
+```
+
+```{r}
+s <- ssa(f, L = length(f) %/% 24 * 12, svd.method = "svd")
+# pdf("../../../tex/spisok2026/img/debitcatds_decomposition_basic.pdf", width = 10, height = 4)
+plot(s, "vectors", idx = 1:30, plot.contrib = FALSE)
+# dev.off()
+```
+
+```{r}
+auto_trend <- auto_trend_model(
+  s,
+  method = "eossa.auto",
+  clust_type = "distance",
+  delta = 1e-4,
+  signal_rank = 30,
+  auto_threshold = 0.5,
+  auto_trend_freq = 1 / 24
+)
+(
+  plot_auto_trend <- autoplot(f, series = "Original", ylab = "") +
+    autolayer(auto_trend$trend, series = "Trend") +
+    scale_color_manual(values = c("Original" = "black", "Trend" = "#F8766D"))
+)
+# ggsave("../../../tex/spisok2026/img/debitcards_auto_trend.pdf", plot_auto_trend, device = "pdf", width = 16, height = 10, units = "cm") 
+```
+
+```{r, include=FALSE}
+g <- periodic_grouping_angle_reg(auto_trend$model_object, auto_trend$grouping$Periodics, threshold = 0.05)
+1 / g$I_1_freqs
+g$I_1
+```
+
+```{r, include=FALSE}
+plot(auto_trend$model_object, "vectors", idx = 1:30, plot.contrib = FALSE)
+plot(auto_trend$model_object, "paired", idx = g$I_1[c(TRUE, FALSE)], plot.contrib = FALSE)
+```
+
+```{r}
+# pdf("../../../tex/spisok2026/img/debitcatds_paired_basic.pdf", width = 10, height = 4)
+plot(s, "paired", idx = 1:29, plot.contrib = FALSE)
+# dev.off()
+# pdf("../../../tex/spisok2026/img/debitcatds_paired_eossa.pdf", width = 10, height = 4)
+plot(auto_trend$model_object, "paired", idx = 1:29, plot.contrib = FALSE)
+# dev.off()
+```
+
+```{r}
+set.seed(10)
+r <- ssa_aid_old(f_std, L = s$window, signal_rank = 30, MC.L = 48, noise_type = "red", eossa_delta = 1e-4, sign_level = 0.01, auto_trend_freq = 1 / 24)
+```
+
+```{r}
+r$result_df |> print.data.frame()
+```
+
+```{r}
+(
+  plot_ssa_aid <-
+    autoplot(f_std, series = "Original", ylab = "") +
+    autolayer(r$trend, series = "Trend") +
+    autolayer(r$periodics, series = "Periodics") +
+    autolayer(r$residuals, series = "Residuals") +
+    scale_color_manual(
+      values = c(
+        "Original" = "black",
+        "Trend" = "#F8766D",
+        "Periodics" = "#00BFC4",
+        "Residuals" = "#C77CFF"
+      ),
+      breaks = c("Original", "Trend", "Periodics", "Residuals")
+    )
+)
+# ggsave("../../../tex/spisok2026/img/debitcards_ssa_aid.pdf", plot_ssa_aid, device = "pdf", width = 16, height = 10, units = "cm") 
+```
+
+## Модельные ряды
+```{r, include=FALSE}
+mse <- function(y_true, y_pred) {
+  mean((y_true - y_pred)^2)
+}
+
+ets_fit_forecast <- function(x, h, ...) {
+  ets_model <- ets(x, ...)
+  
+  N <- length(x)
+  
+  trend_est <- ets_model$states[-1, "l"]
+  periodics_est <- ets_model$states[-1, "s1"]
+  
+  ets_fc <- forecast(ets_model, h = h, PI = FALSE)
+  
+  list(trend = trend_est, periodics = periodics_est, fc = ets_fc$mean)
+}
+
+stl_fit_forecast <- function(x, h, ...) {
+  stl_model <- stl(x, ...)
+  trend_est <- stl_model$time.series[, "trend"] |> as.numeric()
+  periodics_est <- stl_model$time.series[, "seasonal"] |> as.numeric()
+  
+  stl_fc <- forecast(stl_model, h = h)
+
+  list(trend = trend_est, periodics = periodics_est, fc = stl_fc$mean)
+}
+
+sarima_fit_forecast <- function(x, h, ...) {
+  sarima_model <- auto.arima(x, ...)
+  
+  sarima_fc <- forecast(sarima_model, h = h)
+  list(trend = NA, periodics = NA, fc = sarima_fc$mean)
+}
+
+ssa_aid_fit_forecast <- function(x, h, ...) {
+  
+  dec <- ssa_aid_old(x, ...)
+  trend_est <- dec$trend |> as.numeric()
+  periodics_est <- dec$periodics |> as.numeric()
+  
+  fc <- forecast(
+    object = dec$model_obj,
+    groups = list(seq_len(dec$signal_rank)),
+    h = h,
+    method = "recurrent"
+  )
+  
+  list(trend = trend_est, periodics = periodics_est, fc = fc$mean)
+}
+
+ssa_aidmc_fit_forecast <- function(x, h, ...) {
+  
+  dec <- ssa_aidmc(x, ...)
+  trend_est <- dec$trend |> as.numeric()
+  periodics_est <- dec$periodics |> as.numeric()
+  
+  signal_indices <- c(
+    dec$trend_indices,
+    dec$true_one_el_indices,
+    dec$true_two_el_indices
+  )
+  fc <- forecast(
+    object = dec$model_obj,
+    groups = list(signal_indices),
+    h = h,
+    method = "recurrent"
+  )
+  
+  list(trend = trend_est, periodics = periodics_est, fc = fc$mean)
+}
+
+```
+
+```{r, include=FALSE}
+process_series <- function(x, signal, h, models, plot = FALSE) {
+  x_train <- x |> head(-h)
+  x_test <- x |> tail(h)
+  
+  trend <- signal$trend[1:(length(x) - h)]
+  periodics <- signal$periodics[1:(length(x) - h)]
+  
+  model_names <- c()
+  results <- list()
+  fc_list <- list()
+  for (model in models) {
+    result <- do.call(model$func, c(list(x = x_train, h = h), model$args))
+    model_names <- c(model_names, model$name)
+    
+    mse_trend <- mse(trend, result$trend)
+    mse_periodics <- mse(periodics, result$periodics)
+    mse_signal <- mse(trend + periodics, result$trend + result$periodics)
+    mse_fc <- mse(x_test, result$fc)
+    
+    
+    results[[length(results) + 1]] <- data.frame(
+      mse_trend = mse_trend,
+      mse_periodics = mse_periodics,
+      mse_signal = mse_signal,
+      mse_fc = mse_fc,
+      model = model$name
+    )
+    fc_list[[length(fc_list) + 1]] <- list(
+      model = model$name,
+      fc = result$fc
+    )
+  }
+  
+  if (plot) {
+    p <- autoplot(x |> tail(2 * h), ylab = "")
+    for (result in fc_list)
+      p <- p + autolayer(result$fc, series = result$model)
+    plot(p)
+  }
+
+  df_results <- do.call(rbind, results)
+  invisible(df_results)
+}
+
+process <- function(noise_data_file,
+                    signal,
+                    h,
+                    frequency,
+                    models,
+                    M = 500) {
+  
+  N <- length(signal$periodics)
+  
+  noise_data <- read_csv(noise_data_file, n_max = N, lazy = TRUE, show_col_types = FALSE) |> as.list()
+  
+  funs_to_export <- Filter(function(name)
+    is.function(get(name, envir = globalenv())), ls(globalenv()))
+  export_vars <- c(funs_to_export, "device", "batch_size", "type")
+  export_packages <- c("forecast", "Rssa", "pracma", "arfima")
+  
+  M <- min(M, length(noise_data))
+  pb <- progressor(M)
+  result <- foreach (
+    i = seq_len(M),
+    .export = export_vars,
+    .packages = export_packages,
+    .options.RNG = 1
+  ) %dorng% {
+    noise <- noise_data[[i]]
+    x <- ts(signal$trend + signal$periodics + noise, frequency = frequency)
+    res <- process_series(x, signal, h, models)
+    pb()
+    res
+  }
+  do.call(rbind, result)
+}
+
+```
+
+```{r eval=FALSE, include=FALSE}
+cores <- 15
+
+# Setting up parallel computing
+plan(multisession, workers = min(cores, detectCores() - 1))
+registerDoFuture()
+```
+
+Будем рассматривать ряды длины $N=200 + h$, где $h$ --- горизонт прогноза. Оценивать модель будем по первым $200$ точкам, затем делать прогноз на $h$ точек вперед.
+
+### Пример 1
+$$
+t_n=0.2e^{0.025 n} + 2\cos(2\pi n / 60).\\
+p_n=4.12\cos(2\pi n / 4) + 4.12\cos(2\pi n/3) + 6\cos(2\pi n / 2).
+$$
+
+В качестве шума рассмотрим красный шум с параметрами $\phi=0.3$ и $\sigma=1$.
+
+```{r}
+N <- 212
+signal <- list(
+  trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
+  periodics = mapply(em_harmonic, N, c(1 / 4, 1 / 3, 1 / 2),  c(0, 0, 0), c(4.12, 4.12, 6)) |> rowSums()
+)
+autoplot(ts(signal$trend + signal$periodics), ylab = "")
+```
+
+```{r, eval=FALSE, include=FALSE}
+set.seed(1234)
+model_rn <- list(phi = 0.3, sigma2 = 1)
+noise_data_rn <- vector("list", 1000)
+for (i in 1:1000) {
+  noise_data_rn[[i]] <- arfima.sim(model_rn, N = 1000)
+}
+noise_data_rn <- do.call(cbind, noise_data_rn) |> data.frame()
+colnames(noise_data_rn) <- paste0("ts", 1:1000)
+write_csv(noise_data_rn, file = "data/red_noise_phi3.csv")
+```
+
+```{r}
+ssa_aid.arguments <- list(
+  L = 96,
+  signal_rank = 30,
+  tau_threshold = 0.05,
+  sign_level = 0.01,
+  auto_trend_freq = 1 / 24,
+  auto_threshold = 0.5,
+  p_0 = 0.03,
+  eossa_delta = 1e-4,
+  MC.L = 48,
+  noise_type = "red"
+)
+
+ssa_aidmc.arguments <- list(
+  L = 96,
+  rank = 30,
+  conf.level1 = 0.99,
+  conf.level2 = 0.99,
+  auto_trend_freq = 1 / 24,
+  auto_trend_threshold = 0.5,
+  auto_periodic_threshold = 0.5,
+  C_max = 5,
+  mcssa.arguments = list(
+    L = 48,
+    fixed = list(phi = NA, d = 0)
+  ),
+  eossa_delta = 1e-4
+)
+```
+
+```{r}
+models <- list(
+  list(name = "SSA-Aid", func = ssa_aid_fit_forecast, args = ssa_aid.arguments),
+  list(name = "SSA-AidMC", func = ssa_aidmc_fit_forecast, args = ssa_aidmc.arguments),
+  list(name = "STL", func = stl_fit_forecast, args = list(s.window = "periodic")),
+  list(name = "ETS", func = ets_fit_forecast, args = list()),
+  list(name = "SARIMA", func = sarima_fit_forecast, args = list(stepwise = TRUE))
+)
+```
+
+```{r, eval=FALSE, include=FALSE}
+res_rn1 <- process(
+  noise_data_file = "data/red_noise_phi3.csv",
+  signal = signal,
+  h = 12,
+  frequency = 12,
+  models = models,
+  M = 100
+)
+```
+
+```{r, include=FALSE}
+plot_results <- function(data, y, title = "", showmeans = TRUE, ...) {
+  p <- ggplot(data, aes(x = model, y = .data[[y]])) +
+    geom_boxplot(...) +
+    xlab("Model") +
+    ylab("MSE") +
+    ggtitle(title)
+  if (showmeans) {
+    formula <- as.formula(sprintf("%s ~ model", y))
+    p <- p + geom_point(
+      aes(x = model, y = .data[[y]]),
+      data = aggregate(formula, data = data, FUN = mean),
+      color = "red",
+      size = 3,
+      shape = 17
+    )
+  }
+  p
+}
+```
+
+
+```{r}
+# MSE восстановления тренда
+plot_results(
+  res_rn1 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_trend",
+  title = "Trend estimate MSE",
+  outliers = FALSE)
+
+# MSE восстановления сезонности
+plot_results(
+  res_rn1 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_periodics",
+  title = "Periodic estimate MSE",
+  outliers = FALSE)
+
+# MSE прогноза
+plot_results(
+  res_rn1,
+  y = "mse_fc",
+  title = "Forecast MSE (h = 12)",
+  outliers = FALSE)
+```
+
+### Пример 2
+$$
+t_n=0.2e^{0.025n}+2\cos(2\pi n/60)\\
+p_n=4e^{-0.01n}\cos(2\pi n/4) + 4\cos(2\pi n/3) + 6e^{-0.01n}\cos(2\pi n/2)
+$$
+
+В качестве шума рассмотрим красный шум с параметрами $\phi=0.3$ и $\sigma=1$.
+
+```{r}
+N <- 212
+signal <- list(
+  trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
+  periodics = mapply(
+    em_harmonic, N, c(1 / 4, 1 / 3, 1 / 2),  c(-0.01, 0, -0.01) * N, c(4, 4, 6)
+  ) |> rowSums()
+)
+autoplot(ts(signal$trend + signal$periodics), ylab = "")
+```
+
+```{r}
+models <- list(
+  list(name = "SSA-Aid", func = ssa_aid_fit_forecast, args = ssa_aid.arguments),
+  list(name = "SSA-AidMC", func = ssa_aidmc_fit_forecast, args = ssa_aidmc.arguments),
+  list(name = "STL", func = stl_fit_forecast, args = list(s.window = 7)),
+  list(name = "ETS", func = ets_fit_forecast, args = list()),
+  list(name = "SARIMA", func = sarima_fit_forecast, args = list(stepwise = TRUE))
+)
+```
+
+```{r, eval=FALSE, include=FALSE}
+res_rn2 <- process(
+  noise_data_file = "data/red_noise_phi3.csv",
+  signal = signal,
+  h = 12,
+  frequency = 12,
+  models = models,
+  M = 100
+)
+```
+
+```{r}
+# MSE восстановления тренда
+plot_results(
+  res_rn2 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_trend",
+  title = "Trend estimate MSE",
+  outliers = FALSE)
+
+# MSE восстановления сезонности
+plot_results(
+  res_rn2 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_periodics",
+  title = "Periodic estimate MSE",
+  outliers = FALSE)
+
+# MSE прогноза
+plot_results(
+  res_rn2,
+  y = "mse_fc",
+  title = "Forecast MSE (h = 12)",
+  outliers = FALSE)
+```
+
+### Пример 3
+$$
+t_n = 0.05n,\\
+p_n = \cos(2 \pi n / 8) + 0.8 \cos(2 \pi n / 4) + 0.2 \cdot (-1)^{n}.
+$$
+
+В качестве шума рассмотрим красный шум с параметрами $\phi=0.7$ и $\sigma=1$.
+
+```{r}
+N <- 208
+omega <- 0.125
+signal <- list(
+  trend = 0.05 * (1:N),
+  periodics = mapply(em_harmonic, N, c(1, 2, 4) * omega, c(0, 0 , 0), c(1, 0.8, 0.2)) |> rowSums()
+)
+autoplot(ts(signal$trend + signal$periodics), ylab = "")
+```
+
+```{r, eval=FALSE, include=FALSE}
+set.seed(1234)
+model_rn <- list(phi = 0.7, sigma2 = 1)
+noise_data_rn <- vector("list", 1000)
+for (i in 1:1000) {
+  noise_data_rn[[i]] <- arfima.sim(model_rn, N = 1000)
+}
+noise_data_rn <- do.call(cbind, noise_data_rn) |> data.frame()
+colnames(noise_data_rn) <- paste0("ts", 1:1000)
+write_csv(noise_data_rn, file = "data/red_noise_phi7.csv")
+```
+
+```{r}
+ssa_aid.arguments$sign_level <- 0.05
+ssa_aidmc.arguments$conf.level1 <- 0.95
+ssa_aidmc.arguments$conf.level2 <- 0.95
+
+ssa_aidmc.arguments$auto_trend_freq <- 1 / 40
+ssa_aid.arguments$auto_trend_freq <- 1 / 40
+models <- list(
+  list(name = "SSA-Aid", func = ssa_aid_fit_forecast, args = ssa_aid.arguments),
+  list(name = "SSA-AidMC", func = ssa_aidmc_fit_forecast, args = ssa_aidmc.arguments),
+  list(name = "STL", func = stl_fit_forecast, args = list(s.window = "periodic")),
+  list(name = "ETS", func = ets_fit_forecast, args = list()),
+  list(name = "SARIMA", func = sarima_fit_forecast, args = list(stepwise = TRUE))
+)
+```
+
+```{r, eval=FALSE, include=FALSE}
+res_rn3 <- process(
+  noise_data_file = "data/red_noise_phi7.csv",
+  signal = signal,
+  h = 8,
+  frequency = 8,
+  models = models,
+  M = 100
+)
+```
+
+```{r}
+# MSE восстановления тренда
+plot_results(
+  res_rn3 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_trend",
+  title = "Trend estimate MSE",
+  outliers = FALSE)
+
+# MSE восстановления сезонности
+plot_results(
+  res_rn3 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_periodics",
+  title = "Periodic estimate MSE",
+  outliers = FALSE)
+
+# MSE прогноза
+plot_results(
+  res_rn3,
+  y = "mse_fc",
+  title = "Forecast MSE (h = 8)",
+  outliers = FALSE)
+```
+
+### Пример 4
+$$
+t_n = 0.05n,\\
+p_n = 0.075e^{0.02n}\cos(2 \pi n / 8) + 1.5e^{-0.01n} \cos(2 \pi n / 4) + 0.8e^{-0.01n} \cdot (-1)^{n}.
+$$
+
+В качестве шума рассмотрим красный шум с параметрами $\phi=0.7$ и $\sigma=1$.
+
+```{r}
+N <- 208
+omega <- 1 / 8
+signal <- list(
+  trend = 0.05 * (1:N),
+  periodics = mapply(
+    em_harmonic, N, c(1, 2, 4) * omega,  c(0.02, -0.01, -0.01) * N, c(0.075, 1.5, 0.8)
+  ) |> rowSums()
+)
+autoplot(ts(signal$trend + signal$periodics), ylab = "")
+```
+
+```{r}
+ssa_aid.arguments$sign_level <- 0.05
+ssa_aidmc.arguments$conf.level1 <- 0.95
+ssa_aidmc.arguments$conf.level2 <- 0.95
+
+ssa_aid.arguments$auto_trend_freq <- 1 / 40
+ssa_aidmc.arguments$auto_trend_freq <- 1 / 40
+
+models <- list(
+  list(name = "SSA-Aid", func = ssa_aid_fit_forecast, args = ssa_aid.arguments),
+  list(name = "SSA-AidMC", func = ssa_aidmc_fit_forecast, args = ssa_aidmc.arguments),
+  list(name = "STL", func = stl_fit_forecast, args = list(s.window = 7)),
+  list(name = "ETS", func = ets_fit_forecast, args = list()),
+  list(name = "SARIMA", func = sarima_fit_forecast, args = list(stepwise = TRUE))
+)
+```
+
+```{r, eval=FALSE, include=FALSE}
+res_rn4 <- process(
+  noise_data_file = "data/red_noise_phi7.csv",
+  signal = signal,
+  h = 8,
+  frequency = 8,
+  models = models,
+  M = 100
+)
+```
+
+```{r}
+# MSE восстановления тренда
+plot_results(
+  res_rn4 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_trend",
+  title = "Trend estimate MSE",
+  outliers = FALSE)
+
+# MSE восстановления сезонности
+plot_results(
+  res_rn4 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_periodics",
+  title = "Periodic estimate MSE",
+  outliers = FALSE)
+
+# MSE прогноза
+plot_results(
+  res_rn4,
+  y = "mse_fc",
+  title = "Forecast MSE (h = 8)",
+  outliers = FALSE)
+```
+
+### Пример 5
+$$
+t_n = 0.08e^{0.025n},\\
+p_n = \cos(2 \pi n / 8) + 0.8\cos(2 \pi n / 4) + 0.2\cdot (-1)^{n}.
+$$
+
+В качестве шума рассмотрим красный шум с параметрами $\phi=0.7$ и $\sigma=1$.
+
+```{r}
+N <- 208
+omega <- 1 / 8
+signal <- list(
+  trend = 0.08 * exp(0.025 * (1:N)),
+  periodics = mapply(em_harmonic, N, c(1, 2, 4) * omega, c(0, 0 , 0), c(1, 0.8, 0.2)) |> rowSums()
+)
+autoplot(ts(signal$trend + signal$periodics), ylab = "")
+```
+
+```{r}
+ssa_aid.arguments$sign_level <- 0.05
+ssa_aidmc.arguments$conf.level1 <- 0.95
+ssa_aidmc.arguments$conf.level2 <- 0.95
+
+ssa_aid.arguments$auto_trend_freq <- 1 / 40
+ssa_aidmc.arguments$auto_trend_freq <- 1 / 40
+
+models <- list(
+  list(name = "SSA-Aid", func = ssa_aid_fit_forecast, args = ssa_aid.arguments),
+  list(name = "SSA-AidMC", func = ssa_aidmc_fit_forecast, args = ssa_aidmc.arguments),
+  list(name = "STL", func = stl_fit_forecast, args = list(s.window = "periodic")),
+  list(name = "ETS", func = ets_fit_forecast, args = list()),
+  list(name = "SARIMA", func = sarima_fit_forecast, args = list(stepwise = TRUE))
+)
+```
+
+```{r, eval=FALSE, include=FALSE}
+res_rn5 <- process(
+  noise_data_file = "data/red_noise_phi7.csv",
+  signal = signal,
+  h = 8,
+  frequency = 8,
+  models = models,
+  M = 100
+)
+```
+
+```{r}
+# MSE восстановления тренда
+plot_results(
+  res_rn5 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_trend",
+  title = "Trend estimate MSE",
+  outliers = FALSE)
+
+# MSE восстановления сезонности
+plot_results(
+  res_rn5 |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_periodics",
+  title = "Periodic estimate MSE",
+  outliers = FALSE)
+
+# MSE прогноза
+plot_results(
+  res_rn5,
+  y = "mse_fc",
+  title = "Forecast MSE (h = 8)",
+  outliers = FALSE)
+```
+
+```{r, eval=FALSE, include=FALSE}
+set.seed(1234)
+noise_data_wn <- vector("list", 1000)
+for (i in 1:1000) {
+  noise_data_wn[[i]] <- rnorm(1000)
+}
+noise_data_wn <- do.call(cbind, noise_data_wn) |> data.frame()
+colnames(noise_data_wn) <- paste0("ts", 1:1000)
+write_csv(noise_data_wn, file = "data/white_noise.csv")
+```

@@ -752,7 +752,7 @@ procedure <- function(
   return(res)
 }
 
-auto_ssa <- function(
+ssa_aid_old <- function(
   time_series,
   L=length(time_series) %/% 2,
   signal_rank=30,
