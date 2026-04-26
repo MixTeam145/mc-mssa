@@ -349,6 +349,7 @@ ssa_aidmc <- function(x,
     true_two_el_indices = periodic_model$true_two_el_indices,
     true_one_el_indices = periodic_model$true_one_el_indices,
     periodics = periodic_model$periodics,
+    residuals = x_detrended - periodic_model$periodics,
     result_df = periodic_model$result_df,
     model_obj = eoss,
     signal_rank = length(dec$trend_indices) + length(periodic_indices)

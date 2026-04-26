@@ -183,6 +183,5 @@ generate <- function(model, N, D = 1, demean = FALSE) {
 em_harmonic <- function(N, omega, C = 0, A = 1, phi = 0) {
   t <- 1:N
   alpha <- C / N
-  signal <- A * exp(alpha * t) * cos(2 * pi * t * omega + phi)
-  as.ts(signal)
+  A * exp(alpha * t) * cos(2 * pi * t * omega + phi)
 }

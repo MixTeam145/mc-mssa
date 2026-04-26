@@ -401,8 +401,9 @@ auto_periodics_mc <- function(
   # result_df[1, "measure_type"] <- NA
   result_df[1, "mss"] <- NA
   result_df[1, "period"] <- NA
-  result_df[1, "index1"] <- NA
-  result_df[1, "index2"] <- NA
+  # result_df[1, "index1"] <- NA
+  # result_df[1, "index2"] <- NA
+  result_df[1, "indices"] <- NA
   
   if (length(periodic_indices) == 0)
     return (
@@ -480,7 +481,13 @@ auto_periodics_mc <- function(
   #   i <- i + 1
   # }
   
-  indices <- periodic_indices
+  # indices_raw <- periodic_indices
+  indices_raw <- model_obj$iossa.groups
+  indices <- list()
+  for (idx in indices_raw) {
+    if (all(idx %in% periodic_indices))
+      indices[[length(indices) + 1]] <- idx
+  }
   
   if (!check_hypothesis) {
     all_indices <- c(raw_two_el_indices, raw_one_el_indices)
@@ -499,8 +506,8 @@ auto_periodics_mc <- function(
   }
   
   if (trace){
-    print("All periodic indices: ")
-    print(indices)
+    # print("All periodic indices: ")
+    # print(indices)
     
     # print("All identified two el periodics: ")
     # print(raw_two_el_indices)
@@ -513,19 +520,21 @@ auto_periodics_mc <- function(
     # 
     # print("Measure type: ")
     # print(measure_type) 
+    
+    cat("All periodic indices:", unlist(periodic_indices), fill = TRUE)
   }
   
   mss <- numeric(0)
-  for (i in 1:length(indices)) {
+  for (i in seq_along(indices)) {
     r <- reconstruct(model_obj, groups=indices[i])
-    mss <- c(mss, mean(r$F1^2))
+    mss <- c(mss, mean(r[[1]]^2))
   }
   
   if (trace){
-    print("MSS: ")
-    print(mss)
-    
-    print("Start filtering...")
+    # print("MSS: ")
+    # print(mss)
+    cat("MSS:", mss, fill = TRUE)
+    cat("Start filtering...", fill = TRUE)
   }
   # combined_matrix <- cbind(indices, mss, measure, measure_type)
   combined_matrix <- cbind(indices, mss)
@@ -583,7 +592,8 @@ auto_periodics_mc <- function(
     }
 
     mask <- contribs > auto_threshold
-    len <- min(sum(mask), n_triples[i])
+    # len <- min(sum(mask), n_triples[i])
+    len <- min(sum(mask), 1)
     
     if (len == 0) {
       result_df[i + 1, "period"] <- 1 / signif_freqs[i]
@@ -592,21 +602,22 @@ auto_periodics_mc <- function(
     }
     else {
       indices_masked <- current_indices[mask][seq_len(len)]
-      
+      groups <- list(unlist(indices_masked))
       if (n_triples[i] == 2) {
-        true_two_el_indices <- c(true_two_el_indices, indices_masked)
-        periodic <- reconstruct(model_obj, groups = list(indices_masked))$F1
+        true_two_el_indices <- c(true_two_el_indices, unlist(indices_masked))
+        periodic <- reconstruct(model_obj, groups = groups)[[1]]
         
-        result_df[i + 1, "period"] <- 1 / signif_freqs[i]
-        result_df[i + 1, "index1"] <- indices_masked[1]
-        result_df[i + 1, "index2"] <- indices_masked[2]
+        # result_df[i + 1, "period"] <- 1 / signif_freqs[i]
+        result_df[i + 1, "period"] <- parestimate(model_obj, groups)$periods[1]
+        result_df$indices[[i + 1]] <- groups
+        # result_df[i + 1, "index2"] <- indices_masked[2]
         # result_df[i + 1, "measure_type"] <- 1
       }
       else {
-        true_one_el_indices <- c(true_one_el_indices, indices_masked)
-        periodic <- reconstruct(model_obj, groups = list(indices_masked))$F1
+        true_one_el_indices <- c(true_one_el_indices, unlist(indices_masked))
+        periodic <- reconstruct(model_obj, groups = groups)[[1]]
         result_df[i + 1, "period"] <- 2
-        result_df[i + 1, "index1"] <- indices_masked
+        result_df$indices[[i + 1]] <- groups
         # result_df[i + 1, "measure_type"] <- 2
       }
       
@@ -616,19 +627,21 @@ auto_periodics_mc <- function(
       noise_estimate <- noise_estimate - periodic
       
       if (trace){
-        if (sorted_matrix[idx, "measure_type"] == 1)
-          print(paste0("Decomposition indices: ", indices_masked[1], ", ", indices_masked[2]))
-        else
-          print(paste0("Decomposition index: ", indices_masked))
-        print(
-          paste0(
-            # "Measure: ", result_df[i + 1, "measure_type"],
-            # ", value: ", result_df[i + 1, "measure"], ", ",
-            "MSS: ", result_df[i + 1, "mss"]
-          )
-        )
+        # if (sorted_matrix[idx, "measure_type"] == 1)
+        #   print(paste0("Decomposition indices: ", indices_masked[1], ", ", indices_masked[2]))
+        # else
+        #   print(paste0("Decomposition index: ", indices_masked))
+        # print(
+        #   paste0(
+        #     # "Measure: ", result_df[i + 1, "measure_type"],
+        #     # ", value: ", result_df[i + 1, "measure"], ", ",
+        #     "MSS: ", result_df[i + 1, "mss"]
+        #   )
+        # )
+        cat("\nDecomposition indices:", groups[[1]])
+        cat("\nPeriod:", result_df[i + 1, "period"])
+        cat("\nMSS:", result_df[i + 1, "mss"], fill = TRUE)
       }
-      
       current_indices <- setdiff(current_indices, indices_masked)
     }
     

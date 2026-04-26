@@ -246,7 +246,6 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range, freq.exclude, trac
   
   W_tensor <-  torch::torch_tensor(x$proj_vectors$W[, mask, drop = FALSE], device = device)
   P <- torch::torch_tensor(matrix(0.0, nrow = G, ncol = W_tensor$shape[2]), device = device)
-  # browser()
   if (trace) {
     pb <- progress::progress_bar$new(format = "[:bar] :percent :current/:total | ETA :eta", total = G)
   }
@@ -263,7 +262,6 @@ do.test <- function(x, G, conf.level, two.tailed, freq.range, freq.exclude, trac
     pb$terminate()
   }
   
-  # browser()
   series_tensor <- torch::torch_tensor(x$series, device = device)$unsqueeze(3)
   v <- projec(series_tensor, L, W_tensor)
 
@@ -357,16 +355,18 @@ mcssa <- function(x,
   N <- dim(x)[1]
   D <- dim(x)[2]
   
+  if (is.null(freq.exclude) && !isTRUE(all.equal(freq.range, c(0, 0.5)))) {
+    eps <- .Machine$double.eps ^ 0.5
+    freq.exclude <- list()
+    if (freq.range[1] >= eps)
+      freq.exclude <- c(freq.exclude, list(c(0, freq.range[1] - eps)))
+    if ((0.5 - freq.range[2]) >= eps)
+      freq.exclude <- c(freq.exclude, list(c(freq.range[2] + eps, 0.5)))
+    freq.range <- NULL
+  }
+  
   if (missing(model)) {
     model <- vector("list", D)
-    if (is.null(freq.exclude) && !isTRUE(all.equal(freq.range, c(0, 0.5)))) {
-      eps <- .Machine$double.eps ^ 0.5
-      freq.exclude <- list()
-      if (freq.range[1] >= eps)
-        freq.exclude <- c(freq.exclude, list(c(0, freq.range[1] - eps)))
-      if ((0.5 - freq.range[2]) >= eps)
-        freq.exclude <- c(freq.exclude, list(c(freq.range[1] + eps, 0.5)))
-    }
     for (channel in seq_len(D)) {
       model[[channel]] <- as.list(
         arfima_whittle(x[, channel], c(fixed$phi, fixed$d), freq.exclude)
@@ -374,7 +374,6 @@ mcssa <- function(x,
     }
     if (D == 1)
       model <- model[[1]]
-    freq.range <- NULL
   }
   
   call <- match.call()
