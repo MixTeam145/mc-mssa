@@ -253,32 +253,42 @@ ssa_aidmc_fit_forecast <- function(x, h, ...) {
 
 ```{r, include=FALSE}
 process_series <- function(x, signal, h, models, plot = FALSE) {
-  x_train <- x |> head(-h)
-  x_test <- x |> tail(h)
   
-  trend <- signal$trend[1:(length(x) - h)]
-  periodics <- signal$periodics[1:(length(x) - h)]
+  horizon <- max(h)
+  
+  x_train <- x |> head(-horizon)
+  x_test <- x |> tail(horizon)
+  
+  trend <- signal$trend[1:(length(x) - horizon)]
+  periodics <- signal$periodics[1:(length(x) - horizon)]
   
   model_names <- c()
   results <- list()
   fc_list <- list()
   for (model in models) {
-    result <- do.call(model$func, c(list(x = x_train, h = h), model$args))
+    result <- do.call(model$func, c(list(x = x_train, h = horizon), model$args))
     model_names <- c(model_names, model$name)
+    
+    tsp(result$fc) <- tsp(x_test)
     
     mse_trend <- mse(trend, result$trend)
     mse_periodics <- mse(periodics, result$periodics)
     mse_signal <- mse(trend + periodics, result$trend + result$periodics)
-    mse_fc <- mse(x_test, result$fc)
     
     
     results[[length(results) + 1]] <- data.frame(
       mse_trend = mse_trend,
       mse_periodics = mse_periodics,
       mse_signal = mse_signal,
-      mse_fc = mse_fc,
       model = model$name
     )
+    
+    for (hh in h) {
+      results[[length(results)]][[sprintf("mse_fc_%d", hh)]] <- 
+        mse(x_test |> head(hh), result$fc |> head(hh))
+    }
+    
+    
     fc_list[[length(fc_list) + 1]] <- list(
       model = model$name,
       fc = result$fc
@@ -286,7 +296,7 @@ process_series <- function(x, signal, h, models, plot = FALSE) {
   }
   
   if (plot) {
-    p <- autoplot(x |> tail(2 * h), ylab = "")
+    p <- autoplot(x |> tail(2 * max(frequency(x), h)), ylab = "")
     for (result in fc_list)
       p <- p + autolayer(result$fc, series = result$model)
     plot(p)
@@ -298,9 +308,10 @@ process_series <- function(x, signal, h, models, plot = FALSE) {
 
 process <- function(noise_data_file,
                     signal,
-                    h,
+                    N,
                     frequency,
                     models,
+                    h = c(1, frequency, 2 * frequency, 3 * frequency),
                     M = 500) {
   
   N <- length(signal$periodics)
@@ -350,7 +361,8 @@ $$
 В качестве шума рассмотрим красный шум с параметрами $\phi=0.3$ и $\sigma=1$.
 
 ```{r}
-N <- 212
+h <- 12
+N <- 200 + h
 signal <- list(
   trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
   periodics = mapply(em_harmonic, N, c(1 / 4, 1 / 3, 1 / 2),  c(0, 0, 0), c(4.12, 4.12, 6)) |> rowSums()
@@ -415,9 +427,9 @@ models <- list(
 res_rn1 <- process(
   noise_data_file = "data/red_noise_phi3.csv",
   signal = signal,
-  h = 12,
   frequency = 12,
   models = models,
+  h = h,
   M = 100
 )
 ```
@@ -450,21 +462,24 @@ plot_results(
   res_rn1 |> filter(!(model %in% c("SARIMA"))),
   y = "mse_trend",
   title = "Trend estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
 
 # MSE восстановления сезонности
 plot_results(
   res_rn1 |> filter(!(model %in% c("SARIMA"))),
   y = "mse_periodics",
   title = "Periodic estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
 
 # MSE прогноза
 plot_results(
   res_rn1,
   y = "mse_fc",
-  title = "Forecast MSE (h = 12)",
-  outliers = FALSE)
+  title = sprintf("Forecast MSE (h = %d)", h),
+  outliers = FALSE
+)
 ```
 
 ### Пример 2
@@ -476,7 +491,8 @@ $$
 В качестве шума рассмотрим красный шум с параметрами $\phi=0.3$ и $\sigma=1$.
 
 ```{r}
-N <- 212
+h <- 12
+N <- 200 + h
 signal <- list(
   trend = 0.2 * exp(0.025 * (1:N)) + 2 * cos(2 * pi * (1:N) / 60),
   periodics = mapply(
@@ -500,7 +516,7 @@ models <- list(
 res_rn2 <- process(
   noise_data_file = "data/red_noise_phi3.csv",
   signal = signal,
-  h = 12,
+  h = h,
   frequency = 12,
   models = models,
   M = 100
@@ -513,7 +529,8 @@ plot_results(
   res_rn2 |> filter(!(model %in% c("SARIMA"))),
   y = "mse_trend",
   title = "Trend estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
 
 # MSE восстановления сезонности
 plot_results(
@@ -526,8 +543,9 @@ plot_results(
 plot_results(
   res_rn2,
   y = "mse_fc",
-  title = "Forecast MSE (h = 12)",
-  outliers = FALSE)
+  title = sprintf("Forecast MSE (h = %d)", h),
+  outliers = FALSE
+)
 ```
 
 ### Пример 3
@@ -539,7 +557,8 @@ $$
 В качестве шума рассмотрим красный шум с параметрами $\phi=0.7$ и $\sigma=1$.
 
 ```{r}
-N <- 208
+h <- 8
+N <- 200 + h
 omega <- 0.125
 signal <- list(
   trend = 0.05 * (1:N),
@@ -580,7 +599,7 @@ models <- list(
 res_rn3 <- process(
   noise_data_file = "data/red_noise_phi7.csv",
   signal = signal,
-  h = 8,
+  h = h,
   frequency = 8,
   models = models,
   M = 100
@@ -593,21 +612,24 @@ plot_results(
   res_rn3 |> filter(!(model %in% c("SARIMA"))),
   y = "mse_trend",
   title = "Trend estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
 
 # MSE восстановления сезонности
 plot_results(
   res_rn3 |> filter(!(model %in% c("SARIMA"))),
   y = "mse_periodics",
   title = "Periodic estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
 
 # MSE прогноза
 plot_results(
   res_rn3,
   y = "mse_fc",
-  title = "Forecast MSE (h = 8)",
-  outliers = FALSE)
+  title = sprintf("Forecast MSE (h = %d)", h),
+  outliers = FALSE
+)
 ```
 
 ### Пример 4
@@ -619,7 +641,8 @@ $$
 В качестве шума рассмотрим красный шум с параметрами $\phi=0.7$ и $\sigma=1$.
 
 ```{r}
-N <- 208
+h <- c(1, 8, 16, 24)
+N <- 200 + max(h)
 omega <- 1 / 8
 signal <- list(
   trend = 0.05 * (1:N),
@@ -648,12 +671,12 @@ models <- list(
 ```
 
 ```{r, eval=FALSE, include=FALSE}
-res_rn4 <- process(
+res_rn4_multiple_h <- process(
   noise_data_file = "data/red_noise_phi7.csv",
   signal = signal,
-  h = 8,
   frequency = 8,
   models = models,
+  h = h,
   M = 100
 )
 ```
@@ -661,25 +684,61 @@ res_rn4 <- process(
 ```{r}
 # MSE восстановления тренда
 plot_results(
-  res_rn4 |> filter(!(model %in% c("SARIMA"))),
+  res_rn4_multiple_h |> filter(!(model %in% c("SARIMA"))),
   y = "mse_trend",
   title = "Trend estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
 
 # MSE восстановления сезонности
 plot_results(
-  res_rn4 |> filter(!(model %in% c("SARIMA"))),
+  res_rn4_multiple_h |> filter(!(model %in% c("SARIMA"))),
   y = "mse_periodics",
   title = "Periodic estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
+
+# MSE восстановления сигнала
+plot_results(
+  res_rn4_multiple_h |> filter(!(model %in% c("SARIMA"))),
+  y = "mse_signal",
+  title = "Signal estimate MSE",
+  outliers = FALSE
+)
 
 # MSE прогноза
-plot_results(
-  res_rn4,
-  y = "mse_fc",
-  title = "Forecast MSE (h = 8)",
-  outliers = FALSE)
+for (hh in h) {
+  p <- plot_results(
+    res_rn4_multiple_h,
+    y = sprintf("mse_fc_%d", hh),
+    title = sprintf("Forecast MSE (h = %d)", hh),
+    outliers = FALSE
+  )
+  plot(p)
+}
 ```
+
+```{r}
+noise_data_rn <- read_csv("data/red_noise_phi7.csv", lazy = TRUE, n_max = N)
+```
+
+```{r}
+f <- ts(noise_data_rn$ts3 + signal$trend + signal$periodics, frequency = 8)
+res <- process_series(
+  f,
+  signal = signal,
+  h = h,
+  models = models,
+  plot = TRUE
+)
+```
+
+```{r}
+res
+```
+
+
+
 
 ### Пример 5
 $$
@@ -690,7 +749,8 @@ $$
 В качестве шума рассмотрим красный шум с параметрами $\phi=0.7$ и $\sigma=1$.
 
 ```{r}
-N <- 208
+h <- 8
+N <- 200 + h
 omega <- 1 / 8
 signal <- list(
   trend = 0.08 * exp(0.025 * (1:N)),
@@ -720,7 +780,7 @@ models <- list(
 res_rn5 <- process(
   noise_data_file = "data/red_noise_phi7.csv",
   signal = signal,
-  h = 8,
+  h = h,
   frequency = 8,
   models = models,
   M = 100
@@ -733,21 +793,24 @@ plot_results(
   res_rn5 |> filter(!(model %in% c("SARIMA"))),
   y = "mse_trend",
   title = "Trend estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
 
 # MSE восстановления сезонности
 plot_results(
   res_rn5 |> filter(!(model %in% c("SARIMA"))),
   y = "mse_periodics",
   title = "Periodic estimate MSE",
-  outliers = FALSE)
+  outliers = FALSE
+)
 
 # MSE прогноза
 plot_results(
   res_rn5,
   y = "mse_fc",
-  title = "Forecast MSE (h = 8)",
-  outliers = FALSE)
+  title = sprintf("Forecast MSE (h = %d)", h),
+  outliers = FALSE
+)
 ```
 
 ```{r, eval=FALSE, include=FALSE}
