@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.0.3 Chrome/140.0.7339.249 Electron/38.7.0 Safari/537.36" version="29.0.3">
   <diagram name="Страница-1" id="o79HHZbPbPNXgk_G-rDf">
-    <mxGraphModel dx="714" dy="487" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="1" shadow="0">
+    <mxGraphModel dx="391" dy="267" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="1" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -19,7 +19,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="86Uhb87DXmlSdWp7QWCq-2" value="Разложение \(\mathsf{X}=\sum\limits_{i=1}^r\mathsf{X}^{(i)}+\ldots\)" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=default;fillColor=#DAE8FC;fontColor=#333333;" parent="1" vertex="1">
+        <mxCell id="86Uhb87DXmlSdWp7QWCq-2" value="Разложение \(\mathsf{X}=\sum\limits_{i=1}^t\mathsf{X}^{(i)}+\ldots\)" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=default;fillColor=#DAE8FC;fontColor=#333333;" parent="1" vertex="1">
           <mxGeometry x="290" y="100" width="220" height="60" as="geometry" />
         </mxCell>
         <mxCell id="86Uhb87DXmlSdWp7QWCq-31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="86Uhb87DXmlSdWp7QWCq-3" target="86Uhb87DXmlSdWp7QWCq-4" edge="1">
@@ -58,8 +58,8 @@
         <mxCell id="86Uhb87DXmlSdWp7QWCq-33" value="\(\text{EOSSA}(t)\)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#cdeb8b;strokeColor=#36393d;" parent="1" vertex="1">
           <mxGeometry x="200" y="80" width="80" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="86Uhb87DXmlSdWp7QWCq-34" value="\(\text{TAI}(T_0, \omega)\)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#cdeb8b;strokeColor=#36393d;" parent="1" vertex="1">
-          <mxGeometry x="580" y="140" width="80" height="40" as="geometry" />
+        <mxCell id="86Uhb87DXmlSdWp7QWCq-34" value="\(\text{PAI}([0, \omega_0), T_0)\)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#cdeb8b;strokeColor=#36393d;" parent="1" vertex="1">
+          <mxGeometry x="580" y="140" width="110" height="50" as="geometry" />
         </mxCell>
         <mxCell id="86Uhb87DXmlSdWp7QWCq-35" value="Метод регулярности углов" style="ellipse;whiteSpace=wrap;html=1;fillColor=#cdeb8b;strokeColor=#36393d;" parent="1" vertex="1">
           <mxGeometry x="130" y="230" width="110" height="50" as="geometry" />

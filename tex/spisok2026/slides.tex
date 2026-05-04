@@ -97,14 +97,14 @@
 
     \bluetext{Входные данные}: временной ряд $\tX=(x_1,\ldots,x_N)$.\medskip
 
-    \bluetext{Параметр}: длина окна $L$, $1<L<N$.\medskip
+    \bluetext{Параметры}: длина окна $L$, $1<L<N$, набор индексов $I\subset\{1,\ldots, d\}$.\medskip
 
-    \bluetext{Результат}: $m$ восстановленных составляющих временного ряда.\medskip
+    \bluetext{Результат}: оценка сигнала $\hat\tS$.\medskip
     \begin{enumerate}
         \item \textbf{Вложение}: $\bfX=\cT(\tX)=[X_1:\ldots:X_K]$, где $X_i=(x_1,\ldots,x_{i+L-1})^\rmT$, $K=N-L+1$.\smallskip
-        \item \textbf{Разложение}: $\bfX=\sum_{i=1}^r \sigma_i P_i Q_i^\rmT=\bfX_1+\ldots+\bfX_r$, $\operatorname{rank}\bfX_i=1$. В базовом SSA используется сигнулярное разложение (SVD).\smallskip
-        \item \textbf{Группировка}: $\bfX=\bfX_{I_1}+\ldots+\bfX_{I_m}$, где $\bfX_{I_k}=\sum_{i\in I_k}\bfX_i$.\smallskip
-        \item \textbf{Восстановление}: $\tX=\widetilde\tX_{I_1}+\ldots+\widetilde\tX_{I_m}$, где $\widetilde\tX_{I_k}=\cT^{-1}\circ\cH(\bfX_{I_k})$.
+        \item \textbf{Разложение}: $\bfX=\sum_{i=1}^r \sigma_i U_i V_i^\rmT=\bfX_1+\ldots+\bfX_r$, $\operatorname{rank}\bfX_i=1$, $(\sigma_i, U_i, V_i)$~--- $i$-ая сингулярная тройка.\smallskip
+        \item \textbf{Группировка}: $\bfX=\bfX_{I}+(\bfX - \bfX_{I})$, где $\bfX_{I}=\sum_{i\in I}\bfX_i$.\smallskip
+        \item \textbf{Восстановление}: $\tX=\hat{\tS}+\hat{\tR}$, где $\hat\tS=\cT^{-1}\circ\cH(\bfX_{I})$.
     \end{enumerate}
 
 \end{frame}
@@ -122,10 +122,10 @@
 \begin{frame}{Идеи, заложенные в SSA-Aid}
 
     \begin{itemize}
-        \item Поскольку тренду соответствуют низкие частоты, ему соответствуют те компоненты, доля периодограммы которых в частотах < $\omega_0$ больше некоторого порога $T_0$.
-        \item Поскольку трендовые компоненты могут смешаться с периодическими, перед выделением тренда применяется алгоритм улучшения разделимости EOSSA~[Шлемов, 2017; Golyandina, Dudnik and Shlemov, 2023].
-        \item Для идентификации периодических компонент используется метод регулярности углов~[Жорникова, 2018; Дудник, 2025]: метод использует факт, что углы между последовательными отрезками на двумерной диаграмме сингулярных векторов равны.
-        \item Поскольку EOSSA делает шумовые компоненты похожими на периодики, для отбора периодик дополнительно используется статистический критерий проверки гипотезы об отсутствии сигнала в остатке.
+        \item Поскольку тренду соответствуют низкие частоты, \textbf{PAI$\mathbf{\left( [0, \bm\omega_0), T_0\right)}$} отбирает те компоненты, доля значений периодограммы которых в частотах из $[0, \omega_0)$ больше некоторого порога $T_0$.
+        \item Поскольку трендовые компоненты могут смешаться с периодическими, перед выделением тренда применяется алгоритм улучшения разделимости \textbf{EOSSA}~[Шлемов, 2017; Golyandina, Dudnik and Shlemov, 2023].
+        \item Для идентификации периодических компонент используется \textbf{метод регулярности углов}~[Жорникова, 2018; Дудник, 2025]: метод использует факт, что углы между последовательными отрезками на двумерной диаграмме сингулярных векторов равны.
+        \item Поскольку EOSSA делает шумовые компоненты похожими на периодики, для отбора периодик дополнительно используется \textbf{статистический критерий} проверки гипотезы об отсутствии сигнала в остатке.
     \end{itemize}
 
 \end{frame}
@@ -142,25 +142,35 @@
     \begin{figure}
         \centering
         \includegraphics[width=\textwidth]{img/debitcatds_decomposition_basic.pdf}
-        \caption{Левые сингулярные векторы}
+        \caption{Левые сингулярные векторы $U_i$ до улучшения разделимости}
     \end{figure}
 
-    Компоненты 5--10 смешались с трендом, компоненты сезонности смешались друг с другом. 
+    Компоненты 5--10 смешались с трендом, компоненты сезонности смешались друг с другом.
+\end{frame}
+
+\begin{frame}{SSA-Aid: пример}
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=\textwidth]{img/debitcatds_decomposition_eossa.pdf}
+        \caption{Левые сингулярные векторы $U_i$ после улучшения разделимости}
+    \end{figure}
+
 \end{frame}
 
 \begin{frame}{SSA-Aid: пример}
     \begin{figure}
         \centering
         \includegraphics[width=\textwidth]{img/debitcards_auto_trend.pdf}
-        \caption{Результат EOSSA($t$) + TAI($T_0$, $\omega_0$) с $t=30$, $T_0=0.5$, $\omega_0=1/24$}
+        \caption{Результат EOSSA($t$) + PAI$\left([0, \omega_0), T_0\right)$ с $t=30$, $\omega_0=1/24$, $T_0=0.5$}
     \end{figure}
 \end{frame}
 
 \begin{frame}{SSA-Aid: пример}
     \begin{figure}
         \centering
-        \includegraphics[width=\textwidth]{img/debitcatds_paired_basic.pdf}
-        \caption{2D графики левых сингулярных векторов до улучшения разделимости}
+        \includegraphics[width=0.95\textwidth]{img/debitcatds_paired_basic.pdf}
+        \caption{2D графики левых сингулярных векторов $(U_i, U_{i+1})$ до улучшения разделимости}
     \end{figure}
 \end{frame}
 
@@ -168,7 +178,7 @@
     \begin{figure}
         \centering
         \includegraphics[width=0.92\textwidth]{img/debitcatds_paired_eossa.pdf}
-        \caption{2D графики левых сингулярных векторов после улучшения разделимости}
+        \caption{2D графики левых сингулярных векторов $(U_i, U_{i+1})$ после улучшения разделимости}
     \end{figure}
     \textcolor{red}{Проблема}: после применения EOSSA некоторые шумовые компоненты стали похожи на периодические.
 \end{frame}
@@ -187,13 +197,13 @@
     
     \textcolor{red}{Проблема}: при неравномерном спектре шума (цветной шум) сигнальные компоненты могут оказаться среди шумовых по величине вклада, оставаясь при этом несмешанными с ними.\medskip
 
-    Пусть $\varepsilon_t$~--- белый гауссовский шум, $B$~--- оператор сдвига. Примеры небелого шума:
+    Пусть $\varepsilon_t$~--- белый гауссовский шум, $B$~--- оператор сдвига. Примеры цветного шума:
     \begin{enumerate}
         \item Красный шум:
         \[
         \xi_t=(1-\phi B)^{-1}\varepsilon_t,\quad \phi>0.  
         \]
-        \item Процес с длинной памятью, например, ARFIMA(0, $d$, 0):
+        \item Процесс с длинной памятью, например, ARFIMA(0, $d$, 0):
         \[
         \xi_t=(1-B)^{-d}\varepsilon_t, \quad d<1/2.
         \]
@@ -228,37 +238,18 @@
 
 \end{frame}
 
-\begin{frame}{Подход решению проблемы}
+\begin{frame}{Подход к решению проблемы}
 
-    \textcolor{red}{Проблема}: при неравномерном спектре шума (цветной шум) сигнальные компоненты могут оказаться среди шумовых по величине вклада, оставаясь при этом несмешанными с ними.\medskip
+    \textcolor{red}{Проблема}: сигнальные компоненты могут оказаться среди шумовых по величине вклада, оставаясь при этом несмешанными с ними.\medskip
 
 
     \textcolor{blue}{Идея}: после SSA-Aid использовать другой метод, умеющий определять сигнальные компоненты, не доминирующие над шумом.\medskip
 
-    \textcolor{blue}{Как это сделать}: использовать статистический критерий, который дает информацию о значимых частотах. Получив значимую частоту $\omega$, можно определить компоненты, которые ей соответствуют, с помощью доли вклада периодограммы в окрестности $\omega$.\medskip
+    \textcolor{blue}{Как это сделать}: использовать статистический критерий, который дает информацию о значимых частотах.\medskip
 
-    Подходящим для этого критерием является метод Monte Carlo SSA (MC-SSA)~[Allen and Smith, 1996].\medskip
+    \textcolor{blue}{Решение}: Monte Carlo SSA (MC-SSA)~[Allen and Smith, 1996] с поправкой на множественные сравнения~[Golyandina, 2023].\medskip
 
-    \textcolor{blue}{Разработанный метод}: SSA-AidMC (SSA Automatic Identification using MC-SSA).
-
-
-\end{frame}
-
-\begin{frame}{Обозначения и известные результаты: Multiple Monte Carlo SSA~[Golyandina, 2023]}
-
-    \bluetext{Входные данные}: временной ряд $\tX$.\smallskip
-
-    \bluetext{Параметры}: длина окна $L$, выбор векторов $W_1,\ldots,W_H\in \mathbb{R}^{L}$, модель шума $\bm\xi$, количество суррогатных реализаций $G$.\smallskip
-    \begin{enumerate}
-        \item Строятся статистики критерия $\widehat p_k=\|\bfX^\rmT W_k\|^2$, $k=1,\ldots,H$.
-        \item Моделируется $G$ суррогатных реализаций $\bm\xi$, определяется $(1-\alpha)$-квантиль максимума стандартизованных значений статистик критерия при верной $H_0$.
-        \item Полученная квантиль затем используется для построения предсказательных интервалов для $\widehat p_k$.
-    \end{enumerate}
-
-    Выбор векторов $W_k$: $W_k=\{\cos(2\pi k n / (2L))\}_{n=1}^L$, $k=1,\ldots,L$.\smallskip
-
-    В работе~[Потешкин, 2024] показано, что критерий MC-SSA обладает наибольшей мощностью по сравнению с другими критериями проверки гипотезы об отсутствии сигнала (Q-тест Бокса-Пирса~[Box and Pierce, 1970] и тест с использованием
-вейвлетов~[Nason and Savchev, 2014]).
+    Также в работе~[Потешкин, 2024] показано, что MC-SSA обладает наибольшей мощностью по сравнению с другими критериями проверки гипотезы об отсутствии сигнала (Q-тест Бокса-Пирса и тест с использованием вейвлетов).
 
 \end{frame}
 
@@ -268,21 +259,12 @@
     s_n=0.075e^{0.02n}\cos(2\pi n / 8) + 1.2\cos(2\pi n / 4) + 0.25\cdot (-1)^n.
     \]
 
-    \begin{figure}
-		\centering
-		\minipage{0.45\textwidth}
-            \centering
-			\includegraphics[width=0.8\textwidth]{img/mcssa_real.pdf}
-			\caption{Истинная модель шума}
-		\endminipage\hfill
-		\minipage{0.45\textwidth}
-            \centering
-			\includegraphics[width=0.8\textwidth]{img/mcssa_estimated.pdf}
-			\caption{Оцененная модель шума}
-		\endminipage
-	\end{figure}
+    Статистики критерия: $\widehat p_k=\|\bfX^\rmT W_k\|^2$, $W_k=\{\cos(2\pi k n / (2L))\}_{n=1}^L$, $k=1,\ldots,L$. Результат MC-SSA для $L=48$:
 
-	\bluetext{Вывод}: для полного выделения сигнала необходимо итеративно применять критерий после выделения одной гармоники, оценивая параметры модели шума по текущему остатку, пока гипотеза $H_0:\tS=0$ не перестанет отвергаться.
+    \begin{center}
+        \includegraphics[width=0.7\textwidth]{img/mcssa_real.pdf}
+    \end{center}
+
 \end{frame}
 
 
@@ -294,6 +276,102 @@
         \caption{Блок-схема метода SSA-AidMC}
     \end{figure}
     
+\end{frame}
+
+\begin{frame}{Метод SSA-AidMC: численное сравнение с методами декомпозиции и прогнозировнаия}
+
+    \footnotesize
+    Модель:
+    \begin{itemize}
+        \item Длина ряда $N=200$.
+        \item Тренд $t_n=0.05n$;
+        \item Периодика
+        \[
+        p_n=0.075e^{0.02n}\cos(2\pi n / 8) + 1.5e^{-0.01n}\cos(2\pi n / 4) + 0.8e^{-0.01n}\cdot(-1)^n;
+        \]
+        \item $\bm\xi$~--- красный шум с параметрами $\phi=0.7$, $\sigma=1$.
+    \end{itemize}
+   
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{img/ts_ex.pdf}
+    \end{center}
+
+\end{frame}
+
+\begin{frame}{Метод SSA-AidMC: численное сравнение с методами декомпозиции и прогнозировнаия}
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.82\textwidth]{img/mse_decomposition.pdf}
+        \caption{MSE декомпозиции ряда}
+    \end{figure}
+
+\end{frame}
+
+\begin{frame}{Метод SSA-AidMC: численное сравнение с методами декомпозиции и прогнозировнаия}
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.82\textwidth]{img/mse_fc.pdf}
+        \caption{MSE прогноза на один период ($h=8$)}
+    \end{figure}
+
+\end{frame}
+
+\begin{frame}[plain, noframenumbering]{Пример результата прогноза}
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=\textwidth]{img/ts_ex_fc.pdf}
+        \caption{Прогноз на один период}
+    \end{figure}
+
+\end{frame}
+
+\begin{frame}[plain, noframenumbering]{Список литературы}
+
+    \begin{thebibliography}{9}
+        \bibitem{Broomhead_King_1986}
+        Broomhead D. S., King G. P. Extracting qualitative dynamics from experimental data // Physica D: Nonlinear Phenomena. — 1986. — Vol. 20, no. 2–3. — P. 217–236.
+
+        \bibitem{Golyandina_Nekrutkin_Zhigljavsky_2001}
+        Golyandina N., Nekrutkin V., Zhigljavsky A. Analysis of Time Series Structure. — Chapman and Hall/CRC, 2001.
+
+        \bibitem{Shlemov_2017}
+        Шлемов А. Метод разделения сигналов с использованием собственных подпространств сдвиговых матриц // Материалы всероссийской научной конференции по проблемам информатики СПИСОК-2017. — 2017. — С. 486 – 496.
+
+        \bibitem{Golyandina_Dudnik_Shlemov_2023}
+        Golyandina N., Dudnik P., Shlemov A. Intelligent Identification of Trend Components in Singular Spectrum Analysis // Algorithms. — 2023. — Vol. 16, no. 7.
+
+        \bibitem{Zhornikova_2018}
+        Жорникова П. Идентификация компонент в анализе сингулярного спектра : квалификационная работа магистра ; СПбГУ. — 2018.
+
+        \bibitem{Dudnik_2025}
+        Дудник П. Идентификация компонент временных рядов в методе SSA : квалификационная работа магистра ; СПбГУ. — 2025.
+
+    \end{thebibliography}
+
+\end{frame}
+
+\begin{frame}[plain, noframenumbering]{Список литературы}
+    
+    \begin{thebibliography}{9}
+        \bibitem{Allen_Smith_1996}
+        Allen M. R., Smith L. A. Monte Carlo SSA: Detecting irregular oscillations in the Presence of Colored Noise // Journal of Climate. — 1996. — Vol. 9 no. 12. — P. 3373–3404.
+
+        \bibitem{Golyandina_2023}
+        Golyandina N. Detection of signals by Monte Carlo singular spectrum analysis: multiple testing // Statistics and Its Interface. — 2023. — Vol. 16, no. 1. — P. 147–157.
+
+        \bibitem{Poteshkin_2024}
+        Потешкин Е. Метод Монте-Карло SSA для одномерных и многомерных временных рядов : квалификационная работа бакалавра ; СПбГУ. — 2024.
+
+        \bibitem{Box_Pierce_1970}
+        Box G. E. P., Pierce D. A. Distribution of Residual Autocorrelations in Autoregressive-Integrated Moving Average Time Series Models // Journal of the American Statistical Association. — 1970. — Vol. 65, no. 332. — P. 1509–1526.
+
+        \bibitem{Nason_Savchev_2014}
+        Nason G. P., Savchev D. White noise testing using wavelets // Stat. — 2014. — Vol. 3, no. 1. — P. 351–362.
+    \end{thebibliography} 
+
 \end{frame}
 
 \end{document}
