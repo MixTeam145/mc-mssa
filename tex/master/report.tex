@@ -135,10 +135,406 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 % Опишем структуру работы.
 
-% В главе~\ref{chpt:processes} приведено понятие процессов с длинной памятью, также описаны методы оценки параметров модели $\mathrm{ARFIMA}(p, d, q)$, одного из распространенных процессов с длинной памятью, и численное сравнение этих методов. В главе~\ref{chpt:mcssa} представлены методы SSA и Monte Carlo SSA, и проведено численное сравнение метода Monte Carlo SSA с моделями красного шума и $\mathrm{ARFIMA}(0, d, 0)$, обладающими одинаковой дисперсией. Помимо этого, в этой главе продемонстрированы примеры применения метода на реальных данных, обладающих длинной памятью.
-\chapter{Теория случайных процессов}\label{chpt:processes}
+% В главе~\ref{chpt:processes} приведено понятие процессов с длинной памятью, также описаны методы оценки параметров модели $\textrm{ARFIMA}(p, d, q)$, одного из распространенных процессов с длинной памятью, и численное сравнение этих методов. В главе~\ref{chpt:mcssa} представлены методы SSA и Monte Carlo SSA, и проведено численное сравнение метода Monte Carlo SSA с моделями красного шума и $\textrm{ARFIMA}(0, d, 0)$, обладающими одинаковой дисперсией. Помимо этого, в этой главе продемонстрированы примеры применения метода на реальных данных, обладающих длинной памятью.
+% \chapter{Теория случайных процессов}\label{chpt:processes}
+% \section{Вспомогательные определения}
+% Для начала введем некоторые обозначения, которые будем использовать в дальнейшем.
+% \begin{definition}\label{def:stationary}
+% 	Случайный процесс $\{Y_t:t\in\mathbb{Z}\}$ называют стационарным (в широком смысле), если
+% 	\begin{enumerate}
+% 		\item $\mathsf{E}Y_t\equiv\const$ (среднее постоянно по времени);
+% 		\item $\mathsf{cov}(Y_t,Y_{t+h})=\gamma(h)$ (ковариация зависит только от лага $h$).
+% 	\end{enumerate}
+% \end{definition}
+% \begin{remark}
+% 	Поскольку $\gamma(0)=\mathsf{cov}(Y_t,Y_t)=\mathsf{D}Y_t$, то дисперсия также не меняется со временем.
+% \end{remark}
+% \begin{remark}
+% 	Далее под стационарностью будет подразумеваться именно стационарность в широком смысле.
+% \end{remark}
+% \begin{definition}
+% 	Случайный процесс $\{\varepsilon_t\}$ называют белым шумом $\mathrm{WN}(0, \sigma^2)$, если он стационарный, $\mathsf{E}\varepsilon_t=0$, $\gamma(h)=0$ $\forall h\ne 0$ и $\mathsf{D}\varepsilon_t=\sigma^2$.
+% \end{definition}
+
+% \begin{definition}
+% 	Моделью $\mathrm{ARMA}(p, q)$, где $p$, $q\in \mathbb{N}\cup\{0\}$ называют случайный процесс $\{X_t\}$, удовлетворяющий соотношению
+% 	\[
+% 		X_t=\varepsilon_t + \sum_{i=1}^p \phi_i X_{t-i} + \sum_{i=1}^q\theta_i\varepsilon_{t-i},
+% 	\]
+% 	где $\{\varepsilon_t\}\sim\mathrm{WN}(0, \sigma^2)$.
+% \end{definition}
+% \begin{remark}
+% 	Модель $\mathrm{ARMA}(p, q)$ является стационарным и обратимым процессом, если корни характеристических полиномов
+% 	\[
+% 		\Phi(L)=1-\sum_{i=1}^p \phi_i L^i,\quad \Theta(L)=1+\sum_{i=1}^q \theta_i L^i
+% 	\]
+% 	лежат вне единичной окружности $\{z:|z|=1\}$~\cite[Section 3.4.1]{BoxJenkins2016}.
+% \end{remark}
+
+% \begin{definition}
+% 	Процесс $\{X_t\}$ называют красным шумом с параметрами $\phi$ и $\sigma^2$, если $\{X_t\}$~--- стационарная модель $\mathrm{ARMA}(p, q)$ с $p=1$, $q=0$ и $\phi=\phi_1\in(0, 1)$.
+% \end{definition}
+
+% \begin{definition}
+% 	Спектральной плотностью стационарного процесса называется такая функция $f(\omega)$, что
+% 	\[
+% 		\gamma(h)=\int_{0}^{1} e^{2\pi h\omega\im}f(\omega)d\omega.
+% 	\]
+% \end{definition}
+% \begin{definition}
+% 	Пусть $\{Y_t\}$~--- стационарный процесс. Функцию
+% 	\begin{equation}\label{eq:pgram}
+% 		I(\omega)=\frac1n\left|\sum_{j=1}^{n} Y_je^{-2\pi \omega (j-1)\mathrm{i}}\right|^2
+% 	\end{equation}
+% 	называют периодограммой выборки размера $n$ процесса $\{Y_t\}$.
+% \end{definition}
+% \begin{remark}
+% 	Для любой фиксированной частоты $\omega_0$
+% 	\begin{align*}
+% 		\mathsf{E}\left(I(\omega_0)\right)\to f(\omega_0),\quad       & n\to \infty; \\
+% 		\mathsf{D}\left(I(\omega_0)\right)\to f^2(\omega_0)\ne0,\quad & n\to\infty.
+% 	\end{align*}
+% 	Таким образом периодограмма является асимптотически несмещенной, но несостоятельной, оценкой спектральной плотности~\cite[Раздел 4.5]{Hassler2018}.
+% \end{remark}
+
+% \section{Процессы с длинной памятью}\label{sect:longmemory}
+
+% \begin{definition}\label{def:longmemory}
+% 	Говорят, что стационарный процесс $\{Y_t\}$ обладает длинной памятью, если
+% 	\[
+% 		\sum_{h=0}^H|\gamma(h)|\to\infty,
+% 	\]
+% 	при $H\to\infty$. Иначе говорят, что $\{Y_t\}$ обладает короткой памятью:
+% 	\[
+% 		\sum_{h=0}^\infty|\gamma(h)|<\infty.
+% 	\]
+% \end{definition}
+% Существуют и альтернативные определения процессов с длинной памятью, которые можно найти в~\cite[Раздел 3.1]{Palma2006}. Там же показано, что они согласованы с определением~\ref{def:longmemory}.
+% \begin{example}
+% 	Процессом с короткой памятью является, например, стационарная модель $\mathrm{ARMA}(p, q)$, поскольку $|\gamma(h)|\leqslant CR^h$, где $C>0$ и $0<R<1$~\cite[Section 10.4]{BoxJenkins2016}.
+% \end{example}
+% Введем понятие дробного интегрирования $(1-L)^d$, где $L$~--- оператор сдвига. Например, для $d=1$ имеем $(1-L)Y_t=Y_t-Y_{t-1}$, для $d=2$~--- $(1-L)^2Y_t=Y_t-2Y_{t-1}+Y_{t-2}$, и так далее. Обобщим этот оператор для нецелых $d$ с помощью разложения в ряд Тейлора функции $(1-x)^d$ в нуле:
+% \[
+% 	\begin{aligned}
+% 		(1-x)^d & =1-dx-\frac{d(1-d)}{2}x^2-\frac{d(1-d)(2-d)}{3!}x^3-\ldots             \\
+% 		        & =\sum_{j=0}^\infty \pi_j(d)x^j=\sum_{j=0}^\infty\binom{d}{j}(-1)^jx^j,
+% 	\end{aligned}
+% \]
+% где $\binom{d}{j}$~--- обобщенный биномиальный коэффициент. Коэффициенты $\pi_j(d)$ удовлетворяют соотношению
+% \begin{equation}\label{eq:pi_j}
+% 	\pi_j(d)=(-1)^j\binom{d}{j}=\frac{j-1-d}{j}\pi_{j-1}(d)=\frac{\Gamma(j-d)}{\Gamma(j+1)\Gamma(-d)},
+% \end{equation}
+% где $\Gamma(x)$~--- гамма функция. Заметим, что второе равенство в формуле~\eqref{eq:pi_j} верно для любых $d$, третье же верно только для $d\not\in\bbN\cup\{0\}$, поскольку гамма функция не определена для неположительных целых чисел.
+% \begin{definition}\label{def:arfima}
+% 	Пусть процесс $\{Y_t\}$ определен соотношением
+% 	\[
+% 		\begin{aligned}
+% 			Y_t=(1-L)^{-d}X_t=\sum_{k=0}^\infty \pi_k(-d)X_{t-k}
+% 		\end{aligned},\quad d<1/2,
+% 	\]
+% 	где $\pi_k(-d)$ из формулы~\eqref{eq:pi_j}, $\{X_t\}$~--- стационарная и обратимая модель $\mathrm{ARMA}(p, d)$. Процесс $\{Y_t\}$ называют дробно интегрированной моделью $\mathrm{ARMA}$ или $\textrm{ARFIMA}(p, d, q)$.
+% \end{definition}
+% \begin{proposition}\label{prop1}
+% 	Процесс $\{Y_t\}$ из определения~\ref{def:arfima} является стационарным процессом с нулевым средним. Его спектральная плотность определяется выражением
+% 	\begin{equation}\label{eq:spec_long}
+% 		\begin{aligned}
+% 			f_Y(\omega) & =4^{-d}\sin^{-2d}\left(\pi\omega\right)f_X(\omega)                                                                                                      \\
+% 			            & =4^{-d}\sin^{-2d}\left(\pi\omega\right)\sigma^2\frac{\left|\Theta(e^{-2\pi \omega\im})\right|^2}{\left|\Phi(e^{-2\pi\omega\im})\right|^2},\quad\omega>0 \\
+% 			            & \sim\omega^{-2d}\sigma^2\frac{|\Theta(1)|^2}{|\Phi(1)|^2},\quad \omega\to0,
+% 		\end{aligned}
+% 	\end{equation}
+% 	где $\Phi(L)$, $\Theta(L)$~--- характеристические полиномы процесса $\{X_t\}$.
+% \end{proposition}
+% \begin{proof}
+% 	См.~\cite[Proposition 6.1]{Hassler2018}.
+% \end{proof}
+% \begin{remark}
+% 	Из формулы~\eqref{eq:spec_long} видно, что монотонность спектральной плотности процесса $\{Y_t\}$ зависит от поведения спектральной плотности процесса $\{X_t\}$.
+% \end{remark}
+% \begin{corollary}\label{corollary1}
+% 	В условиях предложения~\ref{prop1} при $0<d<1/2$
+% 	\[
+% 		\gamma(h)\sim C_{\gamma,d}h^{2d-1},\quad h\to\infty,
+% 	\]
+% 	где
+% 	\[
+% 		C_{\gamma,d}=\sigma^2 \frac{|\Theta(1)|^2}{|\Phi(1)|^2} \frac{\Gamma(1-2d)}{\Gamma(d)\Gamma(1-d)}.
+% 	\]
+% \end{corollary}
+% \begin{proof}
+% 	См.~\cite[Corollary 6.1]{Hassler2018}.
+% \end{proof}
+% \begin{remark}
+% 	Из следствия~\ref{corollary1} сразу следует, что $\textrm{ARFIMA}(p, d, q)$ с $d\in(0, 1/2)$ обладает длинной памятью.
+% \end{remark}
+
+% \section{Оценка параметров}
+
+% Пусть $Y_t=(1-L)^{-d}X_t$, $d<1/2$. Будем считать, что $\{X_t\}$ представляет собой модель $\mathrm{ARMA}(p, q)$ с нормально распределенным белым шумом $\{\varepsilon_t\}$. Тогда представим его спектральную плотность в параметрическом виде: $f_X(\omega)=f_X(\omega; \bm\psi, \sigma)$, где
+% \[
+% 	\bm\psi=(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q)^\rmT.
+% \]
+% Поставим задачу оценить параметры $\bm\varphi^\rmT=\left(d, \bm\psi^\rmT\right)$ и $\sigma^2$.
+
+% \subsection{Maximum likelihood estimation (MLE)}
+
+% Поскольку $\{\varepsilon_t\}$~--- гауссовский белый шум, вектор
+% \[
+% 	\bm Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\bm0, \bm\Sigma_n),
+% \]
+% где $\bm\Sigma_n=(\gamma(|i-j|))_{i,j=1}^n$~--- ковариационная матрица $\bm Y$. Совместная плотность распределения $\bm Y$ равна
+% \[
+% 	(2\pi)^{-n/2}\left|\bm\Sigma_n\right|^{-1/2}\exp\left\{-\frac12Y^\rmT\bm\Sigma_n^{-1}Y\right\}.
+% \]
+% Рассмотрим логарифм функции правдоподобия. Отбрасывая аддитивные константы, получаем
+% \[
+% 	\ell(\bm\varphi, \sigma^2)=-\frac12\ln\left|\bm\Sigma_n\right|-\frac12 Y^\rmT \bm\Sigma_n^{-1} Y.
+% \]
+% Положим $\bm\Gamma_n=\bm\Sigma_n / \sigma^2$ и, максимизируя $\ell$ по $\sigma^2$, получаем
+% \begin{equation}\label{eq:mle_objective}
+% 	\ell_c(\bm\varphi)=-\frac{n}{2}\ln\left(S(\bm\varphi) / n\right) - \frac{1}{2}\ln g_n(\bm\varphi),
+% \end{equation}
+% где $S(\bm\varphi)=\bm Y^\rmT \bm\Gamma_n\bm Y$, $g_n(\bm\varphi)=\left|\bm\Gamma_n\right|$.
+% Тогда
+% \[
+% 	\widehat{\bm\varphi}_\mathrm{ML}=\operatorname*{argmax}\limits_{\bm\varphi}\ell_c(\bm\varphi),\quad \widehat\sigma^2_\mathrm{ML} = S(\widehat{\bm\varphi}_\mathrm{ML}).
+% \]
+
+% \begin{remark}
+% 	В случае ненулевого матожидания $\mathsf{E}Y_t=\mu$, для получения $\widehat{\bm\varphi}_\mathrm{ML}$ и $\widehat\sigma^2_\mathrm{ML}$ вместо $\bm Y$ рассматривается $\bm Z=\bm Y-\mu$.
+% \end{remark}
+% \begin{remark}
+% 	Для вычисления $\ell_c$ можно использовать алгоритм Левинсона-Дурбина, имеющий временную трудоемкость $O(n^2)$~\cite{McLeod2007}.
+% \end{remark}
+
+% \subsection{Whittle estimation}\label{sect:whittle}
+
+% Метод максимального правдоподобия применим, когда известно матожидание $\mu$. При неизвестном $\mu$ обычно используют его оценку $\overline{\bm Y}$, однако, помимо этого, существует проблема вычислительной сложности метода при больших $n$.
+
+% Обе эти проблемы можно решить, используя оценку Уиттла (Whittle): вместо логарифма функции правдоподобия рассматривается ее оценка (с точностью до константы)~\cite{Whittle1953}. Пусть $f(\omega; \bm\varphi, \sigma^2)$~--- спектральная плотность $\{Y_t\}$, $I(\omega)$~--- периодограмма $\bm Y$, тогда
+% \begin{equation}\label{eq:whittle_loglik}
+% 	\ell_W(\bm\varphi, \sigma^2)=-\frac1m\sum_{j=1}^m\left(\ln f(\omega_j; \bm\varphi, \sigma^2) + \frac{I(\omega_j)}{f(\omega_j; \bm\varphi, \sigma^2)}\right),
+% \end{equation}
+% где $m=\lfloor(n-1)/2\rfloor$, $\omega_j = j / n$, $j=1,2,\ldots,m$. Заметим, что $f(\omega; \bm\varphi, \sigma^2)=\sigma^2 g(\omega; \bm\varphi)$. Тогда, максимизируя $\ell_W$ по $\sigma^2$, получаем
+% \[
+% 	\widehat{\bm\varphi}_W = \operatorname*{argmax}_{\bm\varphi}Q(\bm\varphi),\quad \widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \widehat{\bm\varphi}_W)},
+% \]
+% где
+% \[
+% 	Q(\bm\varphi)=-\ln\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \bm\varphi)} - \frac1m \sum_{j=1}^m\ln g(\omega_j; \bm\varphi).
+% \]
+% \begin{remark}
+% 	Такой метод оценки параметров можно использовать при неизвестном среднем, поскольку при ее вычислении не используется значение периодограммы в нуле.
+% \end{remark}
+% \begin{remark}
+% 	Периодограмму временного ряда можно вычислить за $O(n\log n)$ с помощью быстрого преобразования Фурье, что делает этот метод значительно быстрее MLE для больших $n$.
+% \end{remark}
+% \subsection{Численное сравнение методов оценки параметров}\label{sect:est_param}
+% Сравним качество оценок параметров следующих моделей:
+% \begin{enumerate}
+% 	\item $d=q=0$, $p=1$~--- модель $\textrm{AR}(1)$;
+% 	\item $p=q=0$~--- модель $\mathrm{ARFIMA(0, d, 0)}$.
+% 	\item $p=1$, $q=0$~--- модель $\textrm{ARFIMA}(1, d, 0)$.
+% \end{enumerate}
+% Для оценки параметров этих моделей на языке $\mathsf{R}$ были реализованы функции \textsf{arfima\_mle} и \textsf{arfima\_whittle}, которые соответствуют методам MLE и Whittle соответственно. Для реализации MLE были использованы функции \textsf{tacvfARFIMA} из пакета \textsf{arfima}~\cite{Veenstra2012} и \textsf{DLLoglikelihood} из пакета \textsf{ltsa}~\cite{McLeod2007}, вычисляющие автоковариационную функцию модели ARFIMA и функцию $\ell_c$~\eqref{eq:mle_objective} соответственно.
+
+% Помимо функций \textsf{arfima\_mle} и \textsf{arfima\_whittle}, будем использовать:
+% \begin{enumerate}
+% 	\item Функцию \textsf{arima} из пакета \textsf{stats}, соответствующую MLE модели ARMA;
+% 	\item Функцию \textsf{fracdiff} из пакета \textsf{fracdiff}~\cite{fracdiff}, соответствующую аппроксимации MLE модели ARFIMA, описанной в работе~\cite{Haslett1989} (обозначим ее за H\&R).
+% \end{enumerate}
+% \begin{remark}
+% 	Помимо вышеперечисленных функций, в пакете \textsf{arfima} есть функция \textsf{arfima}, которая вычисляет MLE модели ARFIMA. Но данная реализация MLE в некоторых случаях дает оценки хуже, чем \textsf{arfima\_mle}. Сравнение оценок обоих реализаций можно найти в разделе~\ref{sect:mle_comparison}.
+% \end{remark}
+% Поскольку для реальных временных рядов матожидание $\mu$ неизвестно, будем рассматривать MLE с известным средним и с его оценкой~--- выборочным средним (будем обозначать их $\mathrm{MLE}(\mu)$ и $\mathrm{MLE}(\bar x)$ соответственно). Не умаляя общности, пусть $\mu=0$.
+
+% \begin{figure}[h]
+% 	\centering
+% 	\begin{subfigure}{\textwidth}
+% 		\includegraphics[width=\textwidth]{img/ar1_est_N100.pdf}
+% 		\caption{$n=100$}
+% 	\end{subfigure}
+% 	\begin{subfigure}{\textwidth}
+% 		\includegraphics[width=\textwidth]{img/ar1_est_N1000.pdf}
+% 		\caption{$n=1000$}
+% 	\end{subfigure}
+% 	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $\phi$ модели $\textrm{AR}(1)$ ($500$ повторений)}
+% 	\label{fig:ar1_est}
+% \end{figure}
+% \begin{figure}[h]
+% 	\centering
+% 	\begin{subfigure}{\textwidth}
+% 		\includegraphics[width=\textwidth]{img/fi_est_N100.pdf}
+% 		\caption{$n=100$}
+% 	\end{subfigure}
+% 	\begin{subfigure}{\textwidth}
+% 		\includegraphics[width=\textwidth]{img/fi_est_N1000.pdf}
+% 		\caption{$n=1000$}
+% 	\end{subfigure}
+% 	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $d$ модели $\textrm{ARFIMA}(0, d, 0)$ ($500$ повторений)}
+% 	\label{fig:fi_est}
+% \end{figure}
+
+% На рис.~\ref{fig:ar1_est} и~\ref{fig:fi_est} изображены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ моделей $\textrm{AR}(1)$ и $\textrm{ARFIMA}(0, d, 0)$. Отметим, что все оценки имеют в большинстве своем отрицательное смещение и отличаются между собой в основном степенью смещения. Как и ожидалось, оценка параметров методом максимального правдоподобия с известным средним дает оценку с наименьшим $\mathsf{MSE}$. С другой стороны, если использовать вместо известного среднего выборочное среднее, оценки становятся сильно смещенными. Whittle же, в свою очередь, дает менее смещенную оценку, чем $\mathrm{MLE}(\bar x)$, а в случае оценки $d$ имеет смещение даже меньше, чем у $\mathrm{MLE}(\mu)$. Однако оценки Whittle обладают наибольшей дисперсией среди всех рассмотренных методов, но разница не такая значительная, как в случае смещения.
+
+% \begin{sidewaystable}[h!]
+% 	\centering
+% 	\caption{Смещение и среднеквадратичное отклонение оценок параметров $d$ и $\phi$ модели $\textrm{ARFIMA}(1, d, 0)$ ($n=100$, $500$ повторений)}
+% 	\label{tab:arfi_est_n100}
+% 	\scalebox{0.9}{
+% 		\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.2cm}cccccccc}
+% 			\hline
+% 			    &        & \multicolumn{8}{c}{$\mathsf{MSE}$}      &                                            & \multicolumn{8}{c}{$\mathsf{Bias}$}                                                                                                                                                                                                                                                                                                                                                                                                              \\
+% 			\cline{3-10} \cline{12-19}
+% 			    &        & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R}            & \multicolumn{2}{c}{Whittle} &                         & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R} & \multicolumn{2}{c}{Whittle}                                                                                                                                                                                                      \\
+% 			$d$ & $\phi$ & $\hat d$                                & $\hat\phi$                                 & $\hat d$                            & $\hat\phi$                  & $\hat d$                & $\hat\phi$                              & $\hat d$                                   & $\hat\phi$               &                             & $\hat d$                 & $\hat\phi$             & $\hat d$                 & $\hat\phi$ & $\hat d$                 & $\hat\phi$              & $\hat d$                 & $\hat\phi$             \\ \hline
+% 			0.1 & 0.1    & 0.049                                   & 0.056                                      & 0.119                               & 0.114                       & \textcolor{blue}{0.009} & \textcolor{red}{0.018}                  & 0.069                                      & 0.067                    &                             & -0.077                   & 0.066                  & -0.229                   & 0.199      & \textcolor{blue}{-0.054} & \textcolor{red}{0.035}  & -0.086                   & 0.068                  \\
+% 			0.2 & 0.1    & 0.047                                   & 0.055                                      & 0.151                               & 0.141                       & \textcolor{blue}{0.025} & \textcolor{red}{0.032}                  & 0.077                                      & 0.073                    &                             & \textcolor{blue}{-0.078} & \textcolor{red}{0.067} & -0.265                   & 0.232      & -0.119                   & 0.099                   & -0.094                   & 0.074                  \\
+% 			0.3 & 0.1    & \textcolor{blue}{0.041}                 & \textcolor{red}{0.049}                     & 0.183                               & 0.165                       & 0.049                   & 0.055                                   & 0.084                                      & 0.081                    &                             & \textcolor{blue}{-0.076} & \textcolor{red}{0.066} & -0.301                   & 0.266      & -0.179                   & 0.161                   & -0.109                   & 0.09                   \\
+% 			0.4 & 0.1    & \textcolor{blue}{0.029}                 & \textcolor{red}{0.038}                     & 0.211                               & 0.187                       & 0.081                   & 0.089                                   & 0.179                                      & 0.194                    &                             & \textcolor{blue}{-0.072} & \textcolor{red}{0.065} & -0.34                    & 0.305      & -0.243                   & 0.23                    & -0.26                    & 0.241                  \\
+% 			\hline
+% 			0.1 & 0.5    & 0.045                                   & 0.041                                      & 0.086                               & 0.053                       & \textcolor{blue}{0.010} & \textcolor{red}{0.015}                  & 0.057                                      & 0.054                    &                             & -0.071                   & 0.034                  & -0.222                   & 0.151      & -0.07                    & 0.034                   & \textcolor{blue}{-0.066} & \textcolor{red}{0.024} \\
+% 			0.2 & 0.5    & 0.042                                   & 0.038                                      & 0.092                               & 0.055                       & \textcolor{blue}{0.031} & \textcolor{red}{0.025}                  & 0.074                                      & 0.058                    &                             & \textcolor{blue}{-0.081} & \textcolor{red}{0.046} & -0.244                   & 0.171      & -0.154                   & 0.108                   & -0.153                   & 0.107                  \\
+% 			0.3 & 0.5    & \textcolor{blue}{0.040}                 & \textcolor{red}{0.036}                     & 0.1                                 & 0.059                       & 0.063                   & 0.043                                   & 0.098                                      & 0.062                    &                             & \textcolor{blue}{-0.093} & \textcolor{red}{0.060} & -0.267                   & 0.192      & -0.232                   & 0.174                   & -0.209                   & 0.161                  \\
+% 			0.4 & 0.5    & \textcolor{blue}{0.037}                 & \textcolor{red}{0.033}                     & 0.115                               & 0.067                       & 0.104                   & 0.065                                   & 0.104                                      & 0.066                    &                             & \textcolor{blue}{-0.103} & \textcolor{red}{0.073} & -0.304                   & 0.226      & -0.306                   & 0.235                   & -0.228                   & 0.177                  \\
+% 			\hline
+% 			0.1 & 0.9    & 0.029                                   & 0.029                                      & 0.014                               & 0.01                        & \textcolor{blue}{0.007} & \textcolor{red}{0.007}                  & 0.034                                      & 0.025                    &                             & 0.075                    & -0.089                 & 0.01                     & -0.049     & \textcolor{blue}{0.001}  & \textcolor{red}{-0.043} & 0.049                    & -0.069                 \\
+% 			0.2 & 0.9    & 0.019                                   & 0.018                                      & 0.011                               & 0.006                       & \textcolor{blue}{0.009} & \textcolor{red}{0.004}                  & 0.026                                      & 0.019                    &                             & 0.046                    & -0.065                 & \textcolor{blue}{-0.011} & -0.035     & -0.037                   & \textcolor{red}{-0.026} & 0.02                     & -0.056                 \\
+% 			0.3 & 0.9    & 0.012                                   & 0.01                                       & \textcolor{blue}{0.009}             & 0.004                       & 0.014                   & \textcolor{red}{0.003}                  & 0.022                                      & 0.015                    &                             & \textcolor{blue}{0.016}  & -0.043                 & -0.033                   & -0.023     & -0.076                   & \textcolor{red}{-0.011} & -0.024                   & -0.039                 \\
+% 			0.4 & 0.9    & \textcolor{blue}{0.008}                 & 0.006                                      & 0.009                               & \textcolor{red}{0.002}      & 0.025                   & \textcolor{red}{0.002}                  & 0.028                                      & 0.01                     &                             & \textcolor{blue}{-0.016} & -0.024                 & -0.061                   & -0.008     & -0.121                   & \textcolor{red}{0.003}  & -0.095                   & -0.016                 \\ \hline
+% 		\end{tabular}
+% 	}
+% \end{sidewaystable}
+
+% \begin{sidewaystable}[h!]
+% 	\centering
+% 	\caption{Смещение и среднеквадратичное отклонение оценок параметров $d$ и $\phi$ модели $\textrm{ARFIMA}(1, d, 0)$ ($n=1000$, $500$ повторений)}
+% 	\label{tab:arfi_est_n1000}
+% 	\scalebox{0.9}{
+% 		\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.2cm}cccccccc}
+% 			\hline
+% 			    &        & \multicolumn{8}{c}{$\mathsf{MSE} \cdot 100$} &                                            & \multicolumn{8}{c}{$\mathsf{Bias} \cdot 100$}                                                                                                                                                                                                                                                                                                                                                                                                           \\
+% 			\cline{3-10} \cline{12-19}
+% 			    &        & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$}      & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R}                      & \multicolumn{2}{c}{Whittle} &                         & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R} & \multicolumn{2}{c}{Whittle}                                                                                                                                                                                                   \\
+% 			$d$ & $\phi$ & $\hat d$                                     & $\hat\phi$                                 & $\hat d$                                      & $\hat\phi$                  & $\hat d$                & $\hat\phi$                              & $\hat d$                                   & $\hat\phi$               &                             & $\hat d$                 & $\hat\phi$             & $\hat d$                 & $\hat\phi$             & $\hat d$ & $\hat\phi$              & $\hat d$                 & $\hat\phi$              \\ \hline
+% 			0.1 & 0.1    & \textcolor{blue}{0.186}                      & \textcolor{red}{0.290}                     & 0.27                                          & 0.37                        & 0.224                   & 0.317                                   & 0.232                                      & 0.33                     &                             & \textcolor{blue}{-0.581} & \textcolor{red}{0.448} & -1.941                   & 1.732                  & -1.729   & 1.508                   & -0.687                   & 0.519                   \\
+% 			0.2 & 0.1    & \textcolor{blue}{0.181}                      & \textcolor{red}{0.287}                     & 0.271                                         & 0.371                       & 0.267                   & 0.366                                   & 0.232                                      & 0.329                    &                             & \textcolor{blue}{-0.599} & \textcolor{red}{0.465} & -2.026                   & 1.824                  & -1.981   & 1.773                   & -0.615                   & 0.468                   \\
+% 			0.3 & 0.1    & \textcolor{blue}{0.174}                      & \textcolor{red}{0.282}                     & 0.272                                         & 0.372                       & 0.268                   & 0.367                                   & 0.232                                      & 0.328                    &                             & -0.639                   & 0.505                  & -2.177                   & 1.987                  & -2.176   & 1.975                   & \textcolor{blue}{-0.476} & \textcolor{red}{0.372}  \\
+% 			0.4 & 0.1    & \textcolor{blue}{0.156}                      & \textcolor{red}{0.267}                     & 0.272                                         & 0.373                       & 0.274                   & 0.371                                   & 0.232                                      & 0.325                    &                             & -0.795                   & 0.666                  & -2.606                   & 2.443                  & -2.725   & 2.542                   & \textcolor{blue}{-0.263} & \textcolor{blue}{0.233} \\
+% 			\hline
+% 			0.1 & 0.1    & 0.761                                        & 0.8                                        & 1.429                                         & 1.3                         & \textcolor{blue}{0.504} & \textcolor{red}{0.552}                  & 1.104                                      & 1.05                     &                             & \textcolor{blue}{-2.047} & \textcolor{red}{1.588} & -5.86                    & 5.102                  & -3.256   & 2.741                   & -2.555                   & 1.904                   \\
+% 			0.2 & 0.1    & \textcolor{blue}{0.710}                      & \textcolor{red}{0.759}                     & 1.432                                         & 1.302                       & 0.978                   & 0.969                                   & 1.213                                      & 1.125                    &                             & \textcolor{blue}{-2.018} & \textcolor{red}{1.571} & -6.08                    & 5.337                  & -5.157   & 4.556                   & -2.721                   & 2.065                   \\
+% 			0.3 & 0.1    & \textcolor{blue}{0.617}                      & \textcolor{red}{0.675}                     & 1.462                                         & 1.323                       & 1.246                   & 1.175                                   & 1.23                                       & 1.15                     &                             & \textcolor{blue}{-1.984} & \textcolor{red}{1.560} & -6.506                   & 5.78                   & -6.129   & 5.463                   & -2.578                   & 1.948                   \\
+% 			0.4 & 0.1    & \textcolor{blue}{0.473}                      & \textcolor{red}{0.539}                     & 1.499                                         & 1.353                       & 1.507                   & 1.354                                   & 1.294                                      & 1.18                     &                             & \textcolor{blue}{-2.226} & \textcolor{red}{1.861} & -7.514                   & 6.838                  & -7.622   & 6.905                   & -2.695                   & 2.099                   \\
+% 			\hline
+% 			0.1 & 0.9    & 0.338                                        & 0.155                                      & 0.288                                         & 0.122                       & \textcolor{blue}{0.259} & \textcolor{red}{0.097}                  & 0.387                                      & 0.193                    &                             & 0.623                    & -0.774                 & \textcolor{blue}{-0.095} & -0.56                  & -0.176   & \textcolor{red}{-0.504} & 0.583                    & -0.92                   \\
+% 			0.2 & 0.9    & 0.273                                        & 0.106                                      & \textcolor{blue}{0.233}                       & \textcolor{red}{0.077}      & 0.239                   & 0.077                                   & 0.326                                      & 0.128                    &                             & 0.42                     & -0.611                 & -0.388                   & -0.355                 & -0.627   & \textcolor{red}{-0.303} & \textcolor{blue}{0.041}  & -0.652                  \\
+% 			0.3 & 0.9    & 0.241                                        & 0.093                                      & \textcolor{blue}{0.217}                       & \textcolor{red}{0.068}      & 0.268                   & 0.075                                   & 0.326                                      & 0.097                    &                             & \textcolor{blue}{0.287}  & -0.53                  & -0.667                   & -0.204                 & -1.395   & \textcolor{red}{-0.029} & -1.003                   & -0.285                  \\
+% 			0.4 & 0.9    & \textcolor{blue}{0.173}                      & 0.067                                      & 0.182                                         & \textcolor{red}{0.051}      & 0.381                   & 0.076                                   & 0.545                                      & 0.09                     &                             & \textcolor{blue}{-0.129} & -0.295                 & -1.4                     & \textcolor{red}{0.178} & -2.602   & 0.359                   & -3.357                   & 0.389                   \\
+% 			\hline
+% 		\end{tabular}
+% 	}
+% \end{sidewaystable}
+
+% В таблицах~\ref{tab:arfi_est_n100} и~\ref{tab:arfi_est_n1000} представлены значения среднеквадратичной ошибки и смещения оценок параметров $d$ и $\phi$ модели $\textrm{ARFIMA}(1, d)$. Заметим, что в оценках присутствует смещение, для $\phi=0.1$ и $\phi=0.5$ оценки $d$ имеют отрицательное смещение, а оценки $\phi$, наоборот, положительное. Также в таблицах синим цветом выделена лучшая по строке оценка $d$, а красным~--- лучшая оценка $\phi$. Видно, что в случае коротких рядов ($n=100$) метод H\&R в большинстве случаев дает оценки с наименьшим $\mathsf{MSE}$, однако наименьшее смещение имеют оценки $\mathrm{MLE}(\mu)$. В случае же длинных рядов ($n=1000$) наименьшую среднеквадратичную ошибку и смещение дает $\mathrm{MLE}(\mu)$. Отметим, что даже для длинных рядов оценки $\mathrm{MLE}(\bar x)$ имеют, в большинстве случаев, наибольшее смещение и $\mathsf{MSE}$. Оценки H\&R, хотя и дают наименьшее после $\mathrm{MLE}(\mu)$ $\mathsf{MSE}$, также сильно смещены. Оценки методом Whittle выглядят наиболее привлекательными, поскольку имеют наименьшее после $\mathrm{MLE}(\mu)$ смещение и имеют $\mathsf{MSE}$ меньше, чем $\mathrm{MLE}(\bar x)$.
+
+% Подведем итоги численного сравнения. Если для рассматриваемого ряда известно его матожидание $\mu$ (что, конечно, редкость на практике), наилучшим методом является $\mathrm{MLE}(\mu)$. Если же среднее неизвестно, для коротких рядов оценивать параметры моделей $\textrm{AR}(1)$ и $\textrm{ARFIMA}(0, d, 0)$ следует методом Whittle, а параметры модели $\textrm{ARFIMA}(1, d, 0)$~--- методом H\&R. В случае длинных рядов параметры рассматриваемых моделей следует оценивать методом Whittle.
+
+% % \begin{table}[h!]
+% % 	\centering
+% % 	\caption{Смещение и среднеквадратичное отклонение оценок параметра $\phi$ модели $\textrm{AR}(1)$ ($n=100$, $500$ повторений)}
+% % 	\begin{tabular}{m{1cm}cccm{0.5cm}ccc}
+% % 		\hline
+% % 		& \multicolumn{3}{c}{$\mathsf{bias}\cdot 100$} & & \multicolumn{3}{c}{$\mathsf{MSE}\cdot 100$} \\
+% % 		\cline{2-4} \cline{6-8}
+% % 		$\phi$ & $\mathrm{MLE}(\mu)$ & $\mathrm{MLE}(\bar x)$ & Whittle & & $\mathrm{MLE}(\mu)$ & $\mathrm{MLE}(\bar x)$ & Whittle \\ \hline
+% % 		0.1 & 0.197  & -1.029 &  0.025 & & 0.856 & 0.874 & 0.889\\
+% % 		0.2 & -0.023 & -1.362 & -0.298 & & 0.826 & 0.859 & 0.865\\
+% % 		0.3 & -0.252 & -1.707 & -0.635 & & 0.785 & 0.834 & 0.834\\
+% % 		0.4 & -0.487 & -2.061 & -0.981 & & 0.733 & 0.802 & 0.796\\
+% % 		0.5 & -0.725 & -2.423 & -1.337 & & 0.670 & 0.762 & 0.75\\
+% % 		0.6 & -0.965 & -2.796 & -1.704 & & 0.594 & 0.712 & 0.697\\
+% % 		0.7 & -1.205 & -3.183 & -2.084 & & 0.502 & 0.652 & 0.636\\
+% % 		0.8 & -1.427 & -3.59  & -2.478 & & 0.389 & 0.577 & 0.566\\
+% % 		0.9 & -1.560 & -4.016 & -2.777 & & 0.248 & 0.483 & 0.5\\
+% % 		\hline
+% % 	\end{tabular}
+% % \end{table}
+
+% \subsection{Сходимость оценок к истинным значениям}
+% Известно~\cite[Theorem 8.1]{Hassler2018}, что
+% \begin{equation}\label{eq:mle_distribution}
+% 	\sqrt{n}(\widehat{\bm\varphi}_\mathrm{ML} - \bm\varphi_0)\overset{d}{\longrightarrow} \mathcal{N}_{k+1}(0, \mathcal{I}^{-1}(\bm{\varphi}_0)),
+% \end{equation}
+% где $\bm\varphi_0$~--- истинный вектор параметров, $\mathcal{I}(\bm\varphi)$~--- информационная матрица Фишера. Также известно~\cite[Proposition 8.3]{Hassler2018}, что вектор $\widehat{\bm\varphi}_W$ имеет такое же асимптотическое распределение, что и $\widehat{\bm\varphi}_\mathrm{ML}$.
+
+% Покажем, что методы $\mathrm{MLE}(\mu)$ и Whittle реализованы корректно, посмотрев на дисперсию оценок для $n=10000$. В таблице~\ref{tab:variance} представлены оценки дисперсий $\hat d$ и $\hat \phi$, в скобках указана теоретическая дисперсия. Как видим, для разных значений параметров значение дисперсий оценок близки к теоретическим.
+
+% \begin{table}[h]
+% 	\centering
+% 	\subfloat[$d=0.2$, $\varphi=0.1$]{
+% 		\begin{tabular}{c|cc}
+% 			Метод               & $n\mathsf{D} \hat d$ (1.83167) & $n\mathsf{D}\hat \phi$ (2.98284) \\
+% 			\hline
+% 			$\mathrm{MLE}(\mu)$ & 1.72733                        & 2.92604                          \\
+% 			Whittle             & 1.78350                        & 2.94929                          \\
+% 			\hline
+% 		\end{tabular}
+% 	}
+% 	\subfloat[$d=0.4$, $\varphi=0.1$]{
+% 		\begin{tabular}{c|cc}
+% 			Метод               & $n\mathsf{D} \hat d$ (1.83167) & $n\mathsf{D}\hat \phi$ (2.98284) \\
+% 			\hline
+% 			$\mathrm{MLE}(\mu)$ & 1.69348                        & 2.90374                          \\
+% 			Whittle             & 1.84265                        & 2.96828                          \\
+% 			\hline
+% 		\end{tabular}
+% 	}\vspace{2em}
+% 	\subfloat[$d=0.2$, $\varphi=0.5$]{
+% 		\begin{tabular}{c|cc}
+% 			Метод               & $n\mathsf{D} \hat d$ (4.91219) & $n\mathsf{D}\hat \phi$ (6.06018) \\
+% 			\hline
+% 			$\mathrm{MLE}(\mu)$ & 5.00869                        & 6.305                            \\
+% 			Whittle             & 5.08405                        & 6.35985                          \\
+% 			\hline
+% 		\end{tabular}
+% 	}
+% 	\subfloat[$d=0.4$, $\varphi=0.5$]{
+% 		\begin{tabular}{c|cc}
+% 			Метод               & $n\mathsf{D} \hat d$ (4.91219) & $n\mathsf{D}\hat \phi$ (6.06018) \\
+% 			\hline
+% 			$\mathrm{MLE}(\mu)$ & 4.75975                        & 6.06711                          \\
+% 			Whittle             & 5.28104                        & 6.4936                           \\
+% 			\hline
+% 		\end{tabular}
+% 	}\vspace{2em}
+% 	\subfloat[$d=0.2$, $\varphi=0.9$]{
+% 		\begin{tabular}{c|cc}
+% 			Метод               & $n \mathsf{D} \hat d$ (2.49203) & $n\mathsf{D}\hat \phi$ (0.77885) \\
+% 			\hline
+% 			$\mathrm{MLE}(\mu)$ & 2.42011                         & 0.78209                          \\
+% 			Whittle             & 2.44394                         & 0.77549                          \\
+% 			\hline
+% 		\end{tabular}
+% 	}
+% 	\subfloat[$d=0.4$, $\varphi=0.9$]{
+% 		\begin{tabular}{c|cc}
+% 			Метод               & $n \mathsf{D} \hat d$ (2.49203) & $n\mathsf{D}\hat \phi$ (0.77885) \\
+% 			\hline
+% 			$\mathrm{MLE}(\mu)$ & 2.26718                         & 0.749318                         \\
+% 			Whittle             & 2.57117                         & 0.77311                          \\
+% 			\hline
+% 		\end{tabular}
+% 	}
+% 	\caption{Дисперсия оценок $\hat d$ и $\hat \phi$, $n=10000$, $100$ повторений}
+% 	\label{tab:variance}
+% \end{table}
+
+\chapter{Метод Monte Carlo SSA}\label{chpt:mcssa}
+
 \section{Вспомогательные определения}
-Для начала введем некоторые обозначения, которые будем использовать в дальнейшем.
+
+Для начала введем некоторые обозначения теории случайных процессов, которые будем использовать в дальнейшем.
 \begin{definition}\label{def:stationary}
 	Случайный процесс $\{Y_t:t\in\mathbb{Z}\}$ называют стационарным (в широком смысле), если
 	\begin{enumerate}
@@ -197,341 +593,8 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	Таким образом периодограмма является асимптотически несмещенной, но несостоятельной, оценкой спектральной плотности~\cite[Раздел 4.5]{Hassler2018}.
 \end{remark}
 
-\section{Процессы с длинной памятью}\label{sect:longmemory}
-
-\begin{definition}\label{def:longmemory}
-	Говорят, что стационарный процесс $\{Y_t\}$ обладает длинной памятью, если
-	\[
-		\sum_{h=0}^H|\gamma(h)|\to\infty,
-	\]
-	при $H\to\infty$. Иначе говорят, что $\{Y_t\}$ обладает короткой памятью:
-	\[
-		\sum_{h=0}^\infty|\gamma(h)|<\infty.
-	\]
-\end{definition}
-Существуют и альтернативные определения процессов с длинной памятью, которые можно найти в~\cite[Раздел 3.1]{Palma2006}. Там же показано, что они согласованы с определением~\ref{def:longmemory}.
-\begin{example}
-	Процессом с короткой памятью является, например, стационарная модель $\mathrm{ARMA}(p, q)$, поскольку $|\gamma(h)|\leqslant CR^h$, где $C>0$ и $0<R<1$~\cite[Section 10.4]{BoxJenkins2016}.
-\end{example}
-Введем понятие дробного интегрирования $(1-L)^d$, где $L$~--- оператор сдвига. Например, для $d=1$ имеем $(1-L)Y_t=Y_t-Y_{t-1}$, для $d=2$~--- $(1-L)^2Y_t=Y_t-2Y_{t-1}+Y_{t-2}$, и так далее. Обобщим этот оператор для нецелых $d$ с помощью разложения в ряд Тейлора функции $(1-x)^d$ в нуле:
-\[
-	\begin{aligned}
-		(1-x)^d & =1-dx-\frac{d(1-d)}{2}x^2-\frac{d(1-d)(2-d)}{3!}x^3-\ldots             \\
-		        & =\sum_{j=0}^\infty \pi_j(d)x^j=\sum_{j=0}^\infty\binom{d}{j}(-1)^jx^j,
-	\end{aligned}
-\]
-где $\binom{d}{j}$~--- обобщенный биномиальный коэффициент. Коэффициенты $\pi_j(d)$ удовлетворяют соотношению
-\begin{equation}\label{eq:pi_j}
-	\pi_j(d)=(-1)^j\binom{d}{j}=\frac{j-1-d}{j}\pi_{j-1}(d)=\frac{\Gamma(j-d)}{\Gamma(j+1)\Gamma(-d)},
-\end{equation}
-где $\Gamma(x)$~--- гамма функция. Заметим, что второе равенство в формуле~\eqref{eq:pi_j} верно для любых $d$, третье же верно только для $d\not\in\bbN\cup\{0\}$, поскольку гамма функция не определена для неположительных целых чисел.
-\begin{definition}\label{def:arfima}
-	Пусть процесс $\{Y_t\}$ определен соотношением
-	\[
-		\begin{aligned}
-			Y_t=(1-L)^{-d}X_t=\sum_{k=0}^\infty \pi_k(-d)X_{t-k}
-		\end{aligned},\quad d<1/2,
-	\]
-	где $\pi_k(-d)$ из формулы~\eqref{eq:pi_j}, $\{X_t\}$~--- стационарная и обратимая модель $\mathrm{ARMA}(p, d)$. Процесс $\{Y_t\}$ называют дробно интегрированной моделью $\mathrm{ARMA}$ или $\mathrm{ARFIMA}(p, d, q)$.
-\end{definition}
-\begin{proposition}\label{prop1}
-	Процесс $\{Y_t\}$ из определения~\ref{def:arfima} является стационарным процессом с нулевым средним. Его спектральная плотность определяется выражением
-	\begin{equation}\label{eq:spec_long}
-		\begin{aligned}
-			f_Y(\omega) & =4^{-d}\sin^{-2d}\left(\pi\omega\right)f_X(\omega)                                                                                                      \\
-			            & =4^{-d}\sin^{-2d}\left(\pi\omega\right)\sigma^2\frac{\left|\Theta(e^{-2\pi \omega\im})\right|^2}{\left|\Phi(e^{-2\pi\omega\im})\right|^2},\quad\omega>0 \\
-			            & \sim\omega^{-2d}\sigma^2\frac{|\Theta(1)|^2}{|\Phi(1)|^2},\quad \omega\to0,
-		\end{aligned}
-	\end{equation}
-	где $\Phi(L)$, $\Theta(L)$~--- характеристические полиномы процесса $\{X_t\}$.
-\end{proposition}
-\begin{proof}
-	См.~\cite[Proposition 6.1]{Hassler2018}.
-\end{proof}
-\begin{remark}
-	Из формулы~\eqref{eq:spec_long} видно, что монотонность спектральной плотности процесса $\{Y_t\}$ зависит от поведения спектральной плотности процесса $\{X_t\}$.
-\end{remark}
-\begin{corollary}\label{corollary1}
-	В условиях предложения~\ref{prop1} при $0<d<1/2$
-	\[
-		\gamma(h)\sim C_{\gamma,d}h^{2d-1},\quad h\to\infty,
-	\]
-	где
-	\[
-		C_{\gamma,d}=\sigma^2 \frac{|\Theta(1)|^2}{|\Phi(1)|^2} \frac{\Gamma(1-2d)}{\Gamma(d)\Gamma(1-d)}.
-	\]
-\end{corollary}
-\begin{proof}
-	См.~\cite[Corollary 6.1]{Hassler2018}.
-\end{proof}
-\begin{remark}
-	Из следствия~\ref{corollary1} сразу следует, что $\mathrm{ARFIMA}(p, d, q)$ с $d\in(0, 1/2)$ обладает длинной памятью.
-\end{remark}
-
-\section{Оценка параметров}
-
-Пусть $Y_t=(1-L)^{-d}X_t$, $d<1/2$. Будем считать, что $\{X_t\}$ представляет собой модель $\mathrm{ARMA}(p, q)$ с нормально распределенным белым шумом $\{\varepsilon_t\}$. Тогда представим его спектральную плотность в параметрическом виде: $f_X(\omega)=f_X(\omega; \bm\psi, \sigma)$, где
-\[
-	\bm\psi=(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q)^\rmT.
-\]
-Поставим задачу оценить параметры $\bm\varphi^\rmT=\left(d, \bm\psi^\rmT\right)$ и $\sigma^2$.
-
-\subsection{Maximum likelihood estimation (MLE)}
-
-Поскольку $\{\varepsilon_t\}$~--- гауссовский белый шум, вектор
-\[
-	\bm Y=(Y_1,\ldots,Y_n)^\rmT\sim \mathcal{N}_n(\bm0, \bm\Sigma_n),
-\]
-где $\bm\Sigma_n=(\gamma(|i-j|))_{i,j=1}^n$~--- ковариационная матрица $\bm Y$. Совместная плотность распределения $\bm Y$ равна
-\[
-	(2\pi)^{-n/2}\left|\bm\Sigma_n\right|^{-1/2}\exp\left\{-\frac12Y^\rmT\bm\Sigma_n^{-1}Y\right\}.
-\]
-Рассмотрим логарифм функции правдоподобия. Отбрасывая аддитивные константы, получаем
-\[
-	\ell(\bm\varphi, \sigma^2)=-\frac12\ln\left|\bm\Sigma_n\right|-\frac12 Y^\rmT \bm\Sigma_n^{-1} Y.
-\]
-Положим $\bm\Gamma_n=\bm\Sigma_n / \sigma^2$ и, максимизируя $\ell$ по $\sigma^2$, получаем
-\begin{equation}\label{eq:mle_objective}
-	\ell_c(\bm\varphi)=-\frac{n}{2}\ln\left(S(\bm\varphi) / n\right) - \frac{1}{2}\ln g_n(\bm\varphi),
-\end{equation}
-где $S(\bm\varphi)=\bm Y^\rmT \bm\Gamma_n\bm Y$, $g_n(\bm\varphi)=\left|\bm\Gamma_n\right|$.
-Тогда
-\[
-	\widehat{\bm\varphi}_\mathrm{ML}=\operatorname*{argmax}\limits_{\bm\varphi}\ell_c(\bm\varphi),\quad \widehat\sigma^2_\mathrm{ML} = S(\widehat{\bm\varphi}_\mathrm{ML}).
-\]
-
-\begin{remark}
-	В случае ненулевого матожидания $\mathsf{E}Y_t=\mu$, для получения $\widehat{\bm\varphi}_\mathrm{ML}$ и $\widehat\sigma^2_\mathrm{ML}$ вместо $\bm Y$ рассматривается $\bm Z=\bm Y-\mu$.
-\end{remark}
-\begin{remark}
-	Для вычисления $\ell_c$ можно использовать алгоритм Левинсона-Дурбина, имеющий временную трудоемкость $O(n^2)$~\cite{McLeod2007}.
-\end{remark}
-
-\subsection{Whittle estimation}\label{sect:whittle}
-
-Метод максимального правдоподобия применим, когда известно матожидание $\mu$. При неизвестном $\mu$ обычно используют его оценку $\overline{\bm Y}$, однако, помимо этого, существует проблема вычислительной сложности метода при больших $n$.
-
-Обе эти проблемы можно решить, используя оценку Уиттла (Whittle): вместо логарифма функции правдоподобия рассматривается ее оценка (с точностью до константы)~\cite{Whittle1953}. Пусть $f(\omega; \bm\varphi, \sigma^2)$~--- спектральная плотность $\{Y_t\}$, $I(\omega)$~--- периодограмма $\bm Y$, тогда
-\begin{equation}\label{eq:whittle_loglik}
-	\ell_W(\bm\varphi, \sigma^2)=-\frac1m\sum_{j=1}^m\left(\ln f(\omega_j; \bm\varphi, \sigma^2) + \frac{I(\omega_j)}{f(\omega_j; \bm\varphi, \sigma^2)}\right),
-\end{equation}
-где $m=\lfloor(n-1)/2\rfloor$, $\omega_j = j / n$, $j=1,2,\ldots,m$. Заметим, что $f(\omega; \bm\varphi, \sigma^2)=\sigma^2 g(\omega; \bm\varphi)$. Тогда, максимизируя $\ell_W$ по $\sigma^2$, получаем
-\[
-	\widehat{\bm\varphi}_W = \operatorname*{argmax}_{\bm\varphi}Q(\bm\varphi),\quad \widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \widehat{\bm\varphi}_W)},
-\]
-где
-\[
-	Q(\bm\varphi)=-\ln\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g(\omega_j; \bm\varphi)} - \frac1m \sum_{j=1}^m\ln g(\omega_j; \bm\varphi).
-\]
-\begin{remark}
-	Такой метод оценки параметров можно использовать при неизвестном среднем, поскольку при ее вычислении не используется значение периодограммы в нуле.
-\end{remark}
-\begin{remark}
-	Периодограмму временного ряда можно вычислить за $O(n\log n)$ с помощью быстрого преобразования Фурье, что делает этот метод значительно быстрее MLE для больших $n$.
-\end{remark}
-\subsection{Численное сравнение методов оценки параметров}\label{sect:est_param}
-Сравним качество оценок параметров следующих моделей:
-\begin{enumerate}
-	\item $d=q=0$, $p=1$~--- модель $\mathrm{AR}(1)$;
-	\item $p=q=0$~--- модель $\mathrm{ARFIMA(0, d, 0)}$.
-	\item $p=1$, $q=0$~--- модель $\mathrm{ARFIMA}(1, d, 0)$.
-\end{enumerate}
-Для оценки параметров этих моделей на языке $\mathsf{R}$ были реализованы функции \textsf{arfima\_mle} и \textsf{arfima\_whittle}, которые соответствуют методам MLE и Whittle соответственно. Для реализации MLE были использованы функции \textsf{tacvfARFIMA} из пакета \textsf{arfima}~\cite{Veenstra2012} и \textsf{DLLoglikelihood} из пакета \textsf{ltsa}~\cite{McLeod2007}, вычисляющие автоковариационную функцию модели ARFIMA и функцию $\ell_c$~\eqref{eq:mle_objective} соответственно.
-
-Помимо функций \textsf{arfima\_mle} и \textsf{arfima\_whittle}, будем использовать:
-\begin{enumerate}
-	\item Функцию \textsf{arima} из пакета \textsf{stats}, соответствующую MLE модели ARMA;
-	\item Функцию \textsf{fracdiff} из пакета \textsf{fracdiff}~\cite{fracdiff}, соответствующую аппроксимации MLE модели ARFIMA, описанной в работе~\cite{Haslett1989} (обозначим ее за H\&R).
-\end{enumerate}
-\begin{remark}
-	Помимо вышеперечисленных функций, в пакете \textsf{arfima} есть функция \textsf{arfima}, которая вычисляет MLE модели ARFIMA. Но данная реализация MLE в некоторых случаях дает оценки хуже, чем \textsf{arfima\_mle}. Сравнение оценок обоих реализаций можно найти в разделе~\ref{sect:mle_comparison}.
-\end{remark}
-Поскольку для реальных временных рядов матожидание $\mu$ неизвестно, будем рассматривать MLE с известным средним и с его оценкой~--- выборочным средним (будем обозначать их $\mathrm{MLE}(\mu)$ и $\mathrm{MLE}(\bar x)$ соответственно). Не умаляя общности, пусть $\mu=0$.
-
-\begin{figure}[h]
-	\centering
-	\begin{subfigure}{\textwidth}
-		\includegraphics[width=\textwidth]{img/ar1_est_N100.pdf}
-		\caption{$n=100$}
-	\end{subfigure}
-	\begin{subfigure}{\textwidth}
-		\includegraphics[width=\textwidth]{img/ar1_est_N1000.pdf}
-		\caption{$n=1000$}
-	\end{subfigure}
-	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $\phi$ модели $\mathrm{AR}(1)$ ($500$ повторений)}
-	\label{fig:ar1_est}
-\end{figure}
-\begin{figure}[h]
-	\centering
-	\begin{subfigure}{\textwidth}
-		\includegraphics[width=\textwidth]{img/fi_est_N100.pdf}
-		\caption{$n=100$}
-	\end{subfigure}
-	\begin{subfigure}{\textwidth}
-		\includegraphics[width=\textwidth]{img/fi_est_N1000.pdf}
-		\caption{$n=1000$}
-	\end{subfigure}
-	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $d$ модели $\mathrm{ARFIMA}(0, d, 0)$ ($500$ повторений)}
-	\label{fig:fi_est}
-\end{figure}
-
-На рис.~\ref{fig:ar1_est} и~\ref{fig:fi_est} изображены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ моделей $\mathrm{AR}(1)$ и $\mathrm{ARFIMA}(0, d, 0)$. Отметим, что все оценки имеют в большинстве своем отрицательное смещение и отличаются между собой в основном степенью смещения. Как и ожидалось, оценка параметров методом максимального правдоподобия с известным средним дает оценку с наименьшим $\mathsf{MSE}$. С другой стороны, если использовать вместо известного среднего выборочное среднее, оценки становятся сильно смещенными. Whittle же, в свою очередь, дает менее смещенную оценку, чем $\mathrm{MLE}(\bar x)$, а в случае оценки $d$ имеет смещение даже меньше, чем у $\mathrm{MLE}(\mu)$. Однако оценки Whittle обладают наибольшей дисперсией среди всех рассмотренных методов, но разница не такая значительная, как в случае смещения.
-
-\begin{sidewaystable}[h!]
-	\centering
-	\caption{Смещение и среднеквадратичное отклонение оценок параметров $d$ и $\phi$ модели $\mathrm{ARFIMA}(1, d, 0)$ ($n=100$, $500$ повторений)}
-	\label{tab:arfi_est_n100}
-	\scalebox{0.9}{
-		\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.2cm}cccccccc}
-			\hline
-			    &        & \multicolumn{8}{c}{$\mathsf{MSE}$}      &                                            & \multicolumn{8}{c}{$\mathsf{Bias}$}                                                                                                                                                                                                                                                                                                                                                                                                              \\
-			\cline{3-10} \cline{12-19}
-			    &        & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R}            & \multicolumn{2}{c}{Whittle} &                         & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R} & \multicolumn{2}{c}{Whittle}                                                                                                                                                                                                      \\
-			$d$ & $\phi$ & $\hat d$                                & $\hat\phi$                                 & $\hat d$                            & $\hat\phi$                  & $\hat d$                & $\hat\phi$                              & $\hat d$                                   & $\hat\phi$               &                             & $\hat d$                 & $\hat\phi$             & $\hat d$                 & $\hat\phi$ & $\hat d$                 & $\hat\phi$              & $\hat d$                 & $\hat\phi$             \\ \hline
-			0.1 & 0.1    & 0.049                                   & 0.056                                      & 0.119                               & 0.114                       & \textcolor{blue}{0.009} & \textcolor{red}{0.018}                  & 0.069                                      & 0.067                    &                             & -0.077                   & 0.066                  & -0.229                   & 0.199      & \textcolor{blue}{-0.054} & \textcolor{red}{0.035}  & -0.086                   & 0.068                  \\
-			0.2 & 0.1    & 0.047                                   & 0.055                                      & 0.151                               & 0.141                       & \textcolor{blue}{0.025} & \textcolor{red}{0.032}                  & 0.077                                      & 0.073                    &                             & \textcolor{blue}{-0.078} & \textcolor{red}{0.067} & -0.265                   & 0.232      & -0.119                   & 0.099                   & -0.094                   & 0.074                  \\
-			0.3 & 0.1    & \textcolor{blue}{0.041}                 & \textcolor{red}{0.049}                     & 0.183                               & 0.165                       & 0.049                   & 0.055                                   & 0.084                                      & 0.081                    &                             & \textcolor{blue}{-0.076} & \textcolor{red}{0.066} & -0.301                   & 0.266      & -0.179                   & 0.161                   & -0.109                   & 0.09                   \\
-			0.4 & 0.1    & \textcolor{blue}{0.029}                 & \textcolor{red}{0.038}                     & 0.211                               & 0.187                       & 0.081                   & 0.089                                   & 0.179                                      & 0.194                    &                             & \textcolor{blue}{-0.072} & \textcolor{red}{0.065} & -0.34                    & 0.305      & -0.243                   & 0.23                    & -0.26                    & 0.241                  \\
-			\hline
-			0.1 & 0.5    & 0.045                                   & 0.041                                      & 0.086                               & 0.053                       & \textcolor{blue}{0.010} & \textcolor{red}{0.015}                  & 0.057                                      & 0.054                    &                             & -0.071                   & 0.034                  & -0.222                   & 0.151      & -0.07                    & 0.034                   & \textcolor{blue}{-0.066} & \textcolor{red}{0.024} \\
-			0.2 & 0.5    & 0.042                                   & 0.038                                      & 0.092                               & 0.055                       & \textcolor{blue}{0.031} & \textcolor{red}{0.025}                  & 0.074                                      & 0.058                    &                             & \textcolor{blue}{-0.081} & \textcolor{red}{0.046} & -0.244                   & 0.171      & -0.154                   & 0.108                   & -0.153                   & 0.107                  \\
-			0.3 & 0.5    & \textcolor{blue}{0.040}                 & \textcolor{red}{0.036}                     & 0.1                                 & 0.059                       & 0.063                   & 0.043                                   & 0.098                                      & 0.062                    &                             & \textcolor{blue}{-0.093} & \textcolor{red}{0.060} & -0.267                   & 0.192      & -0.232                   & 0.174                   & -0.209                   & 0.161                  \\
-			0.4 & 0.5    & \textcolor{blue}{0.037}                 & \textcolor{red}{0.033}                     & 0.115                               & 0.067                       & 0.104                   & 0.065                                   & 0.104                                      & 0.066                    &                             & \textcolor{blue}{-0.103} & \textcolor{red}{0.073} & -0.304                   & 0.226      & -0.306                   & 0.235                   & -0.228                   & 0.177                  \\
-			\hline
-			0.1 & 0.9    & 0.029                                   & 0.029                                      & 0.014                               & 0.01                        & \textcolor{blue}{0.007} & \textcolor{red}{0.007}                  & 0.034                                      & 0.025                    &                             & 0.075                    & -0.089                 & 0.01                     & -0.049     & \textcolor{blue}{0.001}  & \textcolor{red}{-0.043} & 0.049                    & -0.069                 \\
-			0.2 & 0.9    & 0.019                                   & 0.018                                      & 0.011                               & 0.006                       & \textcolor{blue}{0.009} & \textcolor{red}{0.004}                  & 0.026                                      & 0.019                    &                             & 0.046                    & -0.065                 & \textcolor{blue}{-0.011} & -0.035     & -0.037                   & \textcolor{red}{-0.026} & 0.02                     & -0.056                 \\
-			0.3 & 0.9    & 0.012                                   & 0.01                                       & \textcolor{blue}{0.009}             & 0.004                       & 0.014                   & \textcolor{red}{0.003}                  & 0.022                                      & 0.015                    &                             & \textcolor{blue}{0.016}  & -0.043                 & -0.033                   & -0.023     & -0.076                   & \textcolor{red}{-0.011} & -0.024                   & -0.039                 \\
-			0.4 & 0.9    & \textcolor{blue}{0.008}                 & 0.006                                      & 0.009                               & \textcolor{red}{0.002}      & 0.025                   & \textcolor{red}{0.002}                  & 0.028                                      & 0.01                     &                             & \textcolor{blue}{-0.016} & -0.024                 & -0.061                   & -0.008     & -0.121                   & \textcolor{red}{0.003}  & -0.095                   & -0.016                 \\ \hline
-		\end{tabular}
-	}
-\end{sidewaystable}
-
-\begin{sidewaystable}[h!]
-	\centering
-	\caption{Смещение и среднеквадратичное отклонение оценок параметров $d$ и $\phi$ модели $\mathrm{ARFIMA}(1, d, 0)$ ($n=1000$, $500$ повторений)}
-	\label{tab:arfi_est_n1000}
-	\scalebox{0.9}{
-		\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.2cm}cccccccc}
-			\hline
-			    &        & \multicolumn{8}{c}{$\mathsf{MSE} \cdot 100$} &                                            & \multicolumn{8}{c}{$\mathsf{Bias} \cdot 100$}                                                                                                                                                                                                                                                                                                                                                                                                           \\
-			\cline{3-10} \cline{12-19}
-			    &        & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$}      & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R}                      & \multicolumn{2}{c}{Whittle} &                         & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R} & \multicolumn{2}{c}{Whittle}                                                                                                                                                                                                   \\
-			$d$ & $\phi$ & $\hat d$                                     & $\hat\phi$                                 & $\hat d$                                      & $\hat\phi$                  & $\hat d$                & $\hat\phi$                              & $\hat d$                                   & $\hat\phi$               &                             & $\hat d$                 & $\hat\phi$             & $\hat d$                 & $\hat\phi$             & $\hat d$ & $\hat\phi$              & $\hat d$                 & $\hat\phi$              \\ \hline
-			0.1 & 0.1    & \textcolor{blue}{0.186}                      & \textcolor{red}{0.290}                     & 0.27                                          & 0.37                        & 0.224                   & 0.317                                   & 0.232                                      & 0.33                     &                             & \textcolor{blue}{-0.581} & \textcolor{red}{0.448} & -1.941                   & 1.732                  & -1.729   & 1.508                   & -0.687                   & 0.519                   \\
-			0.2 & 0.1    & \textcolor{blue}{0.181}                      & \textcolor{red}{0.287}                     & 0.271                                         & 0.371                       & 0.267                   & 0.366                                   & 0.232                                      & 0.329                    &                             & \textcolor{blue}{-0.599} & \textcolor{red}{0.465} & -2.026                   & 1.824                  & -1.981   & 1.773                   & -0.615                   & 0.468                   \\
-			0.3 & 0.1    & \textcolor{blue}{0.174}                      & \textcolor{red}{0.282}                     & 0.272                                         & 0.372                       & 0.268                   & 0.367                                   & 0.232                                      & 0.328                    &                             & -0.639                   & 0.505                  & -2.177                   & 1.987                  & -2.176   & 1.975                   & \textcolor{blue}{-0.476} & \textcolor{red}{0.372}  \\
-			0.4 & 0.1    & \textcolor{blue}{0.156}                      & \textcolor{red}{0.267}                     & 0.272                                         & 0.373                       & 0.274                   & 0.371                                   & 0.232                                      & 0.325                    &                             & -0.795                   & 0.666                  & -2.606                   & 2.443                  & -2.725   & 2.542                   & \textcolor{blue}{-0.263} & \textcolor{blue}{0.233} \\
-			\hline
-			0.1 & 0.1    & 0.761                                        & 0.8                                        & 1.429                                         & 1.3                         & \textcolor{blue}{0.504} & \textcolor{red}{0.552}                  & 1.104                                      & 1.05                     &                             & \textcolor{blue}{-2.047} & \textcolor{red}{1.588} & -5.86                    & 5.102                  & -3.256   & 2.741                   & -2.555                   & 1.904                   \\
-			0.2 & 0.1    & \textcolor{blue}{0.710}                      & \textcolor{red}{0.759}                     & 1.432                                         & 1.302                       & 0.978                   & 0.969                                   & 1.213                                      & 1.125                    &                             & \textcolor{blue}{-2.018} & \textcolor{red}{1.571} & -6.08                    & 5.337                  & -5.157   & 4.556                   & -2.721                   & 2.065                   \\
-			0.3 & 0.1    & \textcolor{blue}{0.617}                      & \textcolor{red}{0.675}                     & 1.462                                         & 1.323                       & 1.246                   & 1.175                                   & 1.23                                       & 1.15                     &                             & \textcolor{blue}{-1.984} & \textcolor{red}{1.560} & -6.506                   & 5.78                   & -6.129   & 5.463                   & -2.578                   & 1.948                   \\
-			0.4 & 0.1    & \textcolor{blue}{0.473}                      & \textcolor{red}{0.539}                     & 1.499                                         & 1.353                       & 1.507                   & 1.354                                   & 1.294                                      & 1.18                     &                             & \textcolor{blue}{-2.226} & \textcolor{red}{1.861} & -7.514                   & 6.838                  & -7.622   & 6.905                   & -2.695                   & 2.099                   \\
-			\hline
-			0.1 & 0.9    & 0.338                                        & 0.155                                      & 0.288                                         & 0.122                       & \textcolor{blue}{0.259} & \textcolor{red}{0.097}                  & 0.387                                      & 0.193                    &                             & 0.623                    & -0.774                 & \textcolor{blue}{-0.095} & -0.56                  & -0.176   & \textcolor{red}{-0.504} & 0.583                    & -0.92                   \\
-			0.2 & 0.9    & 0.273                                        & 0.106                                      & \textcolor{blue}{0.233}                       & \textcolor{red}{0.077}      & 0.239                   & 0.077                                   & 0.326                                      & 0.128                    &                             & 0.42                     & -0.611                 & -0.388                   & -0.355                 & -0.627   & \textcolor{red}{-0.303} & \textcolor{blue}{0.041}  & -0.652                  \\
-			0.3 & 0.9    & 0.241                                        & 0.093                                      & \textcolor{blue}{0.217}                       & \textcolor{red}{0.068}      & 0.268                   & 0.075                                   & 0.326                                      & 0.097                    &                             & \textcolor{blue}{0.287}  & -0.53                  & -0.667                   & -0.204                 & -1.395   & \textcolor{red}{-0.029} & -1.003                   & -0.285                  \\
-			0.4 & 0.9    & \textcolor{blue}{0.173}                      & 0.067                                      & 0.182                                         & \textcolor{red}{0.051}      & 0.381                   & 0.076                                   & 0.545                                      & 0.09                     &                             & \textcolor{blue}{-0.129} & -0.295                 & -1.4                     & \textcolor{red}{0.178} & -2.602   & 0.359                   & -3.357                   & 0.389                   \\
-			\hline
-		\end{tabular}
-	}
-\end{sidewaystable}
-
-В таблицах~\ref{tab:arfi_est_n100} и~\ref{tab:arfi_est_n1000} представлены значения среднеквадратичной ошибки и смещения оценок параметров $d$ и $\phi$ модели $\mathrm{ARFIMA}(1, d)$. Заметим, что в оценках присутствует смещение, для $\phi=0.1$ и $\phi=0.5$ оценки $d$ имеют отрицательное смещение, а оценки $\phi$, наоборот, положительное. Также в таблицах синим цветом выделена лучшая по строке оценка $d$, а красным~--- лучшая оценка $\phi$. Видно, что в случае коротких рядов ($n=100$) метод H\&R в большинстве случаев дает оценки с наименьшим $\mathsf{MSE}$, однако наименьшее смещение имеют оценки $\mathrm{MLE}(\mu)$. В случае же длинных рядов ($n=1000$) наименьшую среднеквадратичную ошибку и смещение дает $\mathrm{MLE}(\mu)$. Отметим, что даже для длинных рядов оценки $\mathrm{MLE}(\bar x)$ имеют, в большинстве случаев, наибольшее смещение и $\mathsf{MSE}$. Оценки H\&R, хотя и дают наименьшее после $\mathrm{MLE}(\mu)$ $\mathsf{MSE}$, также сильно смещены. Оценки методом Whittle выглядят наиболее привлекательными, поскольку имеют наименьшее после $\mathrm{MLE}(\mu)$ смещение и имеют $\mathsf{MSE}$ меньше, чем $\mathrm{MLE}(\bar x)$.
-
-Подведем итоги численного сравнения. Если для рассматриваемого ряда известно его матожидание $\mu$ (что, конечно, редкость на практике), наилучшим методом является $\mathrm{MLE}(\mu)$. Если же среднее неизвестно, для коротких рядов оценивать параметры моделей $\mathrm{AR}(1)$ и $\mathrm{ARFIMA}(0, d, 0)$ следует методом Whittle, а параметры модели $\mathrm{ARFIMA}(1, d, 0)$~--- методом H\&R. В случае длинных рядов параметры рассматриваемых моделей следует оценивать методом Whittle.
-
-% \begin{table}[h!]
-% 	\centering
-% 	\caption{Смещение и среднеквадратичное отклонение оценок параметра $\phi$ модели $\mathrm{AR}(1)$ ($n=100$, $500$ повторений)}
-% 	\begin{tabular}{m{1cm}cccm{0.5cm}ccc}
-% 		\hline
-% 		& \multicolumn{3}{c}{$\mathsf{bias}\cdot 100$} & & \multicolumn{3}{c}{$\mathsf{MSE}\cdot 100$} \\
-% 		\cline{2-4} \cline{6-8}
-% 		$\phi$ & $\mathrm{MLE}(\mu)$ & $\mathrm{MLE}(\bar x)$ & Whittle & & $\mathrm{MLE}(\mu)$ & $\mathrm{MLE}(\bar x)$ & Whittle \\ \hline
-% 		0.1 & 0.197  & -1.029 &  0.025 & & 0.856 & 0.874 & 0.889\\
-% 		0.2 & -0.023 & -1.362 & -0.298 & & 0.826 & 0.859 & 0.865\\
-% 		0.3 & -0.252 & -1.707 & -0.635 & & 0.785 & 0.834 & 0.834\\
-% 		0.4 & -0.487 & -2.061 & -0.981 & & 0.733 & 0.802 & 0.796\\
-% 		0.5 & -0.725 & -2.423 & -1.337 & & 0.670 & 0.762 & 0.75\\
-% 		0.6 & -0.965 & -2.796 & -1.704 & & 0.594 & 0.712 & 0.697\\
-% 		0.7 & -1.205 & -3.183 & -2.084 & & 0.502 & 0.652 & 0.636\\
-% 		0.8 & -1.427 & -3.59  & -2.478 & & 0.389 & 0.577 & 0.566\\
-% 		0.9 & -1.560 & -4.016 & -2.777 & & 0.248 & 0.483 & 0.5\\
-% 		\hline
-% 	\end{tabular}
-% \end{table}
-
-\subsection{Сходимость оценок к истинным значениям}
-Известно~\cite[Theorem 8.1]{Hassler2018}, что
-\begin{equation}\label{eq:mle_distribution}
-	\sqrt{n}(\widehat{\bm\varphi}_\mathrm{ML} - \bm\varphi_0)\overset{d}{\longrightarrow} \mathcal{N}_{k+1}(0, \mathcal{I}^{-1}(\bm{\varphi}_0)),
-\end{equation}
-где $\bm\varphi_0$~--- истинный вектор параметров, $\mathcal{I}(\bm\varphi)$~--- информационная матрица Фишера. Также известно~\cite[Proposition 8.3]{Hassler2018}, что вектор $\widehat{\bm\varphi}_W$ имеет такое же асимптотическое распределение, что и $\widehat{\bm\varphi}_\mathrm{ML}$.
-
-Покажем, что методы $\mathrm{MLE}(\mu)$ и Whittle реализованы корректно, посмотрев на дисперсию оценок для $n=10000$. В таблице~\ref{tab:variance} представлены оценки дисперсий $\hat d$ и $\hat \phi$, в скобках указана теоретическая дисперсия. Как видим, для разных значений параметров значение дисперсий оценок близки к теоретическим.
-
-\begin{table}[h]
-	\centering
-	\subfloat[$d=0.2$, $\varphi=0.1$]{
-		\begin{tabular}{c|cc}
-			Метод               & $n\mathsf{D} \hat d$ (1.83167) & $n\mathsf{D}\hat \phi$ (2.98284) \\
-			\hline
-			$\mathrm{MLE}(\mu)$ & 1.72733                        & 2.92604                          \\
-			Whittle             & 1.78350                        & 2.94929                          \\
-			\hline
-		\end{tabular}
-	}
-	\subfloat[$d=0.4$, $\varphi=0.1$]{
-		\begin{tabular}{c|cc}
-			Метод               & $n\mathsf{D} \hat d$ (1.83167) & $n\mathsf{D}\hat \phi$ (2.98284) \\
-			\hline
-			$\mathrm{MLE}(\mu)$ & 1.69348                        & 2.90374                          \\
-			Whittle             & 1.84265                        & 2.96828                          \\
-			\hline
-		\end{tabular}
-	}\vspace{2em}
-	\subfloat[$d=0.2$, $\varphi=0.5$]{
-		\begin{tabular}{c|cc}
-			Метод               & $n\mathsf{D} \hat d$ (4.91219) & $n\mathsf{D}\hat \phi$ (6.06018) \\
-			\hline
-			$\mathrm{MLE}(\mu)$ & 5.00869                        & 6.305                            \\
-			Whittle             & 5.08405                        & 6.35985                          \\
-			\hline
-		\end{tabular}
-	}
-	\subfloat[$d=0.4$, $\varphi=0.5$]{
-		\begin{tabular}{c|cc}
-			Метод               & $n\mathsf{D} \hat d$ (4.91219) & $n\mathsf{D}\hat \phi$ (6.06018) \\
-			\hline
-			$\mathrm{MLE}(\mu)$ & 4.75975                        & 6.06711                          \\
-			Whittle             & 5.28104                        & 6.4936                           \\
-			\hline
-		\end{tabular}
-	}\vspace{2em}
-	\subfloat[$d=0.2$, $\varphi=0.9$]{
-		\begin{tabular}{c|cc}
-			Метод               & $n \mathsf{D} \hat d$ (2.49203) & $n\mathsf{D}\hat \phi$ (0.77885) \\
-			\hline
-			$\mathrm{MLE}(\mu)$ & 2.42011                         & 0.78209                          \\
-			Whittle             & 2.44394                         & 0.77549                          \\
-			\hline
-		\end{tabular}
-	}
-	\subfloat[$d=0.4$, $\varphi=0.9$]{
-		\begin{tabular}{c|cc}
-			Метод               & $n \mathsf{D} \hat d$ (2.49203) & $n\mathsf{D}\hat \phi$ (0.77885) \\
-			\hline
-			$\mathrm{MLE}(\mu)$ & 2.26718                         & 0.749318                         \\
-			Whittle             & 2.57117                         & 0.77311                          \\
-			\hline
-		\end{tabular}
-	}
-	\caption{Дисперсия оценок $\hat d$ и $\hat \phi$, $n=10000$, $100$ повторений}
-	\label{tab:variance}
-\end{table}
-
-\chapter{Метод Monte Carlo SSA}\label{chpt:mcssa}
 \section{Проверка статистических гипотез}
+
 Рассмотрим некоторый критерий со статистикой $T$. Введем обозначения.
 % \begin{definition}
 % 	p-value~--- такое значение $\mathrm p$, что при значениях уровня значимости $\alpha$, больших $\mathrm p$, $H_0$ отвергается (статистика попадает в критическую область $A_\text{крит}(\alpha)$), а при меньших~--- не отвергается.
@@ -628,8 +691,25 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\end{algorithmic}
 \end{algorithm}
 
-\subsection{Ограничение на модель шума}
-Для модели шума $\bm\xi$ важно, чтобы спектральная плотность процесса была строго монотонной. Это связано с тем, что в таком случае собственные векторы автоковариационной матрицы стационарного процесса ведут себя как синусоиды с равностоящими частотами, а соответствующие им собственные числа примерно равны значению спектральной плотности в этих частотах. Для процессов с короткой памятью это верно, поскольку теплицеву симметричную матрицу можно аппроксимировать циркулянтной матрицей~\cite{Gray2005}, собственные векторы которой равны
+\subsection{Используемый вариант MC-SSA}\label{sect:vectors_choise}
+В разделе~\ref{sect:multiple_test} предполагалось, что векторы $W_1,\ldots, W_H$ фиксированные и не зависят от исходного ряда. Такой критерий MC-SSA является точным, то есть ошибка первого рода равна заданному уровню значимости. В этой работе будут рассматриваться векторы $W_k$, порожденные рядом $\tX$, при этом по-прежнему при вычислении $p_{ki}$ используются те же $W_k$, что и при вычислении $\widehat p_k$.
+% \begin{remark}\label{remark:complexity}
+% 	Если критерий MC-SSA точный и не требует поправки, то его трудоемкость состоит из трудоемкости одного разложения траекторной матрицы исходного ряда и $G$ вычислений по формуле~\eqref{eq:mc-ssa_h0}. При применении поправки трудоемкость увеличивается в $M$ раз, где $M$~--- количество выборок для оценки зависимости $\alpha_I(\alpha)$.
+% \end{remark}
+
+Поскольку в этом варианте векторы $W_k$ не заданы заранее, а порождены исходным рядом, критерий MC-SSA становится, вообще говоря, радикальным. Бороться с этой проблемой позволяет метод эмпирической поправки критерия, описанный в разделе~\ref{sect:correction}.
+
+В качестве $W_1, \ldots,W_H$ будем брать собственные векторы матрицы $\bfX\bfX^\rmT$ или $\bfT$~\eqref{eq:toeplitz} в зависимости от того, является ли рассматриваемый ряд стационарным в широком смысле (определение~\ref{def:stationary}). Такой способ выбора векторов для проекции самый распространенный, поскольку, если есть значимые векторы, можно восстановить сигнал с помощью SSA на их основе. Будем под MC-SSA подразумевать именно этот вариант критерия. Варианты критерия будут определяться конкретным разложением траекторной матрицы. Заметим, что обычно используется сингулярное разложение.
+
+\subsection{Ограничение на модель шума}\label{sect:noise_constraint}
+
+Заметим, что при верной $H_0:\tS=0$ верно следующее:
+\[
+\operatorname*{plim}_{K\to\infty}\bfX\bfX^\rmT / K = \Sigma_L,\quad \operatorname*{plim}_{K\to\infty}\bfT = \Sigma_L.
+\]
+где $\Sigma_L=(\gamma(|i-j|))_{i,j=1}^L$~--- $L$-ковариационная матрица процесса $\bm\xi$. Поэтому собственные векторы матрицы $\bfX\bfX^\rmT$ (и $\bfT$) асимптотически стремятся к собственным векторам $\Sigma_L$.
+
+В связи с этим для выбранного варианта MC-SSA возникает ограничение на модель шума $\bm\xi$: спектральная плотность процесса должна быть строго монотонной. Это связано с тем, что в таком случае собственные векторы автоковариационной матрицы стационарного процесса ведут себя как синусоиды с равностоящими частотами, а соответствующие им собственные числа примерно равны значению спектральной плотности в этих частотах. Для процессов с короткой памятью это верно, поскольку теплицеву симметричную матрицу можно аппроксимировать циркулянтной матрицей~\cite{Gray2005}, собственные векторы которой равны
 \[
 	v_j=\frac{1}{\sqrt n}\left(1, \omega^j, \omega^{2j},\ldots,\omega^{(n-1)j}\right),\quad j=0,1\ldots,n-1,
 \]
@@ -639,10 +719,10 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \]
 где $\omega=\exp\{2\pi\im / n\}$. Тогда при строгой монотонности $f_{\bm\xi}(\omega)$ вклад собственных векторов будет попарно различным, делая их сильно разделимыми~\cite[Раздел 1.5.4]{Golyandina2001}. Если же опустить требование строгой монотонности, компоненты могут смешаться, что сделает невозможным определение доминирующей частоты значимого вектора.
 % \begin{remark}
-% 	Примерами процессов со строго монотонной спектральной плотностью являются красный шум и модель $\mathrm{ARFIMA}(0, d, 0)$.
+% 	Примерами процессов со строго монотонной спектральной плотностью являются красный шум и модель $\textrm{ARFIMA}(0, d, 0)$.
 % \end{remark}
 
-Для процессов с длинной памятью покажем правдивость этого факта, проведя численный эксперимент. Рассмотрим модель $\mathrm{ARFIMA}(0, d, 0)$ с $d=0.4$ и пусть размер автоковариационной матрицы $\bm\Sigma_n$ равен $n=100$. Частоту векторов будем оценивать с помощью метода \textsf{ESPRIT}~\cite[Раздел 3.1]{SSA_R}.
+Для процессов с длинной памятью покажем правдивость этого факта, проведя численный эксперимент. Рассмотрим модель $\textrm{ARFIMA}(0, d, 0)$ с $d=0.4$ и пусть размер автоковариационной матрицы $\bm\Sigma_n$ равен $n=100$. Частоту векторов будем оценивать с помощью метода \textsf{ESPRIT}~\cite[Раздел 3.1]{SSA_R}.
 
 \begin{figure}[h]
 	\begin{subfigure}{\textwidth}
@@ -651,13 +731,13 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\begin{subfigure}{\textwidth}
 		\includegraphics[width=\textwidth]{img/eigenvectors_longmemo2.pdf}
 	\end{subfigure}
-	\caption{Собственные векторы автоковариационной матрицы модели $\mathrm{ARFIMA}(0, d, 0)$}
+	\caption{Собственные векторы автоковариационной матрицы модели $\textrm{ARFIMA}(0, d, 0)$}
 	\label{fig:eigenvectors_longmemo}
 \end{figure}
 
 \begin{figure}[h]
 	\includegraphics[width=\textwidth]{img/eigenvalues_longmemo.pdf}
-	\caption{Собственные числа автоковариационной матрицы модели $\mathrm{ARFIMA}(0, d, 0)$}
+	\caption{Собственные числа автоковариационной матрицы модели $\textrm{ARFIMA}(0, d, 0)$}
 	\label{fig:eigenvalues_longmemo}
 \end{figure}
 
@@ -669,63 +749,14 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 На рис.~\ref{fig:eigenvectors_longmemo} представлены первые $10$ собственных векторов матрицы $\bm\Sigma_n$, на рис.~\ref{fig:eigenvalues_longmemo} по оси $Ox$ отложена частота, которой соответствует собственный вектор, а по оси $Oy$ отложено соответствующее вектору собственное число, дополнительно синей линией проведена спектральная плотность процесса. Как видим, действительно, собственные векторы ведут себя как периодики, собственные числа хорошо приближаются значением спектральной плотности в соответствующей частоте, и по рис.~\ref{fig:freq_diff} разница между частотами примерно равна $1 / (2n)=0.005$.
 
-\subsection{Используемый вариант MC-SSA}\label{sect:vectors_choise}
-В разделе~\ref{sect:multiple_test} предполагалось, что векторы $W_1,\ldots, W_H$ фиксированные и не зависят от исходного ряда. Такой критерий MC-SSA является точным, то есть ошибка первого рода равна заданному уровню значимости. В этой работе будут рассматриваться векторы $W_k$, порожденные рядом $\tX$, при этом по-прежнему при вычислении $p_{ki}$ используются те же $W_k$, что и при вычислении $\widehat p_k$.
-% \begin{remark}\label{remark:complexity}
-% 	Если критерий MC-SSA точный и не требует поправки, то его трудоемкость состоит из трудоемкости одного разложения траекторной матрицы исходного ряда и $G$ вычислений по формуле~\eqref{eq:mc-ssa_h0}. При применении поправки трудоемкость увеличивается в $M$ раз, где $M$~--- количество выборок для оценки зависимости $\alpha_I(\alpha)$.
-% \end{remark}
-
-Поскольку в этом варианте векторы $W_k$ не заданы заранее, а порождены исходным рядом, критерий MC-SSA становится, вообще говоря, радикальным. Бороться с этой проблемой позволяет метод эмпирической поправки критерия, описанный в разделе~\ref{sect:correction}.
-
-В качестве $W_1, \ldots,W_H$ будем брать собственные векторы матрицы $\bfX\bfX^\rmT$ или $\bfT$~\eqref{eq:toeplitz} в зависимости от того, является ли рассматриваемый ряд стационарным в широком смысле (определение~\ref{def:stationary}). Такой способ выбора векторов для проекции самый распространенный, поскольку, если есть значимые векторы, можно восстановить сигнал с помощью SSA на их основе. Будем под MC-SSA подразумевать именно этот вариант критерия. Варианты критерия будут определяться конкретным разложением траекторной матрицы. Заметим, что обычно используется сингулярное разложение.
-
-
-\subsection{Сравнение MC-SSA по мощности при разных моделях шума}
-Пусть $\bm \xi$~--- красный шум, а $\bm \eta$~--- модель $\mathrm{ARFIMA}(0, d, 0)$. Будем считать дисперсию белого шума одинаковой для обоих процессов и равной $\sigma^2$. Дисперсии $\bm\xi$ и $\bm\eta$ соответственно равны
-\[
-	\mathsf{D}\bm\xi = \frac{\sigma^2}{1 - \phi^2}, \quad \mathsf{D}\bm\eta = \sigma^2\frac{\Gamma(1 - 2d)}{\Gamma(1-d)^2}.
-\]
-Тогда дисперсии процессов равны тогда и только тогда, когда
-\[
-	\phi=\pm\sqrt{1-\frac{\Gamma(1-d)^2}{\Gamma(1-2d)}}.
-\]
-
-\begin{figure}[h]
-	\includegraphics[width=\textwidth]{img/spectrum.pdf}
-	\caption{Спектральная плотность процессов с одинаковой дисперсией}
-	\label{fig:spectrum}
-\end{figure}
-
-Пусть $d=0.4$. Тогда при $\phi\approx0.719$ процессы $\bm\xi$ и $\bm\eta$ имеют одинаковую дисперсию. На рис.~\ref{fig:spectrum} изображены спектральные плотности процессов. На нем видно, что процесс $\bm\eta$ имеет меньшее значение плотности для всех значений $\omega\in(0, 0.2)$, за исключением близких к нулю.
-
-Предполагается, что если рассмотреть в качестве альтернативы сигнал с частотой $\omega:f_{\bm\eta}(\omega) < f_{\bm\xi}(\omega)$, то мощность критерия MC-SSA против этой альтернативы при модели шума $\bm\eta$ больше, чем при модели шума $\bm\xi$. Убедимся в этом. Пусть длина ряда $N=100$, $\sigma^2=1$ и
-\[
-	\tS = \{A\cos(2 \pi n \omega)\}_{n=1}^N,\quad A=1,\ \omega=0.075.
-\]
-
-\begin{figure}[h]
-	\begin{subfigure}{\textwidth}
-		\includegraphics[width=\textwidth]{img/alphaI_comp.pdf}
-		\caption{Ошибка первого рода}
-		\label{fig:ar1_vs_fi_alphaI}
-	\end{subfigure}
-	\begin{subfigure}{\textwidth}
-		\includegraphics[width=\textwidth]{img/roc_comp.pdf}
-		\caption{ROC-кривая}
-		\label{fig:ar1_vs_fi_roc}
-	\end{subfigure}
-	\caption{Сравнение критерия MC-SSA при разных моделях шума}
-	\label{fig:ar1_vs_fi}
-\end{figure}
-
-На рис.~\ref{fig:ar1_vs_fi_alphaI} изображены график ошибок первого рода критериев MC-SSA для разных длин окна $L$. По нему видно, что рассматриваемые критерии являются радикальными, поэтому сравнивать их по мощности будем с помощью ROC-кривых, которые являются графиками мощности критериев, к которым была применена поправка из раздела~\ref{sect:correction}. По рис.~\ref{fig:ar1_vs_fi_roc} видно, что, действительно, мощность критерия против данной альтернативы при модели шума $\mathrm{ARFIMA}(0, d, 0)$ больше, чем при модели шума $\mathrm{AR}(1)$ с такой же дисперсией.
+В случае, когда спектр шума не монотонный, возникают одинаковые собственные числа, которые образуют собственное подпространство, любой вектор из которого является собственным. Таким образом уже нельзя быть уверенным в том, что вектору соответствует определенная частота. Этот недостаток ограничивает использование MC-SSA для большого класса процессов, в частности, для белого шума. 
 
 \subsection{Сравнение способов задания проекционных векторов}\label{sect:mcssa_comp}
 
 Сравним численно два способа задания векторов для проекции $W_k$ критерия MC-SSA (алгоритм~\ref{alg:multiple_mc-ssa}):
 \begin{enumerate}
 	\item Собственные векторы матрицы $\bfX\bfX^\rmT$ или $\bfT$~\eqref{eq:toeplitz} (см. раздел~\ref{sect:vectors_choise}).
-	\item Косинусы с равноотстоящими частотами:
+	\item Поскольку для стационарных процессов собственные векторы $L$-ковариационной матрицы $\Sigma_L$ представляют собой гармоники с равноотстоящими частотами (см. раздел~\ref{sect:noise_constraint}), рассмотрим косинусы с равноотстоящими частотами:
 	      \begin{equation}\label{eq:cos_proj_vectors}
 		      V_k=
 		      \begin{pmatrix}
@@ -739,9 +770,9 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 Для краткости будем называть соответствующие им критерии MC-SSA <<ev>> и <<cos>> соответственно.
 
 Введем понятие соотношения сигнал-шум. Обычно под ним понимают соотношение
-\begin{equation}
+\begin{equation}\label{eq:snr_wn}
 	\frac{\sum\limits_{n=1}^N s^2_n/N}{\mathsf{D}{\bm\xi}},
-\end{equation}\label{eq:snr_wn}
+\end{equation}
 где $\mathsf{S}=(s_1,\ldots,s_N)$~--- сигнал, $\bm{\xi}$~--- шум. Но, поскольку это определение не учитывает поведение спектральной плотности шума, обобщим его.
 
 \begin{definition}
@@ -825,9 +856,395 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 Учитывая большие вычислительные затраты критерия <<ev>>, и результат его численного сравнения с критерием <<cos>>, рекомендуется использовать косинусы в качестве проекционных векторов, поскольку критерий не является радикальным (следовательно не требует поправки, что заметно уменьшает трудоемкость MC-SSA) и по мощности не уступает, а в некоторых случаях даже превосходит вариант с векторами, порожденными исходным рядом.
 % Далее будем рассматривать именно такой способ выбора векторов $W_k$ в алгоритме MC-SSA.
 
-\subsection{Оценка параметров шума}\label{sect:mcssa_est_model}
+\section{Применение MC-SSA на реальных рядах}
 
-До сих пор предполагалось, что параметры шума $\bm\xi$ известны. В реальности параметры шума $\bm\xi$ неизвестны и их нужно оценивать. Тогда перед алгоритмом~\ref{alg:multiple_mc-ssa} необходимо оценить параметры модели $\bm\xi$ по исходному ряду. В работе~\cite{Poteshkin2024} показано, что оценка параметров несильно искажает критерий. Для наглядности на рис.~\ref{fig:alphaI_true_est_ev} и~\ref{fig:alphaI_true_est_cos} изображены ошибки первого рода для примера из раздела~\ref{sect:mcssa_comp}, параметры оценивались с помощью метода Уиттла (см. раздел~\ref{sect:whittle}). Как видно из графиков, оценка параметров уменьшила радикальность критерия <<ev>> и сделала консервативным критерий <<cos>>.
+В данном разделе рассмотрим проблемы, возникающие при применении MC-SSA на практике, а также их возможные решения.
+
+\subsection{Ограниченность рассматриваемой модели шума}
+
+В большинстве работ, посвященных MC-SSA, в качестве модели шума используется красный шум. Такая модель, хотя и описывает большой класс временных рядов, не является универсальной. Красный шум плохо описывает ряды, обладающие длинной памятью, то есть когда достаточно долго сохраняется зависимость от предыдущих значений.  
+
+% \section{Процессы с длинной памятью}\label{sect:longmemory}
+
+\begin{definition}\label{def:longmemory}
+	Говорят, что стационарный процесс $\{Y_t\}$ обладает длинной памятью, если
+	\[
+		\sum_{h=0}^H|\gamma(h)|\to\infty,
+	\]
+	при $H\to\infty$. Иначе говорят, что $\{Y_t\}$ обладает короткой памятью:
+	\[
+		\sum_{h=0}^\infty|\gamma(h)|<\infty.
+	\]
+\end{definition}
+Существуют и альтернативные определения процессов с длинной памятью, которые можно найти в~\cite[Раздел 3.1]{Palma2006}. Там же показано, что они согласованы с определением~\ref{def:longmemory}.
+\begin{example}
+	Процессом с короткой памятью является, например, стационарная модель $\mathrm{ARMA}(p, q)$, поскольку $|\gamma(h)|\leqslant CR^h$, где $C>0$ и $0<R<1$~\cite[Section 10.4]{BoxJenkins2016}.
+\end{example}
+Примером процесса с длинной памятью является модель $\textrm{ARFIMA}(p, d, q)$. Для ее определения введем понятие дробного дифференцирования $(1-L)^d$, где $L$~--- оператор сдвига. Для целых $d$ результат применения оператора интуитивен, например, для $d=1$ имеем $(1-L)Y_t=Y_t-Y_{t-1}$, для $d=2$~--- $(1-L)^2Y_t=Y_t-2Y_{t-1}+Y_{t-2}$, и так далее. Обобщим этот оператор для нецелых $d$ с помощью разложения в ряд Тейлора функции $(1-x)^d$ в нуле:
+\[
+	\begin{aligned}
+		(1-x)^d & =1-dx-\frac{d(1-d)}{2}x^2-\frac{d(1-d)(2-d)}{3!}x^3-\ldots             \\
+		        & =\sum_{j=0}^\infty \pi_j(d)x^j=\sum_{j=0}^\infty\binom{d}{j}(-1)^jx^j,
+	\end{aligned}
+\]
+где $\binom{d}{j}$~--- обобщенный биномиальный коэффициент. Коэффициенты $\pi_j(d)$ удовлетворяют соотношению
+\begin{equation}\label{eq:pi_j}
+	\pi_j(d)=(-1)^j\binom{d}{j}=\frac{j-1-d}{j}\pi_{j-1}(d)=\frac{\Gamma(j-d)}{\Gamma(j+1)\Gamma(-d)},
+\end{equation}
+где $\Gamma(x)$~--- гамма функция. Заметим, что второе равенство в формуле~\eqref{eq:pi_j} верно для любых $d$, третье же верно только для $d\not\in\bbN\cup\{0\}$, поскольку гамма функция не определена для неположительных целых чисел.
+\begin{definition}\label{def:arfima}
+	Пусть процесс $\{Y_t\}$ определен соотношением
+	\[
+		\begin{aligned}
+			Y_t=(1-L)^{-d}X_t=\sum_{k=0}^\infty \pi_k(-d)X_{t-k}
+		\end{aligned},\quad d<1/2,
+	\]
+	где $\pi_k(-d)$ из формулы~\eqref{eq:pi_j}, $\{X_t\}$~--- стационарная и обратимая модель $\mathrm{ARMA}(p, d)$. Процесс $\{Y_t\}$ называют дробно интегрированной моделью $\mathrm{ARMA}$ или $\textrm{ARFIMA}(p, d, q)$.
+\end{definition}
+\begin{proposition}\label{prop1}
+	Процесс $\{Y_t\}$ из определения~\ref{def:arfima} является стационарным процессом с нулевым средним. Его спектральная плотность определяется выражением
+	\begin{equation}\label{eq:spec_long}
+		\begin{aligned}
+			f_Y(\omega) & =4^{-d}\sin^{-2d}\left(\pi\omega\right)f_X(\omega)                                                                                                      \\
+			            & =4^{-d}\sin^{-2d}\left(\pi\omega\right)\sigma^2\frac{\left|\Theta(e^{-2\pi \omega\im})\right|^2}{\left|\Phi(e^{-2\pi\omega\im})\right|^2},\quad\omega>0 \\
+			            & \sim\omega^{-2d}\sigma^2\frac{|\Theta(1)|^2}{|\Phi(1)|^2},\quad \omega\to0,
+		\end{aligned}
+	\end{equation}
+	где $\Phi(L)$, $\Theta(L)$~--- характеристические полиномы процесса $\{X_t\}$.
+\end{proposition}
+\begin{proof}
+	См.~\cite[Proposition 6.1]{Hassler2018}.
+\end{proof}
+\begin{remark}
+	Из формулы~\eqref{eq:spec_long} видно, что монотонность спектральной плотности процесса $\{Y_t\}$ зависит от поведения спектральной плотности процесса $\{X_t\}$.
+\end{remark}
+\begin{corollary}\label{corollary1}
+	В условиях предложения~\ref{prop1} при $0<d<1/2$
+	\[
+		\gamma(h)\sim C_{\gamma,d}h^{2d-1},\quad h\to\infty,
+	\]
+	где
+	\[
+		C_{\gamma,d}=\sigma^2 \frac{|\Theta(1)|^2}{|\Phi(1)|^2} \frac{\Gamma(1-2d)}{\Gamma(d)\Gamma(1-d)}.
+	\]
+\end{corollary}
+\begin{proof}
+	См.~\cite[Corollary 6.1]{Hassler2018}.
+\end{proof}
+\begin{remark}
+	Из следствия~\ref{corollary1} сразу следует, что $\textrm{ARFIMA}(p, d, q)$ с $d\in(0, 1/2)$ обладает длинной памятью.
+\end{remark}
+
+\subsubsection{Сравнение MC-SSA по мощности при разных моделях шума}
+
+Пусть $\bm \xi$~--- красный шум, а $\bm \eta$~--- модель $\textrm{ARFIMA}(0, d, 0)$. Будем считать дисперсию белого шума одинаковой для обоих процессов и равной $\sigma^2$. Дисперсии $\bm\xi$ и $\bm\eta$ соответственно равны
+\[
+	\mathsf{D}\bm\xi = \frac{\sigma^2}{1 - \phi^2}, \quad \mathsf{D}\bm\eta = \sigma^2\frac{\Gamma(1 - 2d)}{\Gamma(1-d)^2}.
+\]
+Тогда дисперсии процессов равны тогда и только тогда, когда
+\[
+	\phi=\pm\sqrt{1-\frac{\Gamma(1-d)^2}{\Gamma(1-2d)}}.
+\]
+
+\begin{figure}[h]
+	\includegraphics[width=\textwidth]{img/spectrum.pdf}
+	\caption{Спектральная плотность процессов с одинаковой дисперсией}
+	\label{fig:spectrum}
+\end{figure}
+
+Пусть $d=0.4$. Тогда при $\phi\approx0.719$ процессы $\bm\xi$ и $\bm\eta$ имеют одинаковую дисперсию. На рис.~\ref{fig:spectrum} изображены спектральные плотности процессов. На нем видно, что процесс $\bm\eta$ имеет меньшее значение плотности для всех значений $\omega\in(0, 0.2)$, за исключением близких к нулю.
+
+Предполагается, что если рассмотреть в качестве альтернативы сигнал с частотой $\omega:f_{\bm\eta}(\omega) < f_{\bm\xi}(\omega)$, то мощность критерия MC-SSA против этой альтернативы при модели шума $\bm\eta$ больше, чем при модели шума $\bm\xi$. Убедимся в этом. Пусть длина ряда $N=100$, $\sigma^2=1$ и
+\[
+	\tS = \{A\cos(2 \pi n \omega)\}_{n=1}^N,\quad A=1,\ \omega=0.075.
+\]
+
+\begin{figure}[h]
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/alphaI_comp.pdf}
+		\caption{Ошибка первого рода}
+		\label{fig:ar1_vs_fi_alphaI}
+	\end{subfigure}
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/roc_comp.pdf}
+		\caption{ROC-кривая}
+		\label{fig:ar1_vs_fi_roc}
+	\end{subfigure}
+	\caption{Сравнение критерия MC-SSA при разных моделях шума}
+	\label{fig:ar1_vs_fi}
+\end{figure}
+
+На рис.~\ref{fig:ar1_vs_fi_alphaI} изображены графики ошибок первого рода критериев MC-SSA для разных длин окна $L$. По ним видно, что рассматриваемые критерии являются радикальными, поэтому сравнивать их по мощности будем с помощью ROC-кривых, которые являются графиками мощности критериев, к которым была применена поправка из раздела~\ref{sect:correction}. По рис.~\ref{fig:ar1_vs_fi_roc} видно, что, действительно, мощность критерия против данной альтернативы при модели шума $\textrm{ARFIMA}(0, d, 0)$ больше, чем при модели шума $\textrm{AR}(1)$ с такой же дисперсией.
+
+\subsection{Оценка параметров}
+
+До сих пор предполагалось, что параметры шума $\bm\xi$ известны. В реальности параметры шума $\bm\xi$ неизвестны и их нужно оценивать. Тогда перед алгоритмом~\ref{alg:multiple_mc-ssa} необходимо оценить параметры модели $\bm\xi$ по исходному ряду. В данном разделе будем предполагать, что $\bm\xi$~--- модель ARFIMA($p$, $d$, $q$).
+
+Пусть $\xi_t=(1-L)^{-d}\eta_t$, где $d<1/2$, $\bm\eta$~--- модель ARMA($p$, $q$) с белым гауссовским шумом $\bm\varepsilon$. Процесс $\bm\eta$ определяется следующим вектором параметров:
+\[
+\bm\psi=(\phi_1,\ldots,\phi_p,\theta_1,\ldots,\theta_q)^\rmT.
+\]
+Поставим задачу оценить параметры $\bm\varphi^\rmT=\left(d, \bm\psi^\rmT\right)$ и $\sigma^2$. Обозначим за $\bm{Y}=(Y_1,\ldots, Y_N)$ реализацию процесса $\bm\xi$ длины $N$.
+
+\subsubsection{Maximum likelihood estimation (MLE)}
+
+Поскольку $\bm\varepsilon$~--- гауссовский белый шум, вектор
+\[
+	\bm{Y} \sim \mathcal{N}(\bm0, \bm\Sigma_N),
+\]
+где $\bm\Sigma_N=(\gamma(|i-j|))_{i,j=1}^N$~--- ковариационная матрица вектора $\bm Y$. Совместная плотность распределения равна
+\[
+	(2\pi)^{-N/2} \left| \bm\Sigma_N \right|^{-1/2} \exp\left\{-\frac12 \bm{Y}^\rmT \bm\Sigma_N^{-1} \bm{Y}\right\}.
+\]
+Рассмотрим логарифм функции правдоподобия. Отбрасывая аддитивные константы, получаем
+\[
+	\ell(\bm\varphi, \sigma^2)=-\frac12 \ln\left|\bm{\Sigma}_N\right| - \frac12 \bm{Y}^\rmT \bm\Sigma_N^{-1} \bm{Y}.
+\]
+Положим $\bm\Gamma_n=\bm\Sigma_N / \sigma^2$ и, максимизируя $\ell$ по $\sigma^2$, получаем
+\begin{equation}\label{eq:mle_objective}
+	\ell_c(\bm\varphi)=-\frac{N}{2}\ln\left(S(\bm\varphi) / N\right) - \frac{1}{2}\ln g_N(\bm\varphi),
+\end{equation}
+где $S(\bm\varphi)=\bm Y^\rmT \bm\Gamma_N \bm Y$, $g_N(\bm\varphi)=\left|\bm\Gamma_N\right|$.
+Тогда
+\[
+	\widehat{\bm\varphi}_\mathrm{ML}=\operatorname*{argmax}\limits_{\bm\varphi}\ell_c(\bm\varphi),\quad \widehat\sigma^2_\mathrm{ML} = S(\widehat{\bm\varphi}_\mathrm{ML}).
+\]
+
+\begin{remark}
+	В случае ненулевого матожидания $\mathsf{E}\bm\xi=\mu$, для получения $\widehat{\bm\varphi}_\mathrm{ML}$ и $\widehat\sigma^2_\mathrm{ML}$ вместо $\bm Y$ рассматривается $\bm Z=\bm Y-\mu$. В случае неизвестного $\mu$ используется его состоятельная оценка $\overline{\bm{Y}}$.
+\end{remark}
+\begin{remark}
+	Для вычисления $\ell_c$ можно использовать алгоритм Левинсона-Дурбина, имеющий временную трудоемкость $O(N^2)$~\cite{McLeod2007}.
+\end{remark}
+
+\subsubsection{Whittle estimation}\label{sect:whittle}
+
+Метод максимального правдоподобия обладает двумя недостатками. Во-первых, неизвестное среднее вносит дополнительную неточность в оценку параметров. Во-вторых, существует проблема вычислительной сложности метода при больших $N$.
+
+Обе эти проблемы можно решить, используя оценку Уиттла (Whittle): вместо логарифма функции правдоподобия рассматривается ее оценка (с точностью до константы)~\cite{Whittle1953}. Пусть $f_{\bm\xi}(\omega; \bm\varphi, \sigma^2)$~--- спектральная плотность $\bm\xi$, $I(\omega)$~--- периодограмма $\bm Y$, тогда
+\begin{equation}\label{eq:whittle_loglik}
+	\ell_W(\bm\varphi, \sigma^2)=-\frac1m\sum_{j=1}^m\left(\ln f_{\bm\xi}(\omega_j; \bm\varphi, \sigma^2) + \frac{I(\omega_j)}{f_{\bm\xi}(\omega_j; \bm\varphi, \sigma^2)}\right),
+\end{equation}
+где $m=\lfloor(N-1)/2\rfloor$, $\omega_j = j / N$, $j=1,2,\ldots,m$. Заметим, что $f_{\bm\xi}(\omega; \bm\varphi, \sigma^2)=\sigma^2 g_{\bm\xi}(\omega; \bm\varphi)$. Тогда, максимизируя $\ell_W$ по $\sigma^2$, получаем
+\[
+	\widehat{\bm\varphi}_W = \operatorname*{argmax}_{\bm\varphi}Q(\bm\varphi),\quad \widehat\sigma_W^2=\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g_{\bm\xi}(\omega_j; \widehat{\bm\varphi}_W)},
+\]
+где
+\[
+	Q(\bm\varphi)=-\ln\frac1m \sum_{j=1}^m\frac{I(\omega_j)}{g_{\bm\xi}(\omega_j; \bm\varphi)} - \frac1m \sum_{j=1}^m\ln g_{\bm\xi}(\omega_j; \bm\varphi).
+\]
+\begin{remark}
+	Такой метод оценки параметров можно использовать при неизвестном среднем, поскольку при ее вычислении не используется значение периодограммы в нуле.
+\end{remark}
+\begin{remark}
+	Периодограмму временного ряда можно вычислить за $O(N\log N)$ с помощью быстрого преобразования Фурье, что делает этот метод значительно быстрее MLE для больших $N$.
+\end{remark}
+
+\subsubsection{Численное сравнение методов оценки параметров}\label{sect:est_param}
+
+Сравним качество оценок параметров следующих моделей:
+\begin{enumerate}
+	\item $d=q=0$, $p=1$~--- модель $\textrm{AR}(1)$;
+	\item $p=q=0$~--- модель $\textrm{ARFIMA}(0, d, 0)$.
+	\item $p=1$, $q=0$~--- модель $\textrm{ARFIMA}(1, d, 0)$.
+\end{enumerate}
+Для оценки параметров этих моделей на языке $\mathsf{R}$ были реализованы функции \textsf{arfima\_mle} и \textsf{arfima\_whittle}, которые соответствуют методам MLE и Whittle соответственно. Для реализации MLE были использованы функции \textsf{tacvfARFIMA} из пакета \textsf{arfima}~\cite{Veenstra2012} и \textsf{DLLoglikelihood} из пакета \textsf{ltsa}~\cite{McLeod2007}, вычисляющие автоковариационную функцию модели ARFIMA и функцию $\ell_c$~\eqref{eq:mle_objective} соответственно.
+
+Помимо функций \textsf{arfima\_mle} и \textsf{arfima\_whittle}, будем использовать:
+\begin{enumerate}
+	\item Функцию \textsf{arima} из пакета \textsf{stats}, соответствующую MLE модели ARMA;
+	\item Функцию \textsf{fracdiff} из пакета \textsf{fracdiff}~\cite{fracdiff}, соответствующую аппроксимации MLE модели ARFIMA, описанной в работе~\cite{Haslett1989} (обозначим ее за H\&R).
+\end{enumerate}
+\begin{remark}
+	Помимо вышеперечисленных функций, в пакете \textsf{arfima} есть функция \textsf{arfima}, которая вычисляет MLE модели ARFIMA. Но данная реализация MLE в некоторых случаях дает оценки хуже, чем \textsf{arfima\_mle}. Сравнение оценок обоих реализаций можно найти в разделе~\ref{sect:mle_comparison}.
+\end{remark}
+Поскольку для реальных временных рядов матожидание $\mu$ неизвестно, будем рассматривать MLE с известным средним и с его оценкой~--- выборочным средним (будем обозначать их $\mathrm{MLE}(\mu)$ и $\mathrm{MLE}(\bar x)$ соответственно). Не умаляя общности, пусть $\mu=0$.
+
+\begin{figure}[h]
+	\centering
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/ar1_est_N100.pdf}
+		\caption{$N=100$}
+	\end{subfigure}
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/ar1_est_N1000.pdf}
+		\caption{$N=1000$}
+	\end{subfigure}
+	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $\phi$ модели $\textrm{AR}(1)$ ($500$ повторений)}
+	\label{fig:ar1_est}
+\end{figure}
+\begin{figure}[h]
+	\centering
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/fi_est_N100.pdf}
+		\caption{$N=100$}
+	\end{subfigure}
+	\begin{subfigure}{\textwidth}
+		\includegraphics[width=\textwidth]{img/fi_est_N1000.pdf}
+		\caption{$N=1000$}
+	\end{subfigure}
+	\caption{Среднеквадратичное отклонение, смещение и дисперсия оценок параметра $d$ модели $\textrm{ARFIMA}(0, d, 0)$ ($500$ повторений)}
+	\label{fig:fi_est}
+\end{figure}
+
+На рис.~\ref{fig:ar1_est} и~\ref{fig:fi_est} изображены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ моделей $\textrm{AR}(1)$ и $\textrm{ARFIMA}(0, d, 0)$. Отметим, что все оценки имеют в большинстве своем отрицательное смещение и отличаются между собой в основном степенью смещения. Как и ожидалось, оценка параметров методом максимального правдоподобия с известным средним дает оценку с наименьшим $\mathsf{MSE}$. С другой стороны, если использовать вместо известного среднего выборочное среднее, оценки становятся сильно смещенными. Whittle же, в свою очередь, дает менее смещенную оценку, чем $\mathrm{MLE}(\bar x)$, а в случае оценки $d$ имеет смещение даже меньше, чем у $\textrm{MLE}(\mu)$. Однако оценки Whittle обладают наибольшей дисперсией среди всех рассмотренных методов, но разница не такая значительная, как в случае смещения.
+
+\begin{sidewaystable}[h!]
+	\centering
+	\caption{Смещение и среднеквадратичное отклонение оценок параметров $d$ и $\phi$ модели $\textrm{ARFIMA}(1, d, 0)$ ($N=100$, $500$ повторений)}
+	\label{tab:arfi_est_n100}
+	\scalebox{0.9}{
+		\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.2cm}cccccccc}
+			\hline
+			    &        & \multicolumn{8}{c}{$\mathsf{MSE}$}      &                                            & \multicolumn{8}{c}{$\mathsf{Bias}$}                                                                                                                                                                                                                                                                                                                                                                                                              \\
+			\cline{3-10} \cline{12-19}
+			    &        & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R}            & \multicolumn{2}{c}{Whittle} &                         & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R} & \multicolumn{2}{c}{Whittle}                                                                                                                                                                                                      \\
+			$d$ & $\phi$ & $\hat d$                                & $\hat\phi$                                 & $\hat d$                            & $\hat\phi$                  & $\hat d$                & $\hat\phi$                              & $\hat d$                                   & $\hat\phi$               &                             & $\hat d$                 & $\hat\phi$             & $\hat d$                 & $\hat\phi$ & $\hat d$                 & $\hat\phi$              & $\hat d$                 & $\hat\phi$             \\ \hline
+			0.1 & 0.1    & 0.049                                   & 0.056                                      & 0.119                               & 0.114                       & \textcolor{blue}{0.009} & \textcolor{red}{0.018}                  & 0.069                                      & 0.067                    &                             & -0.077                   & 0.066                  & -0.229                   & 0.199      & \textcolor{blue}{-0.054} & \textcolor{red}{0.035}  & -0.086                   & 0.068                  \\
+			0.2 & 0.1    & 0.047                                   & 0.055                                      & 0.151                               & 0.141                       & \textcolor{blue}{0.025} & \textcolor{red}{0.032}                  & 0.077                                      & 0.073                    &                             & \textcolor{blue}{-0.078} & \textcolor{red}{0.067} & -0.265                   & 0.232      & -0.119                   & 0.099                   & -0.094                   & 0.074                  \\
+			0.3 & 0.1    & \textcolor{blue}{0.041}                 & \textcolor{red}{0.049}                     & 0.183                               & 0.165                       & 0.049                   & 0.055                                   & 0.084                                      & 0.081                    &                             & \textcolor{blue}{-0.076} & \textcolor{red}{0.066} & -0.301                   & 0.266      & -0.179                   & 0.161                   & -0.109                   & 0.09                   \\
+			0.4 & 0.1    & \textcolor{blue}{0.029}                 & \textcolor{red}{0.038}                     & 0.211                               & 0.187                       & 0.081                   & 0.089                                   & 0.179                                      & 0.194                    &                             & \textcolor{blue}{-0.072} & \textcolor{red}{0.065} & -0.34                    & 0.305      & -0.243                   & 0.23                    & -0.26                    & 0.241                  \\
+			\hline
+			0.1 & 0.5    & 0.045                                   & 0.041                                      & 0.086                               & 0.053                       & \textcolor{blue}{0.010} & \textcolor{red}{0.015}                  & 0.057                                      & 0.054                    &                             & -0.071                   & 0.034                  & -0.222                   & 0.151      & -0.07                    & 0.034                   & \textcolor{blue}{-0.066} & \textcolor{red}{0.024} \\
+			0.2 & 0.5    & 0.042                                   & 0.038                                      & 0.092                               & 0.055                       & \textcolor{blue}{0.031} & \textcolor{red}{0.025}                  & 0.074                                      & 0.058                    &                             & \textcolor{blue}{-0.081} & \textcolor{red}{0.046} & -0.244                   & 0.171      & -0.154                   & 0.108                   & -0.153                   & 0.107                  \\
+			0.3 & 0.5    & \textcolor{blue}{0.040}                 & \textcolor{red}{0.036}                     & 0.1                                 & 0.059                       & 0.063                   & 0.043                                   & 0.098                                      & 0.062                    &                             & \textcolor{blue}{-0.093} & \textcolor{red}{0.060} & -0.267                   & 0.192      & -0.232                   & 0.174                   & -0.209                   & 0.161                  \\
+			0.4 & 0.5    & \textcolor{blue}{0.037}                 & \textcolor{red}{0.033}                     & 0.115                               & 0.067                       & 0.104                   & 0.065                                   & 0.104                                      & 0.066                    &                             & \textcolor{blue}{-0.103} & \textcolor{red}{0.073} & -0.304                   & 0.226      & -0.306                   & 0.235                   & -0.228                   & 0.177                  \\
+			\hline
+			0.1 & 0.9    & 0.029                                   & 0.029                                      & 0.014                               & 0.01                        & \textcolor{blue}{0.007} & \textcolor{red}{0.007}                  & 0.034                                      & 0.025                    &                             & 0.075                    & -0.089                 & 0.01                     & -0.049     & \textcolor{blue}{0.001}  & \textcolor{red}{-0.043} & 0.049                    & -0.069                 \\
+			0.2 & 0.9    & 0.019                                   & 0.018                                      & 0.011                               & 0.006                       & \textcolor{blue}{0.009} & \textcolor{red}{0.004}                  & 0.026                                      & 0.019                    &                             & 0.046                    & -0.065                 & \textcolor{blue}{-0.011} & -0.035     & -0.037                   & \textcolor{red}{-0.026} & 0.02                     & -0.056                 \\
+			0.3 & 0.9    & 0.012                                   & 0.01                                       & \textcolor{blue}{0.009}             & 0.004                       & 0.014                   & \textcolor{red}{0.003}                  & 0.022                                      & 0.015                    &                             & \textcolor{blue}{0.016}  & -0.043                 & -0.033                   & -0.023     & -0.076                   & \textcolor{red}{-0.011} & -0.024                   & -0.039                 \\
+			0.4 & 0.9    & \textcolor{blue}{0.008}                 & 0.006                                      & 0.009                               & \textcolor{red}{0.002}      & 0.025                   & \textcolor{red}{0.002}                  & 0.028                                      & 0.01                     &                             & \textcolor{blue}{-0.016} & -0.024                 & -0.061                   & -0.008     & -0.121                   & \textcolor{red}{0.003}  & -0.095                   & -0.016                 \\ \hline
+		\end{tabular}
+	}
+\end{sidewaystable}
+
+\begin{sidewaystable}[h!]
+	\centering
+	\caption{Смещение и среднеквадратичное отклонение оценок параметров $d$ и $\phi$ модели $\textrm{ARFIMA}(1, d, 0)$ ($N=1000$, $500$ повторений)}
+	\label{tab:arfi_est_n1000}
+	\scalebox{0.9}{
+		\begin{tabular}{m{1cm}m{1cm}ccccccccm{0.2cm}cccccccc}
+			\hline
+			    &        & \multicolumn{8}{c}{$\mathsf{MSE} \cdot 100$} &                                            & \multicolumn{8}{c}{$\mathsf{Bias} \cdot 100$}                                                                                                                                                                                                                                                                                                                                                                                                           \\
+			\cline{3-10} \cline{12-19}
+			    &        & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$}      & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R}                      & \multicolumn{2}{c}{Whittle} &                         & \multicolumn{2}{c}{$\mathrm{MLE}(\mu)$} & \multicolumn{2}{c}{$\mathrm{MLE}(\bar x)$} & \multicolumn{2}{c}{H\&R} & \multicolumn{2}{c}{Whittle}                                                                                                                                                                                                   \\
+			$d$ & $\phi$ & $\hat d$                                     & $\hat\phi$                                 & $\hat d$                                      & $\hat\phi$                  & $\hat d$                & $\hat\phi$                              & $\hat d$                                   & $\hat\phi$               &                             & $\hat d$                 & $\hat\phi$             & $\hat d$                 & $\hat\phi$             & $\hat d$ & $\hat\phi$              & $\hat d$                 & $\hat\phi$              \\ \hline
+			0.1 & 0.1    & \textcolor{blue}{0.186}                      & \textcolor{red}{0.290}                     & 0.27                                          & 0.37                        & 0.224                   & 0.317                                   & 0.232                                      & 0.33                     &                             & \textcolor{blue}{-0.581} & \textcolor{red}{0.448} & -1.941                   & 1.732                  & -1.729   & 1.508                   & -0.687                   & 0.519                   \\
+			0.2 & 0.1    & \textcolor{blue}{0.181}                      & \textcolor{red}{0.287}                     & 0.271                                         & 0.371                       & 0.267                   & 0.366                                   & 0.232                                      & 0.329                    &                             & \textcolor{blue}{-0.599} & \textcolor{red}{0.465} & -2.026                   & 1.824                  & -1.981   & 1.773                   & -0.615                   & 0.468                   \\
+			0.3 & 0.1    & \textcolor{blue}{0.174}                      & \textcolor{red}{0.282}                     & 0.272                                         & 0.372                       & 0.268                   & 0.367                                   & 0.232                                      & 0.328                    &                             & -0.639                   & 0.505                  & -2.177                   & 1.987                  & -2.176   & 1.975                   & \textcolor{blue}{-0.476} & \textcolor{red}{0.372}  \\
+			0.4 & 0.1    & \textcolor{blue}{0.156}                      & \textcolor{red}{0.267}                     & 0.272                                         & 0.373                       & 0.274                   & 0.371                                   & 0.232                                      & 0.325                    &                             & -0.795                   & 0.666                  & -2.606                   & 2.443                  & -2.725   & 2.542                   & \textcolor{blue}{-0.263} & \textcolor{blue}{0.233} \\
+			\hline
+			0.1 & 0.1    & 0.761                                        & 0.8                                        & 1.429                                         & 1.3                         & \textcolor{blue}{0.504} & \textcolor{red}{0.552}                  & 1.104                                      & 1.05                     &                             & \textcolor{blue}{-2.047} & \textcolor{red}{1.588} & -5.86                    & 5.102                  & -3.256   & 2.741                   & -2.555                   & 1.904                   \\
+			0.2 & 0.1    & \textcolor{blue}{0.710}                      & \textcolor{red}{0.759}                     & 1.432                                         & 1.302                       & 0.978                   & 0.969                                   & 1.213                                      & 1.125                    &                             & \textcolor{blue}{-2.018} & \textcolor{red}{1.571} & -6.08                    & 5.337                  & -5.157   & 4.556                   & -2.721                   & 2.065                   \\
+			0.3 & 0.1    & \textcolor{blue}{0.617}                      & \textcolor{red}{0.675}                     & 1.462                                         & 1.323                       & 1.246                   & 1.175                                   & 1.23                                       & 1.15                     &                             & \textcolor{blue}{-1.984} & \textcolor{red}{1.560} & -6.506                   & 5.78                   & -6.129   & 5.463                   & -2.578                   & 1.948                   \\
+			0.4 & 0.1    & \textcolor{blue}{0.473}                      & \textcolor{red}{0.539}                     & 1.499                                         & 1.353                       & 1.507                   & 1.354                                   & 1.294                                      & 1.18                     &                             & \textcolor{blue}{-2.226} & \textcolor{red}{1.861} & -7.514                   & 6.838                  & -7.622   & 6.905                   & -2.695                   & 2.099                   \\
+			\hline
+			0.1 & 0.9    & 0.338                                        & 0.155                                      & 0.288                                         & 0.122                       & \textcolor{blue}{0.259} & \textcolor{red}{0.097}                  & 0.387                                      & 0.193                    &                             & 0.623                    & -0.774                 & \textcolor{blue}{-0.095} & -0.56                  & -0.176   & \textcolor{red}{-0.504} & 0.583                    & -0.92                   \\
+			0.2 & 0.9    & 0.273                                        & 0.106                                      & \textcolor{blue}{0.233}                       & \textcolor{red}{0.077}      & 0.239                   & 0.077                                   & 0.326                                      & 0.128                    &                             & 0.42                     & -0.611                 & -0.388                   & -0.355                 & -0.627   & \textcolor{red}{-0.303} & \textcolor{blue}{0.041}  & -0.652                  \\
+			0.3 & 0.9    & 0.241                                        & 0.093                                      & \textcolor{blue}{0.217}                       & \textcolor{red}{0.068}      & 0.268                   & 0.075                                   & 0.326                                      & 0.097                    &                             & \textcolor{blue}{0.287}  & -0.53                  & -0.667                   & -0.204                 & -1.395   & \textcolor{red}{-0.029} & -1.003                   & -0.285                  \\
+			0.4 & 0.9    & \textcolor{blue}{0.173}                      & 0.067                                      & 0.182                                         & \textcolor{red}{0.051}      & 0.381                   & 0.076                                   & 0.545                                      & 0.09                     &                             & \textcolor{blue}{-0.129} & -0.295                 & -1.4                     & \textcolor{red}{0.178} & -2.602   & 0.359                   & -3.357                   & 0.389                   \\
+			\hline
+		\end{tabular}
+	}
+\end{sidewaystable}
+
+В таблицах~\ref{tab:arfi_est_n100} и~\ref{tab:arfi_est_n1000} представлены значения среднеквадратичной ошибки и смещения оценок параметров $d$ и $\phi$ модели $\textrm{ARFIMA}(1, d)$. Заметим, что в оценках присутствует смещение, для $\phi=0.1$ и $\phi=0.5$ оценки $d$ имеют отрицательное смещение, а оценки $\phi$, наоборот, положительное. Также в таблицах синим цветом выделена лучшая по строке оценка $d$, а красным~--- лучшая оценка $\phi$. Видно, что в случае коротких рядов ($N=100$) метод H\&R в большинстве случаев дает оценки с наименьшим $\mathsf{MSE}$, однако наименьшее смещение имеют оценки $\mathrm{MLE}(\mu)$. В случае же длинных рядов ($N=1000$) наименьшую среднеквадратичную ошибку и смещение дает $\mathrm{MLE}(\mu)$. Отметим, что даже для длинных рядов оценки $\mathrm{MLE}(\bar x)$ имеют, в большинстве случаев, наибольшее смещение и $\mathsf{MSE}$. Оценки H\&R, хотя и дают наименьшее после $\mathrm{MLE}(\mu)$ $\mathsf{MSE}$, также сильно смещены. Оценки методом Whittle выглядят наиболее привлекательными, поскольку имеют наименьшее после $\mathrm{MLE}(\mu)$ смещение и имеют $\mathsf{MSE}$ меньше, чем $\mathrm{MLE}(\bar x)$.
+
+Подведем итоги численного сравнения. Если для рассматриваемого ряда известно его матожидание $\mu$ (что, конечно, редкость на практике), наилучшим методом является $\mathrm{MLE}(\mu)$. Если же среднее неизвестно, для коротких рядов оценивать параметры моделей $\textrm{AR}(1)$ и $\textrm{ARFIMA}(0, d, 0)$ следует методом Whittle, а параметры модели $\textrm{ARFIMA}(1, d, 0)$~--- методом H\&R. В случае длинных рядов параметры рассматриваемых моделей следует оценивать методом Whittle.
+
+% \begin{table}[h!]
+% 	\centering
+% 	\caption{Смещение и среднеквадратичное отклонение оценок параметра $\phi$ модели $\textrm{AR}(1)$ ($n=100$, $500$ повторений)}
+% 	\begin{tabular}{m{1cm}cccm{0.5cm}ccc}
+% 		\hline
+% 		& \multicolumn{3}{c}{$\mathsf{bias}\cdot 100$} & & \multicolumn{3}{c}{$\mathsf{MSE}\cdot 100$} \\
+% 		\cline{2-4} \cline{6-8}
+% 		$\phi$ & $\mathrm{MLE}(\mu)$ & $\mathrm{MLE}(\bar x)$ & Whittle & & $\mathrm{MLE}(\mu)$ & $\mathrm{MLE}(\bar x)$ & Whittle \\ \hline
+% 		0.1 & 0.197  & -1.029 &  0.025 & & 0.856 & 0.874 & 0.889\\
+% 		0.2 & -0.023 & -1.362 & -0.298 & & 0.826 & 0.859 & 0.865\\
+% 		0.3 & -0.252 & -1.707 & -0.635 & & 0.785 & 0.834 & 0.834\\
+% 		0.4 & -0.487 & -2.061 & -0.981 & & 0.733 & 0.802 & 0.796\\
+% 		0.5 & -0.725 & -2.423 & -1.337 & & 0.670 & 0.762 & 0.75\\
+% 		0.6 & -0.965 & -2.796 & -1.704 & & 0.594 & 0.712 & 0.697\\
+% 		0.7 & -1.205 & -3.183 & -2.084 & & 0.502 & 0.652 & 0.636\\
+% 		0.8 & -1.427 & -3.59  & -2.478 & & 0.389 & 0.577 & 0.566\\
+% 		0.9 & -1.560 & -4.016 & -2.777 & & 0.248 & 0.483 & 0.5\\
+% 		\hline
+% 	\end{tabular}
+% \end{table}
+
+\subsubsection{Сходимость оценок к истинным значениям}
+Известно~\cite[Theorem 8.1]{Hassler2018}, что
+\begin{equation}\label{eq:mle_distribution}
+	\sqrt{n}(\widehat{\bm\varphi}_\mathrm{ML} - \bm\varphi_0)\overset{d}{\longrightarrow} \mathcal{N}(0, \mathcal{I}^{-1}(\bm{\varphi}_0)),
+\end{equation}
+где $\bm\varphi_0$~--- истинный вектор параметров, $\mathcal{I}(\bm\varphi)$~--- информационная матрица Фишера. Также известно~\cite[Proposition 8.3]{Hassler2018}, что вектор $\widehat{\bm\varphi}_W$ имеет такое же асимптотическое распределение, что и $\widehat{\bm\varphi}_\mathrm{ML}$.
+
+Покажем, что методы $\mathrm{MLE}(\mu)$ и Whittle реализованы корректно, посмотрев на дисперсию оценок для $N=10000$. В таблице~\ref{tab:variance} представлены оценки дисперсий $\hat d$ и $\hat \phi$, в скобках указана теоретическая дисперсия. Как видим, для разных значений параметров значение дисперсий оценок близки к теоретическим.
+
+\begin{table}[h]
+	\centering
+	\subfloat[$d=0.2$, $\varphi=0.1$]{
+		\begin{tabular}{c|cc}
+			Метод               & $n\mathsf{D} \hat d$ (1.83167) & $n\mathsf{D}\hat \phi$ (2.98284) \\
+			\hline
+			$\mathrm{MLE}(\mu)$ & 1.72733                        & 2.92604                          \\
+			Whittle             & 1.78350                        & 2.94929                          \\
+			\hline
+		\end{tabular}
+	}
+	\subfloat[$d=0.4$, $\varphi=0.1$]{
+		\begin{tabular}{c|cc}
+			Метод               & $n\mathsf{D} \hat d$ (1.83167) & $n\mathsf{D}\hat \phi$ (2.98284) \\
+			\hline
+			$\mathrm{MLE}(\mu)$ & 1.69348                        & 2.90374                          \\
+			Whittle             & 1.84265                        & 2.96828                          \\
+			\hline
+		\end{tabular}
+	}\vspace{2em}
+	\subfloat[$d=0.2$, $\varphi=0.5$]{
+		\begin{tabular}{c|cc}
+			Метод               & $n\mathsf{D} \hat d$ (4.91219) & $n\mathsf{D}\hat \phi$ (6.06018) \\
+			\hline
+			$\mathrm{MLE}(\mu)$ & 5.00869                        & 6.305                            \\
+			Whittle             & 5.08405                        & 6.35985                          \\
+			\hline
+		\end{tabular}
+	}
+	\subfloat[$d=0.4$, $\varphi=0.5$]{
+		\begin{tabular}{c|cc}
+			Метод               & $n\mathsf{D} \hat d$ (4.91219) & $n\mathsf{D}\hat \phi$ (6.06018) \\
+			\hline
+			$\mathrm{MLE}(\mu)$ & 4.75975                        & 6.06711                          \\
+			Whittle             & 5.28104                        & 6.4936                           \\
+			\hline
+		\end{tabular}
+	}\vspace{2em}
+	\subfloat[$d=0.2$, $\varphi=0.9$]{
+		\begin{tabular}{c|cc}
+			Метод               & $n \mathsf{D} \hat d$ (2.49203) & $n\mathsf{D}\hat \phi$ (0.77885) \\
+			\hline
+			$\mathrm{MLE}(\mu)$ & 2.42011                         & 0.78209                          \\
+			Whittle             & 2.44394                         & 0.77549                          \\
+			\hline
+		\end{tabular}
+	}
+	\subfloat[$d=0.4$, $\varphi=0.9$]{
+		\begin{tabular}{c|cc}
+			Метод               & $n \mathsf{D} \hat d$ (2.49203) & $n\mathsf{D}\hat \phi$ (0.77885) \\
+			\hline
+			$\mathrm{MLE}(\mu)$ & 2.26718                         & 0.749318                         \\
+			Whittle             & 2.57117                         & 0.77311                          \\
+			\hline
+		\end{tabular}
+	}
+	\caption{Дисперсия оценок $\hat d$ и $\hat \phi$, $n=10000$, $100$ повторений}
+	\label{tab:variance}
+\end{table}
+
+\subsubsection{Искажение критерия MC-SSA при оценке параметров шума}\label{sect:mcssa_est_model}
+
+В работе~\cite{Poteshkin2024} показано, что оценка параметров несильно искажает критерий, но делает его консервативнее. Для наглядности на рис.~\ref{fig:alphaI_true_est_ev} и~\ref{fig:alphaI_true_est_cos} изображены ошибки первого рода для примера из раздела~\ref{sect:mcssa_comp}, параметры оценивались с помощью метода Уиттла (см. раздел~\ref{sect:whittle}). Как видно из графиков, оценка параметров уменьшила радикальность критерия <<ev>> и сделала консервативным критерий <<cos>>.
 
 \begin{figure}[!htbp]
 	\centering
@@ -839,7 +1256,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 		\includegraphics[width=\linewidth]{img/alphaI_ev_est.pdf}
 		\caption{Оцененные параметры шума}
 	\end{subfigure}
-	\caption{Ошибка первого рода для разных длин окна (собственные векторы матрицы $\bfT$)}
+	\caption{Ошибка первого рода для разных длин окна (критерий <<ev>>)}
 	\label{fig:alphaI_true_est_ev}
 \end{figure}
 
@@ -853,14 +1270,13 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 		\includegraphics[width=\linewidth]{img/alphaI_cos_est.pdf}
 		\caption{Оцененные параметры шума}
 	\end{subfigure}
-	\caption{Ошибка первого рода для разных длин окна (косинусы с равноотстоящими частотами)}
+	\caption{Ошибка первого рода для разных длин окна (критерий <<cos>>)}
 	\label{fig:alphaI_true_est_cos}
 \end{figure}
 
-
 \subsection{Модификация MC-SSA по части спектра}
 
-Можно убрать не интересующую нас часть спектра, задав диапазоны нерассматриваемых частот $\mathcal{B}=\bigcup\limits_{j}[\omega_{j_1}, \omega_{j_2}]$. Таким образом, в алгоритме~\ref{alg:multiple_mc-ssa} из рассмотрения уйдут все векторы $W_k$, частоты $\omega_k$ которых не попадают в $\mathcal{B}$. Оценка параметров по части спектра возможна, модифицировав правдоподобие Уиттла~\eqref{eq:whittle_loglik}. Пусть $\bm\varphi$ и $\sigma^2$~--- параметры шума $\bm\xi$. Положим $J_{\mathcal{B}^\complement}=\{j \in \{1,\ldots, m\}:~\omega_j=j/N \not\in \mathcal{B}\}$, где $m=\lfloor (N-1)/2 \rfloor$. Тогда правдоподобие Уиттла по части спектра выглядит следующим образом:
+Еще одной проблема, возникающая при применении MC-SSA на практике~--- при оценке параметров значениям периодограммы в некоторых частотах нельзя верить. Такая ситуация возникает, например, когда в исходном временном ряде был тренд и, после его выделения, значение периодограммы в низких частотах занижено. Можно убрать не интересующую нас часть спектра, задав диапазоны нерассматриваемых частот $\mathcal{B}=\bigcup\limits_{j}[\omega_{j_1}, \omega_{j_2}]$. Таким образом, в алгоритме~\ref{alg:multiple_mc-ssa} из рассмотрения уйдут все векторы $W_k$, частоты $\omega_k$ которых не попадают в $\mathcal{B}$. Оценка параметров по части спектра возможна, модифицировав правдоподобие Уиттла~\eqref{eq:whittle_loglik}. Пусть $\bm\varphi$ и $\sigma^2$~--- параметры шума $\bm\xi$. Положим $J_{\mathcal{B}^\complement}=\{j \in \{1,\ldots, m\}:~\omega_j=j/N \not\in \mathcal{B}\}$, где $m=\lfloor (N-1)/2 \rfloor$. Тогда правдоподобие Уиттла по части спектра выглядит следующим образом:
 \begin{equation}\label{eq:whittle_loglik_par_spectrum}
 	\ell_{W_\text{part}}(\bm\varphi, \sigma^2; \mathcal{B})=-\frac{1}{|J_{\mathcal{B}^\complement}|}\sum_{j\in J_{\mathcal{B}^\complement}}\left(\ln f(\omega_j; \bm\varphi, \sigma^2) + \frac{I(\omega_j)}{f(\omega_j; \bm\varphi, \sigma^2)}\right),
 \end{equation}
@@ -877,10 +1293,12 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\end{algorithmic}
 \end{algorithm}
 
-\section{Применение MC-SSA на реальных временных рядах с длинной памятью}
+\subsection{Примеры реальных рядов}
 
 Рассмотрим несколько примеров реальных временных рядов с длинной памятью и применим к ним MC-SSA. Оценивать параметры будем теми же методами, что и в разделе~\ref{sect:est_param}.
-\subsection{Nile Minima}
+
+\subsubsection{Nile Minima}
+
 \begin{figure}[h!]
 	\centering
 	\subcaptionbox{\label{fig:NileMin_ts}}{\includegraphics[width=\textwidth]{img/NileMin_ts.pdf}}
@@ -892,7 +1310,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 \begin{table}[h]
 	\centering
-	\caption{Оценка параметров модели $\mathrm{ARFIMA}(0, d, 0)$ ряда Nile Minima}
+	\caption{Оценка параметров модели $\textrm{ARFIMA}(0, d, 0)$ ряда Nile Minima}
 	\label{tab:NileMin_est}
 	\begin{tabular}{|c|c|c|}
 		\hline
@@ -912,7 +1330,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\label{fig:NileMin_per}
 \end{figure}
 
-Оценим параметры модели $\mathrm{ARFIMA}(0, d, 0)$. В таблице~\ref{tab:NileMin_est} представлены оценки параметров $d$ и $\sigma^2$. Поскольку истинное среднее неизвестно и оценка $d$ по Whittle дает наименьшее смещение (см. рис.~\ref{fig:fi_est}), в качестве нулевой гипотезы MC-SSA выберем модель $\mathrm{ARFIMA}(0, d, 0)$ с $d=0.40547$ и $\sigma^2=0.48971$, на рис.~\ref{fig:NileMin_per} изображена периодограмма ряда вместе с оцененной спектральной плотностью.
+Оценим параметры модели $\textrm{ARFIMA}(0, d, 0)$. В таблице~\ref{tab:NileMin_est} представлены оценки параметров $d$ и $\sigma^2$. Поскольку истинное среднее неизвестно и оценка $d$ по Whittle дает наименьшее смещение (см. рис.~\ref{fig:fi_est}), в качестве нулевой гипотезы MC-SSA выберем модель $\textrm{ARFIMA}(0, d, 0)$ с $d=0.40547$ и $\sigma^2=0.48971$, на рис.~\ref{fig:NileMin_per} изображена периодограмма ряда вместе с оцененной спектральной плотностью.
 
 \begin{figure}[h!]
 	\centering
@@ -923,7 +1341,8 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 Применим MC-SSA с длиной окна $L=330\approx N / 2$. На рис.~\ref{fig:NileMin_mcssa} изображены 95\%-ные доверительные интервалы статистик $\widehat{p}_k$, $k=1,\ldots,L$ (см. алгоритм~\ref{alg:multiple_mc-ssa}). Ни одна из статистик не является значимой, это означает, что нет оснований полагать, что в этом временном ряде присутствует неслучайный сигнал.
 
-\subsection{Ireland Wind}
+\subsubsection{Ireland Wind}
+
 На рис.~\ref{fig:IrelandWind_ts} изображены среднесуточные данные о скорости ветра (в узлах) за период с 1961 по 1978 год ($6574$ дней) на станции Roche's Point в Республике Ирландия~\cite{Haslett1989}.
 
 \begin{figure}[h]
@@ -941,7 +1360,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\label{tab:IrelandWind_est}
 	\begin{tabular}{|c|c|c|c|c|c|}
 		\cline{2-6}
-		\multicolumn{1}{c|}{}  & \multicolumn{2}{c|}{$\mathrm{ARFIMA}(0, d, 0)$} & \multicolumn{3}{c|}{$\mathrm{ARFIMA}(1, d, 0)$}                                             \\
+		\multicolumn{1}{c|}{}  & \multicolumn{2}{c|}{$\textrm{ARFIMA}(0, d, 0)$} & \multicolumn{3}{c|}{$\textrm{ARFIMA}(1, d, 0)$}                                             \\
 		\hline
 		Метод                  & $\hat d$                                        & $\hat\sigma^2$                                  & $\hat{d}$ & $\hat\phi$ & $\hat{\sigma}^2$ \\
 		\hline
@@ -954,13 +1373,13 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 \begin{figure}[h]
 	\centering
-	\subcaptionbox{$\mathrm{ARFIMA}(0, d, 0)$\label{fig:IrelandWind_mcssa_fi}}{\includegraphics[width=\textwidth]{img/IrelandWind_mcssa_fi.pdf}}
-	\subcaptionbox{$\mathrm{ARFIMA}(1, d, 0)$\label{fig:IrelandWind_mcssa_arfi}}{\includegraphics[width=\textwidth]{img/IrelandWind_mcssa_arfi.pdf}}
+	\subcaptionbox{$\textrm{ARFIMA}(0, d, 0)$\label{fig:IrelandWind_mcssa_fi}}{\includegraphics[width=\textwidth]{img/IrelandWind_mcssa_fi.pdf}}
+	\subcaptionbox{$\textrm{ARFIMA}(1, d, 0)$\label{fig:IrelandWind_mcssa_arfi}}{\includegraphics[width=\textwidth]{img/IrelandWind_mcssa_arfi.pdf}}
 	\caption{Результат работы MC-SSA для ряда Ireland Wind}
 	\label{fig:IrelandWind_mcssa}
 \end{figure}
 
-Поскольку ряд достаточно длинный, чтобы не делать поправку, рассмотрим в качестве векторов для проекции косинусы с равноотстоящими частотами, определенные в формуле~\eqref{eq:cos_proj_vectors}. Также выберем длину окна не слишком большой, чтобы метод MC-SSA считался за адекватное время, скажем, $L=365$. На рис.~\ref{fig:IrelandWind_mcssa} представлен результат работы MC-SSA для обоих моделей, уровень значимости, как и в прошлом примере, равен $\alpha = 0.05$. Для модели $\mathrm{ARFIMA}(0, d, 0)$ значимых векторов два, их периоды равны $365 / 34\approx10.74$ и $365 / 60\approx6.08$ дней соответственно, что сложно как-то интерпретировать. Однако стоит заметить, что вклады значимых векторов не слишком превосходят верхние границы соответствующих предсказательных интервалов, поэтому, скорее всего, векторы значимы случайно (количество случайно значимых векторов в среднем равно $\alpha \cdot L=18.25$). В случае модели $\mathrm{ARFIMA}(1, d, 0)$ значим всего один вектор с периодом $365$ дней, что интерпретируется как наличие во временном ряде годовой периодичности.
+Поскольку ряд достаточно длинный, чтобы не делать поправку, рассмотрим в качестве векторов для проекции косинусы с равноотстоящими частотами, определенные в формуле~\eqref{eq:cos_proj_vectors}. Также выберем длину окна не слишком большой, чтобы метод MC-SSA считался за адекватное время, скажем, $L=365$. На рис.~\ref{fig:IrelandWind_mcssa} представлен результат работы MC-SSA для обоих моделей, уровень значимости, как и в прошлом примере, равен $\alpha = 0.05$. Для модели $\textrm{ARFIMA}(0, d, 0)$ значимых векторов два, их периоды равны $365 / 34\approx10.74$ и $365 / 60\approx6.08$ дней соответственно, что сложно как-то интерпретировать. Однако стоит заметить, что вклады значимых векторов не слишком превосходят верхние границы соответствующих предсказательных интервалов, поэтому, скорее всего, векторы значимы случайно (количество случайно значимых векторов в среднем равно $\alpha \cdot L=18.25$). В случае модели $\textrm{ARFIMA}(1, d, 0)$ значим всего один вектор с периодом $365$ дней, что интерпретируется как наличие во временном ряде годовой периодичности.
 
 
 \chapter{Методы автоматической идентификации компонент}\label{chpt:auto_ssa}
@@ -1012,9 +1431,9 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 Поскольку тренду соответствуют низкие частоты, можно относить к тренду те компоненты разложения, у которых вклад низких частот больше некоторого порога. Приведем алгоритм автоматической идентификации тренда, описанный в~\cite{AlexandrovGolyandina2004}.
 
 \begin{algorithm}[H]
-	\caption{Алгоритм автоматической идентификации тренда~\cite{AlexandrovGolyandina2004}}\label{alg:auto_trend}
+	\caption{TAI$(\omega_0, T_\text{low})$~\cite{AlexandrovGolyandina2004}}\label{alg:auto_trend}
 	\Input элементарные восстановленные компоненты $\tX^{(j)}$, $j\in J$, порог низких частот $\omega_0$, порог вклада низких частот $T_\text{low}\in[0, 1]$.\\
-	\Output компоненты, относящиеся к тренду, оценка тренда $\hat\tT$.
+	\Output индексы компонент, относящихся к тренду, оценка тренда $\hat\tT$.
 	\begin{algorithmic}[1]
 		\State Вычислить $T_j=T(\tX^{(j)};0,\omega_0)$ для каждого $j\in J$.
 		\State Определить компоненты $J_\text{Trend}=\{j\in J:~T_j > T_\text{low}\}$, относящиеся к тренду, вычислить оценку тренда $\hat \tT=\sum\limits_{j\in J_\text{Trend}} \tX^{(j)}$.
@@ -1121,7 +1540,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 Главная проблема алгоритмов~\ref{alg:auto_trend},~\ref{alg:auto_periodic} и~\ref{alg:angle_reg} заключается в возможном смешивании спектров сигнальных компонент, в таком случае приведенные подходы перестают корректно работать. Для решения этой проблемы используют методы переразложения для улучшения разделимости, в частности, алгоритм EOSSA~\cite{Shlemov2017}.
 
-В работе~\cite{autoSSA} показано, что оценка тренда устойчива к завышению ранга сигнала $r$. Однако это неверно для оценки периодик: при применении EOSSA компоненты, соответствующие шуму, становятся похожими на периодики. В работе~\cite{Dudnik2025} был предложен метод SSA-Aid, который использует статистический критерий для проверки гипотезы об отсутствии сигнала. Приведем описание метода в алгоритмах~\ref{alg:auto_periodics},~\ref{alg:auto_periodic_trend} и~\ref{alg:auto_ssa}. Заметим, что в оригинальной работе~\cite{Dudnik2025} используется произвольный статистический критерий проверки гипотезы об отсутствии сигнала, однако для простоты описания алгоритмов положим в качестве критерия метод MC-SSA, который превосходит по мощности другие критерии проверки гипотезы об отсутствии сигнала~\cite{Poteshkin2024}.
+В работе~\cite{autoSSA} показано, что оценка тренда устойчива к завышению ранга сигнала $r$. Однако это неверно для оценки периодик: при применении EOSSA компоненты, соответствующие шуму, становятся похожими на периодики. В работе~\cite{Dudnik2025} был предложен метод SSA-Aid, который использует статистический критерий для проверки гипотезы об отсутствии сигнала для отбора сигнальных периодик. Приведем описание метода в алгоритмах~\ref{alg:auto_periodics},~\ref{alg:auto_periodic_trend} и~\ref{alg:auto_ssa}. На рис.~\ref{fig:ssa_aid_flowchart} представлена блок-схема одной итерации SSA-Aid (алгоритма~\ref{alg:auto_periodic_trend}). Как уже можно было заметить, метод SSA-Aid итеративно вычисляет оценку ранга сигнала, поэтому метод устойчив к завышению ранга сигнала $r$. Также заметим, что в оригинальной работе~\cite{Dudnik2025} используется произвольный статистический критерий проверки гипотезы об отсутствии сигнала, однако для простоты описания алгоритмов положим в качестве критерия метод MC-SSA, который превосходит по мощности другие критерии проверки гипотезы об отсутствии сигнала~\cite{Poteshkin2024} и с помощью которого можно определенить значимые частоты. Эту особенность критерия будем использовать в последующих разделах.
 
 \begin{algorithm}[!htbp]
 	\caption{Алгоритм отбора гармоник, испольщующий критерий для проверки гипотезы о наличии сигнала в шуме~\cite{Dudnik2025}}\label{alg:auto_periodics}
@@ -1162,6 +1581,13 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 		\State $\hat{r}_\text{input}^{(i+1)} \coloneq \hat{r}_\text{output}^{(i)}, i \coloneq  i + 1$, перейти к шагу~\ref{stage2_auto_ssa}.
 	\end{algorithmic}
 \end{algorithm}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{img/ssa_aid_flowchart.pdf}
+	\caption{Блок-схема одной итерации SSA-Aid}
+	\label{fig:ssa_aid_flowchart}
+\end{figure}
 
 \chapter{Методы автоматической идентификации компонент, использующие критерий MC-SSA для оценки частоты сигнала}
 
@@ -1224,7 +1650,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 \subsection{Алгоритм}
 
-Как было показано в разделе~\ref{sect:composite_signal_power}, при оцененных параметрах шума метод MC-SSA может обнаружить не все частоты, принадлежащие сигналу. Поэтому будем оценивать сигнал последовательно, применяя критерий MC-SSA к остатку до тех пор, пока гипотеза $H_0:\tS=0$ не перестанет отвергаться. Так на каждой итерации алгоритма определяется максимально значимая частота и применяется алгоритм~\ref{alg:auto_periodic}. С каждым шагом алгоритма оценка параметров шума становится точнее, тем самым критерий становится менее консервативным и более мощным. Стоит отметить, что, поскольку первая проверка гипотезы предлагаемого алгоритма совпадает с одним применением критерия MC-SSA, критерий остается точным для истинной модели шума и консервативным для оцененной (см. раздел~\ref{sect:mcssa_est_model}). Приведем в алгоритме~\ref{alg:autoMCSSA} алгоритм автоматической идентификации периодических компонент с помощью критерия MC-SSA, который назовем autoMCSSA.
+Как было показано в разделе~\ref{sect:composite_signal_power}, при оцененных параметрах шума метод MC-SSA может обнаружить не все частоты, принадлежащие сигналу. Поэтому будем оценивать сигнал последовательно, применяя критерий MC-SSA к остатку до тех пор, пока гипотеза $H_0:\tS=0$ не перестанет отвергаться. Так на каждой итерации алгоритма определяется максимально значимая частота и применяется алгоритм~\ref{alg:auto_periodic}. С каждым шагом алгоритма оценка параметров шума становится точнее, тем самым критерий становится менее консервативным и более мощным. Стоит отметить, что, поскольку первая проверка гипотезы предлагаемого алгоритма совпадает с одним применением критерия MC-SSA, критерий остается точным для истинной модели шума и консервативным для оцененной (см. раздел~\ref{sect:mcssa_est_model}). Приведем в алгоритме~\ref{alg:autoMCSSA} алгоритм автоматической идентификации периодических компонент с помощью критерия MC-SSA, который назовем autoMCSSA. На рис.~\ref{fig:autoMCSSA_flowchart} изображена его упрощенная блок-схема.
 
 \begin{algorithm}[!ht]
 	\caption{autoMCSSA}
@@ -1246,15 +1672,12 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\end{algorithmic}
 \end{algorithm}
 
-
-% \begin{figure}[htbp]
-% 	\centering
-% 	\includegraphics[width=\textwidth]{img/auto_mcssa_alg.pdf}
-% 	\caption{Блок-схема алгоритма autoMCSSA}
-% 	\label{fig:autoMCSSA_alg}
-% \end{figure}
-
-% На рис.~\ref{fig:autoMCSSA_alg} изображена блок-схема метода autoMCSSA. Поскольку при оценке неизвестных параметрах шума метод MC-SSA может обнаружить не все частоты, принадлежащие сингалу, предлагается оценивать сигнал последовательно, применяя критерий MC-SSA к остатку ряда до тех пор, пока гипотеза $H_0:\tS=0$ не перестанет отвергаться. Если на очередной итерации алгоритма гипотеза отвергается, определяется максимально значимая частота $\omega^\star$ и вычисляется новая оценка сигнала $\widetilde{\tS}$ с помощью подхода, описанного разделе~\ref{sect:grouping_auto}. Как только гипотеза перестает отвергаться, алгоритм завершает свою работу и тогда $\widetilde{\tS}$~--- итоговая оценка сигнала.
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{img/auto_mcssa_flowchart.pdf}
+	\caption{Блок-схема метода autoMCSSA}
+	\label{fig:autoMCSSA_flowchart}
+\end{figure}
 
 \subsection{Пример работы алгоритма}\label{sect:autoMCSSA_example}
 
@@ -1283,35 +1706,38 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	Для демонстрации работы алгоритма параметры $\delta$ и $T_0$ были подобраны так, чтобы autoMCSSA выделил весь сигнал. В общем случае выбор оптимальных $\delta$ и $T_0$ проблематичен. Эта проблема будет исследована далее в разделе~\ref{sect:autoMCSSA_opt_param}.
 \end{remark}
 
-\subsection{Выбор оптимальных параметров autoMCSSA}\label{sect:autoMCSSA_opt_param}
+\subsection{Выбор оптимальных параметров}\label{sect:autoMCSSA_opt_param}
 
 Частота экспоненциально-модулированной гармоники~\eqref{eq:em_harmonic}, в отличие от гармоники с постоянной амплитудой, всегда растекается по спектру. Чем больше абсолютное значение показателя экспоненты $a$, тем сильнее это растекание. Поэтому радиус частотного интервала $\delta$ должен зависеть от величины $|a|$. Из формулы~\eqref{eq:em_harmonic} видно, что амплитуда сигнала в точке $N$ равна $e^{aN}$, поэтому можно считать, что $C=aN$~--- величина амплитудной модуляции.
 
 Пусть $\tilde \Pi(k / N) = \Pi(k / N) / \sum_{k} \Pi(k / N)$~--- нормированная (односторонняя) периодограмма, где $\Pi(k / N)$ определена в формуле~\eqref{eq:pgram_corrected}. Обозначим за $\tilde\Pi^{C, \omega}$ нормированную периодограмму для сигнала с частотой $\omega$ и амплитудной модуляцией $C$. Отсортируем частоты $k/N$ по убыванию расстояния до частоты $\omega$, обозначим их как $\omega_{(n)}$, $n=0,\ldots,\lfloor N/2\rfloor$.
-% Рассмотрим следующие $\delta$:
-% \[
-% \delta_{n}=|\omega_{(n)} - \omega|, \quad n=0,\ldots,\lfloor N/2\rfloor.
-% \]
-Обозначим $\delta_0=|\omega - \omega_{(2)}|$ (расстояние до дальней соседней точки), если $\omega$ не попадает в решетку периодограммы, иначе $\delta_0=0$. Рассмотрим следующие $\delta_n$:
+Рассмотрим следующие $\delta$:
 \begin{equation}\label{eq:delta_n}
-	\delta_n=\delta_0 + n / N, \quad n=1,\ldots,\lfloor N / 2 \rfloor.
+	\delta_{n}=|\omega_{(n)} - \omega|, \quad n=0,\ldots,\lfloor N/2\rfloor.
 \end{equation}
+
+% Обозначим $\delta_0=|\omega - \omega_{(2)}|$ (расстояние до дальней соседней точки), если $\omega$ не попадает в решетку периодограммы, иначе $\delta_0=0$. Рассмотрим следующие $\delta_n$:
+% \begin{equation}\label{eq:delta_n}
+% 	\delta_n=\delta_0 + n / N, \quad n=1,\ldots,\lfloor N / 2 \rfloor.
+% \end{equation}
 Введем частичные суммы вокруг главной частоты:
 \begin{equation}\label{eq:Sigma_n}
-	\Sigma^{C, \omega}_n=\sum_{m:~|\omega_{(k)} - \omega| \leqslant \delta_{n}} \tilde\Pi^{C, \omega}\left(\omega_{(m)}\right), \quad n=0,\ldots,\lfloor N / 2 \rfloor.
-	% \Sigma^{C, \omega}_n=\sum_{m=0}^{n} \tilde\Pi^{C, \omega}\left(\omega_{(m)}\right), \quad n=0,\ldots,\lfloor N / 2 \rfloor.
+	% \Sigma^{C, \omega}_n=\sum_{m:~|\omega_{(k)} - \omega| \leqslant \delta_{n}} \tilde\Pi^{C, \omega}\left(\omega_{(m)}\right), \quad n=0,\ldots,\lfloor N / 2 \rfloor.
+	\Sigma^{C, \omega}_n=\sum_{m=0}^{n} \tilde\Pi^{C, \omega}\left(\omega_{(m)}\right), \quad n=0,\ldots,\lfloor N / 2 \rfloor.
 \end{equation}
-Тогда рассмотрим следующий выбор $\delta$ в зависимости от частоты $\omega$ и силы модуляции $C$: находим такое первое $n=n^*$, что $\Sigma^{C, \omega}_{n^*} > \Sigma_t$ и $\delta_{n^*}>0$, и берем $\delta = \delta_{n^*} \eqcolon \delta^*$. То есть выбираем такое $\delta$, чтобы захватывать б\'{о}льшую часть спектра.
-% Тогда рассмотрим следующий выбор $\delta$ в зависимости от частоты $\omega$ и силы модуляции $C$: находим такое первое $n=n^*$, что $\Sigma^{C, \omega}_{n^*} > \Sigma_t$ и $\delta_{n^*}>0$ и берем $\delta = \delta_{n^*} \eqcolon \delta^*$. То есть выбираем такое $\delta$, чтобы захватывать б\'{о}льшую часть спектра и хотя бы $2$ частоты (условие $\delta_{n^*}>0$).
+% Тогда рассмотрим следующий выбор $\delta$ в зависимости от частоты $\omega$ и силы модуляции $C$: находим такое первое $n=n^*$, что $\Sigma^{C, \omega}_{n^*} > \Sigma_t$ и $\delta_{n^*}>0$, и берем $\delta = \delta_{n^*} \eqcolon \delta^*$. То есть выбираем такое $\delta$, чтобы захватывать б\'{о}льшую часть спектра.
+Тогда рассмотрим следующий выбор $\delta$ в зависимости от частоты $\omega$ и силы модуляции $C$: находим такое первое $n=n^*$, что $\Sigma^{C, \omega}_{n^*} > \Sigma_t$ и $\delta_{n^*}>0$ и берем $\delta = \delta_{n^*} \eqcolon \delta^*$. То есть выбираем такое $\delta$, чтобы захватывать б\'{о}льшую часть спектра.
 
 \begin{figure}[h!]
 	\centering
-	\includegraphics[width=\linewidth]{img/Delta_example.pdf}
-	\caption{$\Pi^{C, \omega}(k / N)$ и границы частотного интервала при $\delta=\delta^*$ ($N=200$, $C=2$, $\omega=0.253$, $\Sigma_t=0.9$)}
-	\label{fig:Delta_example}
+	\includegraphics[width=\linewidth]{img/delta_choice_example.pdf}
+	\caption{Границы частотного интервала при $\delta=\delta^*$ ($N=200$, $C=4$, $\omega=0.253$, $\Sigma_t=0.9$)}
+	\label{fig:delta_choice_example}
 \end{figure}
 
-Рассмотрим пример. Пусть $N=200$, $C=2$, $\omega=0.253$. На рис.~\ref{fig:Delta_example} изображена нормированная периодограмма такого сигнала, красной пунктирной линией обозначена главная частота. Одним цветом покрашены значения $\Sigma^{C, \omega}_n - \Sigma^{C, \omega}_{n-1}$, то есть при переходе от $n$ к $n+1$ количество частот, участвующих в сумме, увеличивается на $2$. Пусть $\Sigma_t=0.9$, $\varepsilon=0.05$ (рост вклада ниже $5\%$ считается незначительным), тогда $\delta^*=0.013$, границы частотного интервала обозначены на графике черными пунктирными линиями.
+Рассмотрим пример. Пусть $N=200$, $C=4$, $\omega=0.253$. На рис.~\ref{fig:delta_choice_example} изображена периодограмма такого сигнала, красной пунктирной линией обозначена главная частота.
+%Одним цветом покрашены значения $\Sigma^{C, \omega}_n - \Sigma^{C, \omega}_{n-1}$, то есть при переходе от $n$ к $n+1$ количество частот, участвующих в сумме, увеличивается на $2$.
+Пусть $\Sigma_t=0.9$, тогда $\delta^*=0.022$, границы частотного интервала обозначены на графике синими пунктирными линиями.
 
 Для проверки, насколько такой выбор $\delta$ оптимален, сравним его с другим (итеративным) подходом к выбору $\delta$: будем увеличивать $n$ до тех пор, пока для $\delta=\delta_{n}$ не обнаружится $d_{\cos}(\omega)$~\eqref{eq:d_cos} компонент.
 
@@ -1319,7 +1745,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 Проведем численный эксперимент и посчитаем ошибку восстановления сигнала для обоих способов выбора $\delta$. Не ограничивая общности, будем считать, что $C\geqslant0$, поскольку форма периодограммы для $C$ и $-C$ совпадают. Для исследования были выбраны следующие $C$: $0$ (отсутствие модуляции), $1$ (слабая модуляция), $2$ (умеренная модуляция), $5$ (сильная модуляция). Учитывая, что, помимо $\delta$, существует параметр $T_0$ (см. алгоритм~\ref{alg:auto_periodic}), выбор которого тоже затруднителен, рассмотрим сетку из возможных значений порога.
 
-Пусть $N=200$, $\omega=0.25$. Параметры шума $\phi=0.7$, $\sigma^2=4$. Амплитуды $A$ для гармоник выбирать будем так, чтобы их SNR по формуле~\eqref{eq:snr} совпадали и равнялись $0.25$. Для вычисления $\delta^*$ $\Sigma_t=0.9$ и $\varepsilon=0.05$.
+Пусть $N=200$, $\omega=0.25$. Параметры шума $\phi=0.7$, $\sigma^2=4$. Амплитуды $A$ для гармоник выбирать будем так, чтобы их SNR по формуле~\eqref{eq:snr} совпадали и равнялись $0.25$. Для вычисления $\delta^*$ рассмотрим $\Sigma_t=0.9$.
 
 \begin{remark}
 	Поскольку основное преимущество autoMCSSA~--- умение выделять сигнал с недоминирующими компонентами, частота сигнала и дисперсия белого шума были выбраны так, чтобы сигнал был отделим от шума и чтобы компоненты сигнала в SSA не были доминирующими. Далее в примерах будет рассмотрен сигнал с меньшей частотой, однако стоит учитывать, что в таком случае при корректировке SNR компоненты сигнала выйдут на первые позиции из-за вида спектральной плотности красного шума (убывающая функция).
@@ -1468,7 +1894,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\label{fig:mse_omega02525_Cmax}
 \end{figure}
 
-Пусть $C_{\max}=5$, $\Sigma_t=0.9$, $\varepsilon=0.05$. На примерах из раздела~\ref{sect:delta_choice_numerical_research} посмотрим на применимость данного подхода. На рис.~\ref{fig:mse_omega025_Cmax} и рис.~\ref{fig:mse_omega02525_Cmax} представлены результаты моделирования. Видно, что оптимальный порог $T_0$ совпадает со случаем истинного $C$. Можно сделать вывод, что выбор $\delta$ по верхней границе для амплитудной модуляции не портит оценку сигнала c $\delta=\delta^*$. Приведем в алгоритме~\ref{alg:delta_opt} результирующий алгоритм выбора радиуса $\delta$ при заданной границе $C_{\max}$.
+Пусть $C_{\max}=5$, $\Sigma_t=0.9$. На примерах из раздела~\ref{sect:delta_choice_numerical_research} посмотрим на применимость данного подхода. На рис.~\ref{fig:mse_omega025_Cmax} и рис.~\ref{fig:mse_omega02525_Cmax} представлены результаты моделирования. Видно, что оптимальный порог $T_0$ совпадает со случаем истинного $C$. Можно сделать вывод, что выбор $\delta$ по верхней границе для амплитудной модуляции не портит оценку сигнала c $\delta=\delta^*$. Приведем в алгоритме~\ref{alg:delta_opt} результирующий алгоритм выбора радиуса $\delta$ при заданной границе $C_{\max}$.
 
 \begin{algorithm}[!ht]
 	\caption{Выбор радиуса частотного интервала при заданной границе величины амплитуднои модуляции}
@@ -1477,7 +1903,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\Output Радиус частотного интервала $\delta^*$ .
 	\begin{algorithmic}[1]
 		\State Ранжировать $\left\{k/N\right\}_{k=0}^{\lfloor N/2 \rfloor}$ по величине $|\omega-k/N|$, $\omega_{(k)}$~--- полученный набор.
-		\State Если $\omega N$~--- целое, $\delta_0 \coloneq 0$, иначе $\delta_0 \coloneq |\omega-\omega_{(2)}|$.
+		% \State Если $\omega N$~--- целое, $\delta_0 \coloneq 0$, иначе $\delta_0 \coloneq |\omega-\omega_{(2)}|$.
 		\State Для $n=1,\ldots, \lfloor N/2 \rfloor$ вычислить $\delta_n$ по формуле~\eqref{eq:delta_n}.
 		\State Для $n=0,\ldots, \lfloor N/2 \rfloor$ вычислить $\Sigma_n^{C_{\max},\omega}$ по формуле~\eqref{eq:Sigma_n}.
 		\State Найти такое первое $n=n^*$, что $\Sigma_{n^*}^{C_{\max},\omega}>\Sigma_t$ и $\delta_{n^*}>0$; $\delta^* \coloneq \delta_{n^*}$.
@@ -1485,16 +1911,16 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 \end{algorithm}
 
 \begin{remark}
-	Чтобы окончательно удостовериться, что данный подход работает, он был применен на примере из раздела~\ref{sect:autoMCSSA_example}. В результате при $C_{\max}=5$, $\Sigma_t=0.9$, $\varepsilon=0.05$ весь сигнал был успешно выделен. Далее, если не сказано иначе, будем считать $\Sigma_t=0.9$ и $\varepsilon=0.05$.
+	Чтобы окончательно удостовериться, что данный подход работает, он был применен на примере из раздела~\ref{sect:autoMCSSA_example}. В результате при $C_{\max}=5$, $\Sigma_t=0.9$ весь сигнал был успешно выделен. Далее, если не сказано иначе, будем считать $\Sigma_t=0.9$.
 \end{remark}
 
 \section{Метод SSA-AidMC}\label{sect:ssa_aid_mc}
 
-Метод autoMCSSA, введенный в разделе~\ref{sect:autoMCSSA}, обладает большим недостатком: если компоненты в разложении SSA неразделимы (это так, например, в случае гармоник с одинаковыми амплитудами), то описанный способ автоматической группировки (алгоритм~\ref{alg:auto_periodic}) перестает работать, поскольку, например, в случае гармоник с одинаковыми амплитудами, спектры элементарных восстановленных компонент смешивается, что не дает гарантий идентификации этих компонент. Можно уменьшить порог $T_0$, но тогда увеличивается риск ложной идентификации шумовых компонент.
+Метод autoMCSSA, введенный в разделе~\ref{sect:autoMCSSA}, обладает большим недостатком: если компоненты в разложении SSA неразделимы (это так, например, в случае гармоник с одинаковыми амплитудами), то описанный способ автоматической группировки (алгоритм~\ref{alg:auto_periodic}) перестает работать, поскольку, например, в случае гармоник с одинаковыми амплитудами, спектры элементарных восстановленных компонент смешиваются, что не дает гарантий идентификации этих компонент. Можно уменьшить порог $T_0$, но тогда увеличивается риск ложной идентификации шумовых компонент.
 
 \subsection{Модификация SSA-Aid}
 
-Можно заметить, что в алгоритме~\ref{alg:auto_periodics} в качестве критерия проверки нулевой гипотезы используется MC-SSA. Однако в алгоритме не используется информация о значимых частотах, и поэтому, вообще говоря, метод может идентифицировать шумовые компоненты. Предлагаемый алгоритм~\ref{alg:auto_periodics_mc} представляет собой модификацию алгоритма~\ref{alg:auto_periodics}, которая лишена подобного недостатка: вместо последовательного выбора периодик с наибольшей суммой квадратов, модификация использует оценку значимой частоты (алгоритм~\ref{alg:signif_freq_est}) и идентифицирует периодику с помощью алгоритма~\ref{alg:auto_periodic}. Этим он схож с методом autoMCSSA. 
+Можно заметить, что в алгоритме~\ref{alg:auto_periodics} в качестве критерия проверки нулевой гипотезы используется MC-SSA. Однако в алгоритме не используется информация о значимых частотах, и поэтому, вообще говоря, метод может случайно идентифицировать шумовые компоненты. Предлагаемый алгоритм~\ref{alg:auto_periodics_mc} представляет собой модификацию алгоритма~\ref{alg:auto_periodics}, которая лишена подобного недостатка: вместо последовательного выбора периодик с наибольшей суммой квадратов, модификация использует оценку значимой частоты (алгоритм~\ref{alg:signif_freq_est}) и идентифицирует периодику с помощью алгоритма~\ref{alg:auto_periodic}. Этим он схож с методом autoMCSSA. 
 
 Стоит отметить, что модификация, в отличие от базового алгоритма, не использует метод регулярности углов~(алгоритм~\ref{alg:angle_reg}). Связано это по следующей причине. В работе~\cite{Dudnik2025} показано, что метод EOSSA, примененный к шумовым компонентам, делает их похожими на периодики, то есть мера $\tau$~\eqref{eq:tau_measure} для них становится слишком заниженной и метод регулярности углов их ложно идентифицирует. Для борьбы с этим в работе используется критерий MC-SSA (или любой другой критерий проверки гипотезы о наличии сигнала в шуме). То есть MC-SSA в алгоритме~\ref{alg:auto_periodics} является дополнением к алгоритму~\ref{alg:angle_reg}, чтобы не набрать лишних (шумовых) компонент. В алгоритме~\ref{alg:auto_periodics_mc} же идентификация периодик происходит с помощью значимых частот, полученных методом MC-SSA, и меры $T$~\eqref{eq:freq_measure}, делая метод регулярности углов избыточным.
 
@@ -1546,7 +1972,11 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 \subsection{Алгоритм}
 
-Недостаток алгоритма~\ref{alg:auto_ssa}~--- неумение идентифицировать недоминирующие компоненты, например, 13-я компонента на рис.~\ref{fig:reconstructed_ts}. Однако с помощью него можно идентифицировать первые $r_1$ компонент, соответствующих сигналу, а затем оставшиеся компоненты идентифицировать отдельно, например, с помощью autoMCSSA. Таким образом, приведем в алгоритме~\ref{alg:ssa_aid_mc} алгоритм SSA-AidMC (SSA Automatic Identification using MC-SSA).
+Недостаток алгоритма~\ref{alg:auto_ssa}~--- неумение идентифицировать недоминирующие компоненты, например, 13-я компонента на рис.~\ref{fig:reconstructed_ts}. Однако с помощью него можно идентифицировать первые $r_1$ компонент, соответствующих сигналу, а затем оставшиеся компоненты идентифицировать отдельно, например, с помощью autoMCSSA. Таким образом, приведем в алгоритме~\ref{alg:ssa_aid_mc} алгоритм SSA-AidMC (SSA Automatic Identification using MC-SSA). На рис~\ref{fig:ssa_aidmc_flowchart} изображена его упрощенная блок-схема.
+
+\begin{remark}
+	В алгоритме~\ref{alg:ssa_aid_mc} после нахождения периодик в остатке $\{\tX^{(j)}\}_{j=\hat{r}_1 + 1}^r$ применяется EOSSA и затем алгоритм~\ref{alg:auto_periodics_mc}. Это делается, во-первых, для улучшения разделимости компонент, во-вторых, для выяаления среди компонент $J \setminus J_\text{Periodics}$ сигнальных, которые не были обнаружены на предыдущих шагах. 
+\end{remark}
 
 \begin{algorithm}[!ht]
 	\caption{SSA-AidMC}\label{alg:ssa_aid_mc}
@@ -1562,15 +1992,20 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 	\end{algorithmic}
 \end{algorithm}
 
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.9\textwidth]{img/ssa_aidmc_flowchart.pdf}
+	\caption{Блок-схема метода SSA-AidMC}
+	\label{fig:ssa_aidmc_flowchart}
+\end{figure}
+
 \subsection{Выбор параметров метода}
 
 Как можно заметить, алгоритм~\ref{alg:ssa_aid_mc} имеет внушительное количество параметров, однако большинство из имеют в той или иной степени рекомендации к их выбору.
 
 Длину окна $L_\text{SSA}$ для метода SSA следует выбрать исходя из теории SSA: для достижения лучшей (слабой) разделимости компонент длина окна должна быть достаточно большой ($L_\text{SSA}\approx N / 2$); помимо этого, если известно, что в ряде присутствует гармоника, имеет смысл взять длину окна, кратную периоду этой гармоники~\cite{Golyandina2001}.
 
-Длину окна $L_\text{MC-SSA}$ для метода MC-SSA следует выбирать так, чтобы мощность критерия была наибольшей. Как было показано в разделе~\ref{sect:mcssa_comp}, если предполагается, что в ряде присутствуют периодики с амплитудной модуляцией, она не должна быть слишком большой, поскольку чем больше $L_\text{MC-SSA}$, тем сильнее растекается частота, соответствующая сигналу и тем меньше мощность критерия. С другой стороны, длина окна должна давать достаточную дискретизацию спектра (напомним, что длине окна $L$ соответствуют частоты $k/(2L)$), чтобы адекватно идентифицировать значимую частоту. Как и в случае $L_\text{SSA}$, если известен предполагаемый период сигнала, стоит выбирать длину окна, кратную этому периоду.   
-
-%  стоит выбирать, кратную периоду предполагаемой гармоники, и не слишком большую, если предполагается, что у гармоники есть амплитудная модуляция.
+Длину окна $L_\text{MC-SSA}$ для метода MC-SSA следует выбирать так, чтобы мощность критерия была наибольшей. Как было показано в разделе~\ref{sect:mcssa_comp}, если предполагается, что в ряде присутствуют периодики с амплитудной модуляцией, $L_\text{MC-SSA}$ не должна быть слишком большой, поскольку чем больше длина окна, тем сильнее растекается частота, соответствующая сигналу и тем меньше мощность критерия. С другой стороны, длина окна должна давать достаточную дискретизацию частот спектра (напомним, что длине окна $L$ соответствуют частоты $k/(2L)$), чтобы адекватно идентифицировать значимую частоту. Как и в случае $L_\text{SSA}$, если известен предполагаемый период сигнала, стоит выбирать длину окна, кратную этому периоду: это повышает мощность критерия против данной альтернативы.   
 
 Поскольку для реальных рядов неизвестно значение ранга сигнала, оценку ранга сигнала $r$ следует брать с запасом. Поскольку метод SSA-AidMC базируется на методе SSA-Aid (алгоритм ~\ref{alg:auto_ssa}), который по построению устойчив к завышению ранга сигнала~\cite{Dudnik2025}, для него это также не является проблемой.
 
@@ -1908,7 +2343,7 @@ left=3cm, right=1.5cm, top=2cm, bottom=2cm, headsep=1cm, footskip=1cm]{geometry}
 
 \section{Сравнение \textsf{arfima\_mle} и \textsf{arfima}}\label{sect:mle_comparison}
 
-На рис.~\ref{fig:mle_comparison_phi1},~\ref{fig:mle_comparison_phi5} и~\ref{fig:mle_comparison_phi9} представлены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ модели $\mathrm{ARFIMA}(1, d, 0)$. По ним, видно, что при $\phi=0.1$ на рис.~\ref{fig:mle_comparison_phi1} оценки функцией \textsf{arfima} имеют скачок в $d=0.4$, что может говорить о некоторой вычислительной неустойчивости функции для больших $d$. Функция \textsf{arfima\_mle} не только не имеет подобной проблемы, но и дает более точные оценки, например, при $\phi=0.5$ на рис.~\ref{fig:mle_comparison_phi5}.
+На рис.~\ref{fig:mle_comparison_phi1},~\ref{fig:mle_comparison_phi5} и~\ref{fig:mle_comparison_phi9} представлены среднеквадратичное отклонение, смещение и дисперсия оценок параметров $\phi$ и $d$ модели $\textrm{ARFIMA}(1, d, 0)$. По ним, видно, что при $\phi=0.1$ на рис.~\ref{fig:mle_comparison_phi1} оценки функцией \textsf{arfima} имеют скачок в $d=0.4$, что может говорить о некоторой вычислительной неустойчивости функции для больших $d$. Функция \textsf{arfima\_mle} не только не имеет подобной проблемы, но и дает более точные оценки, например, при $\phi=0.5$ на рис.~\ref{fig:mle_comparison_phi5}.
 
 \begin{figure}[h]
 	\centering
